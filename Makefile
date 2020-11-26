@@ -12,8 +12,15 @@ BS :=
 
 CMD := python
 
+# move paths to makefile
+# electrode list
+# add shuffle flag
+# plotting modularity
+# make separate models with separate electrodes (all at once is possible)
 
 target1:
+for each subject
+
 	for elec in $(E_LIST); do \
 		$(CMD) $(FILE).py \
 			--subject $(SID) \

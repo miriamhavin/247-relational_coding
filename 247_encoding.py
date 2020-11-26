@@ -142,10 +142,10 @@ all_Y = np.vstack(all_Y)
 all_df = pd.concat(all_df, ignore_index=True)
 
 prod_X = all_X[all_df.speaker == 'Speaker1', :]
-comp_X = all_X[all_df.speaker == 'Speaker2', :]
+comp_X = all_X[all_df.speaker != 'Speaker1', :]
 
 prod_Y = all_Y[all_df.speaker == 'Speaker1', :]
-comp_Y = all_Y[all_df.speaker == 'Speaker2', :]
+comp_Y = all_Y[all_df.speaker != 'Speaker1', :]
 
 print(prod_X.shape, prod_Y.shape, comp_X.shape, comp_Y.shape)
 
