@@ -1,2 +1,4 @@
 # 247-encoding
-Encoding code for 247 data
+Contains python scripts for performing encoding on 247 (tfs) data.
+*tfs* stands for (T)wo (F)our (S)even
+
