@@ -1,172 +1,187 @@
 import argparse
-import glob
 import os
-import sys
+import pickle
 from datetime import datetime
 
-import mat73
-import numpy as np
 import pandas as pd
 from scipy.io import loadmat
 
-from encoding_247_utils import build_XY, encode_lags_numba
+from podenc_utils import encoding_regression, load_header
+from tfsenc_read_datum import read_datum
 
-# % Encode all of data for a patient.
 
-# % we need to build a matrix X of nx50 and Y of nxlags
-# % separately for production and comprehension
-# % where n is the number of words in all conversations
-# % separately per electrode
+def load_pickle(file):
+    """Load the datum pickle and returns as a dataframe
 
-hostname = os.environ['HOSTNAME']
+    Args:
+        file (string): labels pickle from 247-decoding/tfs_pickling.py
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--subject', type=int, default=None)
-parser.add_argument('--output-folder', type=str, default=None)
-parser.add_argument('--lags', nargs='+', type=int)
-parser.add_argument('--emb-file', type=str, default=None)
-parser.add_argument('--window-size', type=int, default=50)
-parser.add_argument('--electrode', type=int, default=None)
-parser.add_argument('--npermutations', type=int, default=1)
-parser.add_argument('--shuffle', action='store_true', default=False)
+    Returns:
+        DataFrame: pickle contents returned as dataframe
+    """
+    with open(file, 'rb') as fh:
+        datum = pickle.load(fh)
 
-# parser.add_argument('--sig-elec-name', type=str, default=None)
-# parser.add_argument('--nonWords', action='store_false', default=True)
-# parser.add_argument(
-#     '--datum-emb-fn',
-#     type=str,
-#     default='podcast-datum-gpt2-xl-c_1024-previous-pca_50d.csv')
-# parser.add_argument('--sid', type=int, default=None)
-# parser.add_argument('--gpt2', type=int, default=None)
-# parser.add_argument('--bert', type=int, default=None)
-# parser.add_argument('--bart', type=int, default=None)
-# parser.add_argument('--glove', type=int, default=1)
+    return datum
 
-# parser.add_argument('--npermutations', type=int, default=5000)
-args = parser.parse_args()
 
-if "tiger" in hostname:
-    tiger = 1
-elif "scotty" in hostname:
-    tiger = 0
-    PROJ_DIR = '/mnt/bucket/labs/hasson/ariel/247/'
-    conv_folder = 'conversations_car'
-    conv_dir = os.path.join(PROJ_DIR, 'conversation_space/', conv_folder)
-    emb_dir = os.path.join(PROJ_DIR, 'models/embeddings/')
-    outdir = os.getcwd()
-    datumdir_gpt2 = '/mnt/sink/scratch/247/contextual-embeddings-results/gpt2-xl-c_25_conversations/'
-    datumdir_bert = '/mnt/sink/scratch/247/contextual-embeddings-results/bert-large-uncased-whole-word-masking-c_25_conversations_hs'
-else:
-    print("unknown host")
-    sys.exit()
+def parse_arguments():
+    """Read commandline arguments
+    Returns:
+        Namespace: input as well as default arguments
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--word-value', type=str, default='all')
+    parser.add_argument('--window-size', type=int, default=200)
+    group1 = parser.add_mutually_exclusive_group()
+    group1.add_argument('--shuffle', action='store_true', default=False)
+    group1.add_argument('--phase-shuffle', action='store_true', default=False)
+    parser.add_argument('--pilot', type=str, default='')
+    parser.add_argument('--lags', nargs='+', type=int)
+    parser.add_argument('--output-prefix', type=str, default='test')
+    parser.add_argument('--nonWords', action='store_true', default=False)
+    parser.add_argument('--datum-emb-fn',
+                        type=str,
+                        default='podcast-datum-glove-50d.csv')
+    parser.add_argument('--gpt2', type=int, default=1)
+    parser.add_argument('--bert', type=int, default=None)
+    parser.add_argument('--bart', type=int, default=None)
+    parser.add_argument('--glove', type=int, default=1)
+    parser.add_argument('--electrodes', nargs='*', type=int)
+    parser.add_argument('--npermutations', type=int, default=1)
+    parser.add_argument('--min-word-freq', nargs='?', type=int, default=1)
 
-if args.subject is None:
-    print("Please Enter a valid subject ID")
-    sys.exit()
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--sid', nargs='?', type=int, default=None)
+    group.add_argument('--sig-elec-file', nargs='?', type=str, default=None)
 
-if args.output_folder is None:
-    print("Please Enter a valid output folder name")
-    sys.exit()
+    args = parser.parse_args()
 
-convs = glob.glob(os.path.join(datumdir_bert, 'NY' + str(args.subject) + '*'))
+    if not args.sid and args.electrodes:
+        parser.error("--electrodes requires --sid")
 
-if args.subject == 625:
-    header = mat73.loadmat(
-        os.path.join(
-            conv_dir,
-            'NY625_418_Part3_conversation1/misc/NY625_418_Part3_conversation1_header.mat'
-        ))
-elif args.subject == 676:
-    header = mat73.loadmat(
-        os.path.join(
-            conv_dir,
-            'NY676_616_Part1_conversation1/misc/NY676_616_Part1_conversation1_header.mat'
-        ))
-elif args.subject == 717:
-    header = mat73.loadmat(
-        os.path.join(
-            conv_dir,
-            'NY717_311_Part5_conversation3/misc/NY717_311_Part5_conversation3_header.mat'
-        ))
-else:
-    print("Subject doesn't exist")
-    sys.exit()
+    return args
 
-electrode_name = header.header.label[args.electrode]
 
-start_time = datetime.now()
-print(f'Start Time: {start_time.strftime("%A %m/%d/%Y %H:%M:%S")}')
+def setup_environ(args):
+    """Update args with project specific directories and other flags
+    """
+    hostname = os.environ['HOSTNAME']
+    if 'tiger' in hostname:
+        tiger = 1
+        PROJ_DIR = '/projects/HASSON/247/data/podcast'
+        DATUM_DIR = PROJ_DIR
+        CONV_DIR = PROJ_DIR
+        PICKLE_DIR = '/scratch/gpfs/hgazula/247-decoding/pickles'
+        if args.sid in [661, 662, 717, 723]:
+            BRAIN_DIR_STR = 'preprocessed'
+        else:
+            BRAIN_DIR_STR = 'preprocessed-ica'
+    else:
+        tiger = 0
+        PROJ_DIR = '/mnt/bucket/labs/hasson/ariel/247/'
+        DATUM_DIR = os.path.join(PROJ_DIR, 'models/podcast-datums')
+        CONV_DIR = os.path.join(
+            PROJ_DIR, 'conversation_space/crude-conversations/Podcast')
+        BRAIN_DIR_STR = 'preprocessed_all'
+        PICKLE_DIR = None
 
-all_X, all_Y, all_df = [], [], []
-for full_conv in convs:
-    conv_name = os.path.split(full_conv)[-1]
-    print(conv_name)
+    path_dict = dict(PROJ_DIR=PROJ_DIR,
+                     DATUM_DIR=DATUM_DIR,
+                     CONV_DIR=CONV_DIR,
+                     BRAIN_DIR_STR=BRAIN_DIR_STR,
+                     PICKLE_DIR=PICKLE_DIR,
+                     tiger=tiger)
 
-    signal_file = glob.glob(
-        os.path.join(conv_dir, conv_name, 'preprocessed',
-                     ''.join([conv_name, '*_',
-                              str(args.electrode), '.mat'])))[0]
+    vars(args).update(path_dict)
+    print(args)
 
-    if not os.path.exists(signal_file):
-        print(f'Electrode {args.electrode} not found in {conv_name}')
-        continue
+    return args
 
-    signal = loadmat(signal_file)['p1st']
 
-    # get datum embeddings from first model
-    datum_fn = os.path.join(datumdir_bert, conv_name, 'datum.csv')
-    if not os.path.exists(datum_fn):
-        continue
+def process_subjects(args, datum):
+    """Run encoding on particular subject (requires specifying electrodes)
+    """
+    trimmed_signal_dict = load_pickle(
+        os.path.join(args.PICKLE_DIR, '625_trimmed_signal.pkl'))
 
-    df = pd.read_csv(datum_fn, skiprows=1)
-    df.columns = ['word', 'onset', 'offset', 'accuracy', 'speaker'] + list(
-        map(str, range(df.shape[1] - 5)))
+    trimmed_signal = trimmed_signal_dict['trimmed_signal']
+    electrodes = trimmed_signal_dict['electrodes']
 
-    # I added this
-    df_cols = df.columns.tolist()
-    embedding_columns = df_cols[df_cols.index('0'):]
-    df = df[~df['word'].isin(['sp', '{lg}', '{ns}', '{inaudible}'])]
-    df = df.dropna()
+    names = [f'elec{i:03}' for i in electrodes]
 
-    df['embeddings'] = df[embedding_columns].values.tolist()
-    df = df.drop(columns=embedding_columns)
-    
-    X, Y = build_XY(df, signal, args.lags, args.window_size)
-    
-    all_X.append(X)
-    all_Y.append(Y)
-    all_df.append(df)
+    if args.electrodes:
+        electrodes = trimmed_signal_dict['electrodes']
+        indices = [electrodes.index(i) for i in args.electrodes]
 
-all_X = np.vstack(all_X)
-all_Y = np.vstack(all_Y)
-all_df = pd.concat(all_df, ignore_index=True)
+        trimmed_signal = trimmed_signal[:, indices]
+        names = [f'elec{i:03}' for i in args.electrodes]
 
-prod_X = all_X[all_df.speaker == 'Speaker1', :]
-comp_X = all_X[all_df.speaker != 'Speaker1', :]
+    # Loop over each electrode
+    for elec_signal, name in zip(trimmed_signal.T, names):
+        encoding_regression(args, args.sid, datum, elec_signal, name)
 
-prod_Y = all_Y[all_df.speaker == 'Speaker1', :]
-comp_Y = all_Y[all_df.speaker != 'Speaker1', :]
+    return
 
-print(prod_X.shape, prod_Y.shape, comp_X.shape, comp_Y.shape)
 
-# run permutation
-if prod_X.shape[0]:
-    prod_rp = np.stack(
-        [encode_lags_numba(prod_X, prod_Y) for _ in range(args.npermutations)])
-else:
-    print('Not encoding production due to lack of examples')
+def process_sig_electrodes(args, datum):
+    """Run encoding on select significant elctrodes specified by a file 
+    """
+    flag = 'prediction_presentation' if not args.tiger else ''
 
-if comp_X.shape[0]:
-    comp_rp = np.stack(
-        [encode_lags_numba(comp_X, comp_Y) for _ in range(args.npermutations)])
-else:
-    print('Not encoding comprehension due to lack of examples')
+    # Read in the significant electrodes
+    sig_elec_file = os.path.join(args.PROJ_DIR, flag, args.sig_elec_file)
+    sig_elec_list = pd.read_csv(sig_elec_file, header=None)[0].tolist()
 
-print(prod_rp.shape, comp_rp.shape)
+    # Loop over each electrode
+    for sig_elec in sig_elec_list:
+        subject_id, elec_name = sig_elec[:29], sig_elec[30:]
 
-# TODO Plotting
-# Saving output
+        # Read subject's header
+        labels = load_header(args.CONV_DIR, subject_id)
+        if not labels:
+            print('Header Missing')
+        electrode_num = labels.index(elec_name)
 
-end_time = datetime.now()
-print(f'End Time: {end_time.strftime("%A %m/%d/%Y %H:%M:%S")}')
-print(f'Total runtime: {end_time - start_time} (HH:MM:SS)')
+        # Read electrode data
+        brain_dir = os.path.join(args.CONV_DIR, subject_id, args.BRAIN_DIR_STR)
+        electrode_file = os.path.join(
+            brain_dir, ''.join([
+                subject_id, '_electrode_preprocess_file_',
+                str(electrode_num + 1), '.mat'
+            ]))
+        try:
+            elec_signal = loadmat(electrode_file)['p1st']
+        except FileNotFoundError:
+            print(f'Missing: {electrode_file}')
+            continue
+
+        # Perform encoding/regression
+        encoding_regression(args, subject_id, datum, elec_signal, elec_name)
+
+    return
+
+
+if __name__ == "__main__":
+    start_time = datetime.now()
+    print(f'Start Time: {start_time.strftime("%A %m/%d/%Y %H:%M:%S")}')
+
+    # Read command line arguments
+    args = parse_arguments()
+
+    # Setup paths to data
+    args = setup_environ(args)
+
+    # Locate and read datum
+    datum = read_datum(args)
+
+    # Processing significant electrodes or individual subjects
+    if args.sig_elec_file:
+        process_sig_electrodes(args, datum)
+    else:
+        process_subjects(args, datum)
+
+    end_time = datetime.now()
+    print(f'End Time: {end_time.strftime("%A %m/%d/%Y %H:%M:%S")}')
+
+    print(f'Total runtime: {end_time - start_time} (HH:MM:SS)')
