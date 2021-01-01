@@ -34,12 +34,12 @@ def extract_correlations(directory_list, file_str=None):
     return hat, mean_corr, electrode_list
 
 
-def save_max_correlations(prod_max, comp_max, prod_list):
+def save_max_correlations(args, prod_max, comp_max, prod_list):
     df = pd.DataFrame(prod_max, columns=['production'])
     df['comprehension'] = comp_max
     df['electrode'] = [int(item.strip('elec')) for item in prod_list]
     df = df[['electrode', 'production', 'comprehension']]
-    df.to_csv('625_glove50_maxCorrelations.csv', index=False)
+    df.to_csv(args.max_corr_csv, index=False)
     return
 
 
@@ -78,6 +78,7 @@ def parse_arguments():
 
 def initial_setup(args):
     args.output_pdf = str(args.sid) + '_glove_encoding.pdf'
+    args.max_corr_csv = str(args.sid) + '_glove50_maxCorrelations.csv"
     return
 
 
@@ -133,7 +134,7 @@ if __name__ == '__main__':
     electrode_list = extract_electrode_list()
 
     # save correlations to a file
-    save_max_correlations(prod_max, comp_max, prod_list)
+    save_max_correlations(args, prod_max, comp_max, prod_list)
 
     pp = PdfPages(args.output_pdf)
 
