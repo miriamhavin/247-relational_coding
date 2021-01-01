@@ -3,22 +3,21 @@ USR := $(shell whoami | head -c 2)
 
 # E_LIST := $(shell seq 1 10)
 SID := 625
-NPERM := 500
+NPERM := 1
 LAGS := {-2000..2000..25}
 EMB := glove
 WS := 200
-LAGS := {-2000..2000..100}
 DT := $(shell date +"%Y%m%d")
 WS := 200
 GPT2 := 0
 GLOVE := 0
 MWF := 1
 WV := 'all'
-SH := --shuffle
+# SH := --shuffle
 # PSH := --phase-shuffle
 
 CMD := python
-CMD := sbatch submit1.sh
+# CMD := sbatch submit1.sh
 
 # move paths to makefile
 # electrode list

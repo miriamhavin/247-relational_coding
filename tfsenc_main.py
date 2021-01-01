@@ -6,8 +6,8 @@ from datetime import datetime
 import pandas as pd
 from scipy.io import loadmat
 
-from podenc_utils import encoding_regression, load_header
 from tfsenc_read_datum import read_datum
+from tfsenc_utils import encoding_regression, load_header
 
 
 def load_pickle(file):
