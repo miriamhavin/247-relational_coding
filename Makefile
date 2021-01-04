@@ -54,3 +54,8 @@ run-perm-cluster:
 		$(PSH) \
 		--output-prefix $(DT)-$(USR)-$(WS)ms-$(WV)-$(PIL); \
 
+encoding-plots:
+	python tfsenc_plots.py \
+		--sid 625 \
+		--input-directory 20201231-hg-200ms-all--625 \
+		--embedding-type glove50;

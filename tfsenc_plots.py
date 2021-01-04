@@ -8,13 +8,9 @@ import pandas as pd
 from matplotlib.backends.backend_pdf import PdfPages
 
 # TODO: this file is work in progress
-
 plt.rcParams.update({
-    "text.usetex": True,
-    "font.family": "sans-serif",
-    "font.serif": ["Helvetica"],
+    "text.usetex": True
 })
-
 
 def extract_correlations(directory_list, file_str=None):
     all_corrs = []
@@ -55,13 +51,8 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--output-prefix', type=str, default='test')
-    parser.add_argument('--datum-emb-fn',
-                        type=str,
-                        default='podcast-datum-glove-50d.csv')
-    parser.add_argument('--gpt2', type=int, default=1)
-    parser.add_argument('--bert', type=int, default=None)
-    parser.add_argument('--bart', type=int, default=None)
-    parser.add_argument('--glove', type=int, default=1)
+    parser.add_argument('--input-directory', type=str, default='test')
+    parser.add_argument('--embedding-type', type=str, default=None)
     parser.add_argument('--electrodes', nargs='*', type=int)
 
     group = parser.add_mutually_exclusive_group()
@@ -77,8 +68,13 @@ def parse_arguments():
 
 
 def initial_setup(args):
-    args.output_pdf = str(args.sid) + '_glove_encoding.pdf'
-    args.max_corr_csv = str(args.sid) + '_glove50_maxCorrelations.csv"
+    full_input_dir = os.path.join(os.getcwd(), 'Results', args.input_directory)
+    args.output_pdf = os.path.join(
+        full_input_dir,
+        '_'.join([str(args.sid), args.embedding_type, 'encoding.pdf']))
+    args.max_corr_csv = os.path.join(
+        full_input_dir,
+        '_'.join([str(args.sid), args.embedding_type, 'maxCorrelations.csv']))
     return
 
 
@@ -86,12 +82,12 @@ def plot_average_correlations(pp, prod_corr_mean, comp_corr_mean):
     fig, ax = plt.subplots()
     lags = np.arange(-2000, 2001, 25)
 
-    ax.plot(lags, prod_corr_mean, 'k', label='production')
-    ax.plot(lags, comp_corr_mean, 'r', label='comprehension')
-    ax.legend()
-    ax.set(xlabel='lag (s)',
-           ylabel='correlation',
-           title='Average Correlation (all electrodes')
+    ax.plot(lags, prod_corr_mean, 'k', label=r'\textit{production}')
+    ax.plot(lags, comp_corr_mean, 'r', label=r'\textit{comprehension}')
+    ax.legend(frameon=False)
+    ax.set(xlabel=r'\textit{lag (s)}',
+           ylabel=r'\textit{correlation}',
+           title=r'\textit{Average Correlation (all electrodes)}')
     ax.grid()
 
     pp.savefig(fig)
@@ -103,10 +99,12 @@ def plot_individual_correlations(pp, prod_corr, comp_corr, prod_list):
                                                 prod_list):
         fig, ax = plt.subplots()
         lags = np.arange(-2000, 2001, 25)
-        ax.plot(lags, prod_row, 'k', label='production')
-        ax.plot(lags, comp_row, 'r', label='comprehension')
+        ax.plot(lags, prod_row, 'k', label=r'\textit{production}')
+        ax.plot(lags, comp_row, 'r', label=r'\textit{comprehension}')
         ax.legend(frameon=False)
-        ax.set(xlabel='lag (s)', ylabel='correlation', title=electrode_id)
+        ax.set(xlabel=r'\textit{lag (s)}',
+               ylabel=r'\textit{correlation}',
+               title=electrode_id)
         ax.grid()
 
         pp.savefig(fig)
@@ -115,12 +113,10 @@ def plot_individual_correlations(pp, prod_corr, comp_corr, prod_list):
 
 if __name__ == '__main__':
     args = parse_arguments()
-    initial_setup()
-
-    directory_string = '20201231-hg-200ms-all--625'
+    initial_setup(args)
 
     results_dirs = glob.glob(
-        os.path.join(os.getcwd(), 'Results', directory_string))
+        os.path.join(os.getcwd(), 'Results', args.input_directory))
 
     prod_corr, prod_corr_mean, prod_list = extract_correlations(
         results_dirs, 'prod')
