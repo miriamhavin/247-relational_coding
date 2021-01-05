@@ -48,12 +48,10 @@ def read_datum(args):
 
     # use columns where token is root
     if 'gpt2' in args.emb_type:
-        col_name = 'gpt2_token_is_root'
+        df = df[df['gpt2_token_is_root']]
     elif 'bert' in args.emb_type:
-        col_name = 'bert_token_is_root'
+        df = df[df['bert_token_is_root']]
     else:
         pass
-
-    df = df[df[col_name]]
 
     return df
