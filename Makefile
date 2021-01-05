@@ -4,20 +4,19 @@ USR := $(shell whoami | head -c 2)
 # E_LIST := $(shell seq 1 10)
 SID := 625
 NPERM := 1
-LAGS := {-2000..2000..25}
-EMB := glove
+LAGS := {-5000..5000..25}
+EMB := gpt2
 WS := 200
 DT := $(shell date +"%Y%m%d")
-WS := 200
 GPT2 := 0
 GLOVE := 0
 MWF := 1
-WV := 'all'
+WV := all
 # SH := --shuffle
 # PSH := --phase-shuffle
 
 CMD := python
-# CMD := sbatch submit1.sh
+CMD := sbatch submit1.sh
 
 # move paths to makefile
 # electrode list
@@ -36,12 +35,12 @@ target1:
 			--output-folder $(SID)-$(USR)-test1; \
 	done
 
-run-perm-cluster:
+run-encoding:
 	mkdir -p logs
 	$(CMD) $(FILE).py \
 		--sid $(SID) \
 		--electrodes $(E_LIST) \
-		--datum-emb-fn $(EMB) \
+		--emb-type $(EMB) \
 		--window-size $(WS) \
 		--word-value $(WV) \
 		--glove $(GLOVE) \
@@ -52,10 +51,10 @@ run-perm-cluster:
 		--min-word-freq $(MWF) \
 		$(SH) \
 		$(PSH) \
-		--output-prefix $(DT)-$(USR)-$(WS)ms-$(WV)-$(PIL); \
+		--output-prefix $(DT)-$(USR)-$(WS)ms-$(WV)-$(EMB); \
 
-encoding-plots:
+plot-encoding:
 	python tfsenc_plots.py \
 		--sid 625 \
-		--input-directory 20201231-hg-200ms-all--625 \
-		--embedding-type glove50;
+		--input-directory $(DT)-$(USR)-$(WS)ms-$(WV)-$(EMB)-$(SID) \
+		--embedding-type $(EMB);

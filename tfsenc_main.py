@@ -40,6 +40,9 @@ def parse_arguments():
     parser.add_argument('--lags', nargs='+', type=int)
     parser.add_argument('--output-prefix', type=str, default='test')
     parser.add_argument('--nonWords', action='store_true', default=False)
+    parser.add_argument('--emb-type',
+                        type=str,
+                        default=None)
     parser.add_argument('--datum-emb-fn',
                         type=str,
                         default='podcast-datum-glove-50d.csv')
@@ -93,9 +96,9 @@ def setup_environ(args):
                      PICKLE_DIR=PICKLE_DIR,
                      tiger=tiger)
 
+    args.emb_file = '_'.join([str(args.sid), args.emb_type, 'embeddings.pkl'])
     vars(args).update(path_dict)
     print(args)
-
     return args
 
 
@@ -174,7 +177,6 @@ if __name__ == "__main__":
 
     # Locate and read datum
     datum = read_datum(args)
-
     # Processing significant electrodes or individual subjects
     if args.sig_elec_file:
         process_sig_electrodes(args, datum)

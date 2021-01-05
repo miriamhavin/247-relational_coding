@@ -33,7 +33,7 @@ def read_datum(args):
     Returns:
         DataFrame: processed datum
     """
-    file_name = os.path.join(args.PICKLE_DIR, '625_glove50_embeddings.pkl')
+    file_name = os.path.join(args.PICKLE_DIR, args.emb_file)
     datum = load_pickle(file_name)
 
     df = pd.DataFrame.from_dict(datum)
