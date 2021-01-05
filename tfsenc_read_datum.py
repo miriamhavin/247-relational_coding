@@ -1,5 +1,6 @@
 import os
 import pickle
+import numpy as np
 
 import pandas as pd
 
@@ -38,5 +39,21 @@ def read_datum(args):
 
     df = pd.DataFrame.from_dict(datum)
     df = df.dropna(subset=['embeddings'])
+
+    # is_embedding_nan()
+    df['is_nan'] = df['embeddings'].apply(lambda x: np.isnan(x).all())
+
+    # drop empty embeddings
+    df = df[~df['is_nan']]
+
+    # use columns where token is root
+    if 'gpt2' in args.emb_type:
+        col_name = 'gpt2_token_is_root'
+    elif 'bert' in args.emb_type:
+        col_name = 'bert_token_is_root'
+    else:
+        pass
+
+    df = df[df[col_name]]
 
     return df
