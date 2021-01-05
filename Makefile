@@ -55,6 +55,6 @@ run-encoding:
 
 plot-encoding:
 	python tfsenc_plots.py \
-		--sid 625 \
+		--sid $(SID) \
 		--input-directory $(DT)-$(USR)-$(WS)ms-$(WV)-$(EMB)-$(SID) \
 		--embedding-type $(EMB);
