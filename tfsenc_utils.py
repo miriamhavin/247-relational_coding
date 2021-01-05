@@ -8,7 +8,7 @@ from numba import jit, prange
 from scipy import stats
 from sklearn.model_selection import KFold
 
-from podenc_phase_shuffle import phase_shuffle
+from tfsenc_phase_shuffle import phase_shuffle
 
 
 def encColCorr(CA, CB):
