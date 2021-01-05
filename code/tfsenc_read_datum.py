@@ -1,7 +1,7 @@
 import os
 import pickle
-import numpy as np
 
+import numpy as np
 import pandas as pd
 
 # import statistics
@@ -34,7 +34,7 @@ def read_datum(args):
     Returns:
         DataFrame: processed datum
     """
-    file_name = os.path.join(args.PICKLE_DIR, args.emb_file)
+    file_name = os.path.join(args.PICKLE_DIR, str(args.sid), args.emb_file)
     datum = load_pickle(file_name)
 
     df = pd.DataFrame.from_dict(datum)

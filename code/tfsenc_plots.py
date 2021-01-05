@@ -8,9 +8,7 @@ import pandas as pd
 from matplotlib.backends.backend_pdf import PdfPages
 
 # TODO: this file is work in progress
-plt.rcParams.update({
-    "text.usetex": True
-})
+plt.rcParams.update({"text.usetex": True})
 
 
 def extract_correlations(directory_list, file_str=None):
@@ -22,7 +20,7 @@ def extract_correlations(directory_list, file_str=None):
 
     Returns:
         [type]: [description]
-    """    
+    """
     all_corrs = []
     for dir in directory_list:
         file_list = sorted(
@@ -48,7 +46,7 @@ def save_max_correlations(args, prod_max, comp_max, prod_list):
         prod_max ([type]): [description]
         comp_max ([type]): [description]
         prod_list ([type]): [description]
-    """    
+    """
     df = pd.DataFrame(prod_max, columns=['production'])
     df['comprehension'] = comp_max
     df['electrode'] = [int(item.strip('elec')) for item in prod_list]

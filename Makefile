@@ -1,11 +1,11 @@
 FILE := tfsenc_main
 USR := $(shell whoami | head -c 2)
 
-# E_LIST := $(shell seq 1 10)
-SID := 625
+E_LIST := $(shell seq 1 2)
+SID := 676
 NPERM := 1
 LAGS := {-5000..5000..25}
-EMB := gpt2
+EMB := glove50
 WS := 200
 DT := $(shell date +"%Y%m%d")
 GPT2 := 0
@@ -16,7 +16,7 @@ WV := all
 # PSH := --phase-shuffle
 
 CMD := python
-CMD := sbatch submit1.sh
+#CMD := sbatch submit1.sh
 
 # move paths to makefile
 # electrode list
@@ -26,7 +26,7 @@ CMD := sbatch submit1.sh
 
 target1:
 	for elec in $(E_LIST); do \
-		$(CMD) $(FILE).py \
+		$(CMD) code/$(FILE).py \
 			--subject $(SID) \
 			--lags $(LAGS) \
 			--emb-file $(EMB) \
@@ -37,7 +37,7 @@ target1:
 
 run-encoding:
 	mkdir -p logs
-	$(CMD) $(FILE).py \
+	$(CMD) code/$(FILE).py \
 		--sid $(SID) \
 		--electrodes $(E_LIST) \
 		--emb-type $(EMB) \
@@ -55,6 +55,6 @@ run-encoding:
 
 plot-encoding:
 	python tfsenc_plots.py \
-		--sid $(SID) \
+		--sid code/$(SID) \
 		--input-directory $(DT)-$(USR)-$(WS)ms-$(WV)-$(EMB)-$(SID) \
 		--embedding-type $(EMB);

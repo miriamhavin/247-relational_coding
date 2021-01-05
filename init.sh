@@ -1,4 +1,8 @@
 mkdir -p data results
 
-ln -s ../247-pickling/results/* data/
+#echo 'ls $(pwd)/../247-pickling/results/*'
 
+cd data
+ln -s $(pwd)/../../247-pickling/results/* .
+
+cd ..

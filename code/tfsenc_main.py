@@ -40,9 +40,7 @@ def parse_arguments():
     parser.add_argument('--lags', nargs='+', type=int)
     parser.add_argument('--output-prefix', type=str, default='test')
     parser.add_argument('--nonWords', action='store_true', default=False)
-    parser.add_argument('--emb-type',
-                        type=str,
-                        default=None)
+    parser.add_argument('--emb-type', type=str, default=None)
     parser.add_argument('--datum-emb-fn',
                         type=str,
                         default='podcast-datum-glove-50d.csv')
@@ -72,33 +70,16 @@ def setup_environ(args):
     hostname = os.environ['HOSTNAME']
     if 'tiger' in hostname:
         tiger = 1
-        PROJ_DIR = '/projects/HASSON/247/data/podcast'
-        DATUM_DIR = PROJ_DIR
-        CONV_DIR = PROJ_DIR
-        PICKLE_DIR = '/scratch/gpfs/hgazula/247-decoding/pickles'
-        if args.sid in [661, 662, 717, 723]:
-            BRAIN_DIR_STR = 'preprocessed'
-        else:
-            BRAIN_DIR_STR = 'preprocessed-ica'
+        PICKLE_DIR = os.path.join(os.getcwd(), 'data')
     else:
-        tiger = 0
-        PROJ_DIR = '/mnt/bucket/labs/hasson/ariel/247/'
-        DATUM_DIR = os.path.join(PROJ_DIR, 'models/podcast-datums')
-        CONV_DIR = os.path.join(
-            PROJ_DIR, 'conversation_space/crude-conversations/Podcast')
-        BRAIN_DIR_STR = 'preprocessed_all'
-        PICKLE_DIR = None
+        pass
 
-    path_dict = dict(PROJ_DIR=PROJ_DIR,
-                     DATUM_DIR=DATUM_DIR,
-                     CONV_DIR=CONV_DIR,
-                     BRAIN_DIR_STR=BRAIN_DIR_STR,
-                     PICKLE_DIR=PICKLE_DIR,
-                     tiger=tiger)
+    path_dict = dict(PICKLE_DIR=PICKLE_DIR, tiger=tiger)
 
     args.emb_file = '_'.join([str(args.sid), args.emb_type, 'embeddings.pkl'])
+    args.signal_file = '_'.join([str(args.sid), 'trimmed_signal.pkl'])
+
     vars(args).update(path_dict)
-    print(args)
     return args
 
 
@@ -106,7 +87,7 @@ def process_subjects(args, datum):
     """Run encoding on particular subject (requires specifying electrodes)
     """
     trimmed_signal_dict = load_pickle(
-        os.path.join(args.PICKLE_DIR, '625_trimmed_signal.pkl'))
+        os.path.join(args.PICKLE_DIR, str(args.sid), args.signal_file))
 
     trimmed_signal = trimmed_signal_dict['trimmed_signal']
     electrodes = trimmed_signal_dict['electrodes']

@@ -1,8 +1,10 @@
 __pycache__
-*.err
-*.out
-Results/**
+
 *.png
-logs/**
 *.csv
 *.pdf
+
+data
+logs
+results
+
