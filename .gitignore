@@ -4,7 +4,9 @@ __pycache__
 *.csv
 *.pdf
 
-data
+data/*
 logs
-results
+results/*
+
+!.gitkeep
 

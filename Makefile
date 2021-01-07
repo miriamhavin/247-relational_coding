@@ -24,6 +24,10 @@ CMD := python
 # plotting modularity
 # make separate models with separate electrodes (all at once is possible)
 
+link-data:
+	PDIR=$(dirname `pwd`)
+	ln -fs $PDIR/247-pickling/results/* data/
+
 target1:
 	for elec in $(E_LIST); do \
 		$(CMD) code/$(FILE).py \

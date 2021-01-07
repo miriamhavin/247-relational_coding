@@ -78,6 +78,7 @@ def setup_environ(args):
 
     args.emb_file = '_'.join([str(args.sid), args.emb_type, 'embeddings.pkl'])
     args.signal_file = '_'.join([str(args.sid), 'trimmed_signal.pkl'])
+    args.output_dir = os.path.join(os.getcwd(), 'results')
 
     vars(args).update(path_dict)
     return args
