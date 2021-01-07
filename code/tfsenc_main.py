@@ -5,7 +5,6 @@ from datetime import datetime
 
 import pandas as pd
 from scipy.io import loadmat
-
 from tfsenc_read_datum import read_datum
 from tfsenc_utils import encoding_regression, load_header
 
@@ -67,14 +66,8 @@ def parse_arguments():
 def setup_environ(args):
     """Update args with project specific directories and other flags
     """
-    hostname = os.environ['HOSTNAME']
-    if 'tiger' in hostname:
-        tiger = 1
-        PICKLE_DIR = os.path.join(os.getcwd(), 'data')
-    else:
-        pass
-
-    path_dict = dict(PICKLE_DIR=PICKLE_DIR, tiger=tiger)
+    PICKLE_DIR = os.path.join(os.getcwd(), 'data')
+    path_dict = dict(PICKLE_DIR=PICKLE_DIR)
 
     args.emb_file = '_'.join([str(args.sid), args.emb_type, 'embeddings.pkl'])
     args.signal_file = '_'.join([str(args.sid), 'trimmed_signal.pkl'])
