@@ -25,16 +25,22 @@ def extract_correlations(directory_list, file_str=None):
     for dir in directory_list:
         file_list = sorted(
             glob.glob(os.path.join(dir, '*' + file_str + '.csv')))
+
         electrode_list = [
             os.path.split(item)[1].split('_')[0] for item in file_list
         ]
+
+        dir_corrs = []
         for file in file_list:
             with open(file, 'r') as csv_file:
                 ha = list(map(float, csv_file.readline().strip().split(',')))
-            all_corrs.append(ha)
+            dir_corrs.append(ha)
+
+        all_corrs.append(dir_corrs)
 
     hat = np.stack(all_corrs)
-    mean_corr = np.mean(hat, axis=0)
+    mean_corr = np.mean(hat, axis=1)
+
     return hat, mean_corr, electrode_list
 
 
@@ -67,9 +73,11 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--output-prefix', type=str, default='test')
-    parser.add_argument('--input-directory', type=str, default='test')
+    parser.add_argument('--input-directory', nargs='*', type=str, default=None)
+    parser.add_argument('--labels', nargs='*', type=str, default=None)
     parser.add_argument('--embedding-type', type=str, default=None)
     parser.add_argument('--electrodes', nargs='*', type=int)
+    parser.add_argument('--output-file-name', type=str, default=None)
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument('--sid', nargs='?', type=int, default=None)
@@ -84,6 +92,8 @@ def parse_arguments():
 
 
 def initial_setup(args):
+    assert len(args.input_directory) == len(args.labels), "Unequal number of"
+
     full_input_dir = os.path.join(os.getcwd(), 'Results', args.input_directory)
     args.output_pdf = os.path.join(
         os.getcwd(),
@@ -94,31 +104,64 @@ def initial_setup(args):
     return
 
 
-def plot_average_correlations(pp, prod_corr_mean, comp_corr_mean):
+def plot_average_correlations_multiple(pp, prod_corr_mean, comp_corr_mean,
+                                       args):
     fig, ax = plt.subplots()
     lags = np.arange(-5000, 5001, 25)
+    data = np.vstack([prod_corr_mean, comp_corr_mean])
+    legend_labels = []
+    for item in ['production', 'comprehension']:
+        for label in args.labels:
+            legend_labels.append(r'\textit{' + '-'.join([label, item]) + '}')
 
-    ax.plot(lags, prod_corr_mean, 'b', label=r'\textit{production}')
-    ax.plot(lags, comp_corr_mean, 'r', label=r'\textit{comprehension}')
-    ax.legend(frameon=False)
+    linestyles = ['-', '--'] * (data.shape[0] // 2)
+
+    color_set = ['b', 'r']
+    color = [val for val in color_set for _ in range(data.shape[0] // 2)]
+    ax.set_prop_cycle(color=color, linestyle=linestyles)
+
+    ax.plot(lags, data.T, linewidth=0.75)
+    ax.legend(legend_labels, frameon=False)
     ax.set(xlabel=r'\textit{lag (s)}',
            ylabel=r'\textit{correlation}',
            title=r'\textit{Average Correlation (all electrodes)}')
-    ax.set_ylim(-0.05, 0.40)
-    ax.vlines(0, -.05, 0.40, linestyles='dashed', linewidth=.75)
+    ax.set_ylim(-0.05, 0.50)
+    ax.vlines(0, -.05, 0.50, linestyles='dashed', linewidth=.75)
 
     pp.savefig(fig)
     plt.close()
 
 
-def plot_individual_correlations(pp, prod_corr, comp_corr, prod_list):
+def plot_individual_correlation_multiple(pp, prod_corr, comp_corr, prod_list,
+                                         args):
+    print(prod_corr.shape)
+
+    prod_corr = np.moveaxis(prod_corr, [0, 1, 2], [1, 0, 2])
+    comp_corr = np.moveaxis(comp_corr, [0, 1, 2], [1, 0, 2])
+
     for prod_row, comp_row, electrode_id in zip(prod_corr, comp_corr,
                                                 prod_list):
+
         fig, ax = plt.subplots()
         lags = np.arange(-5000, 5001, 25)
-        ax.plot(lags, prod_row, 'b', label=r'\textit{production}')
-        ax.plot(lags, comp_row, 'r', label=r'\textit{comprehension}')
-        ax.legend(frameon=False)
+
+        data = np.vstack([prod_row, comp_row])
+
+        legend_labels = []
+        for item in ['production', 'comprehension']:
+            for label in args.labels:
+                legend_labels.append(r'\textit{' + '-'.join([label, item]) +
+                                     '}')
+
+        linestyles = ['-', '--'] * (data.shape[0] // 2)
+
+        color_set = ['b', 'r']
+        color = [val for val in color_set for _ in range(data.shape[0] // 2)]
+        ax.set_prop_cycle(color=color, linestyle=linestyles)
+
+        ax.plot(lags, data.T, linewidth=0.75)
+
+        ax.legend(legend_labels, frameon=False)
         ax.set(xlabel=r'\textit{lag (s)}',
                ylabel=r'\textit{correlation}',
                title=electrode_id)
@@ -131,10 +174,14 @@ def plot_individual_correlations(pp, prod_corr, comp_corr, prod_list):
 
 if __name__ == '__main__':
     args = parse_arguments()
-    initial_setup(args)
+    args.output_pdf = os.path.join(os.getcwd(), args.output_file_name + '.pdf')
+    print(args)
+    assert len(args.input_directory) == len(args.labels), "Unequal number of"
 
-    results_dirs = glob.glob(
-        os.path.join(os.getcwd(), 'Results', args.input_directory))
+    results_dirs = [
+        glob.glob(os.path.join(os.getcwd(), 'results', directory))[0]
+        for directory in args.input_directory
+    ]
 
     prod_corr, prod_corr_mean, prod_list = extract_correlations(
         results_dirs, 'prod')
@@ -142,17 +189,20 @@ if __name__ == '__main__':
     comp_corr, comp_corr_mean, _ = extract_correlations(results_dirs, 'comp')
 
     # Find maximum correlations (across all lags)
-    prod_max = np.max(prod_corr, axis=1).reshape(-1, 1)
-    comp_max = np.max(comp_corr, axis=1).reshape(-1, 1)
+    prod_max = np.max(prod_corr, axis=-1)  # .reshape(-1, 1)
+    comp_max = np.max(comp_corr, axis=-1)  # .reshape(-1, 1)
 
-    electrode_list = extract_electrode_list()
+    # electrode_list = extract_electrode_list()
 
     # save correlations to a file
-    save_max_correlations(args, prod_max, comp_max, prod_list)
+    # save_max_correlations(args, prod_max, comp_max, prod_list)
 
     pp = PdfPages(args.output_pdf)
 
-    plot_average_correlations(pp, prod_corr_mean, comp_corr_mean)
-    plot_individual_correlations(pp, prod_corr, comp_corr, prod_list)
+    plot_average_correlations_multiple(pp, prod_corr_mean, comp_corr_mean,
+                                       args)
+
+    plot_individual_correlation_multiple(pp, prod_corr, comp_corr, prod_list,
+                                         args)
 
     pp.close()
