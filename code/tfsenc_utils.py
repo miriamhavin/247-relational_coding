@@ -247,13 +247,16 @@ def load_header(conversation_dir, subject_id):
 
 
 def create_output_directory(args, sid):
-    folder_name = '-'.join([args.output_prefix, sid])
+    output_prefix_add = '-'.join(args.emb_file.split('_')[:-1])
+    folder_name = '-'.join([args.output_prefix, output_prefix_add])
     full_output_dir = os.path.join(args.output_dir, folder_name)
     os.makedirs(full_output_dir, exist_ok=True)
     return full_output_dir
 
 
 def encoding_regression(args, sid, datum, elec_signal, name):
+
+    output_dir = create_output_directory(args, str(sid))
 
     # Build design matrices
     X, Y = build_XY(args, datum, elec_signal)
@@ -267,7 +270,7 @@ def encoding_regression(args, sid, datum, elec_signal, name):
 
     print(f'{sid} {name} Prod: {len(prod_X)} Comp: {len(comp_X)}')
 
-    output_dir = create_output_directory(args, str(sid))
+    
 
     # Run permutation and save results
     filename = os.path.join(output_dir, name + '_prod.csv')
@@ -277,3 +280,18 @@ def encoding_regression(args, sid, datum, elec_signal, name):
     run_save_permutation(args, comp_X, comp_Y, filename)
 
     return
+
+
+def setup_environ(args):
+    """Update args with project specific directories and other flags
+    """
+    PICKLE_DIR = os.path.join(os.getcwd(), 'data')
+    path_dict = dict(PICKLE_DIR=PICKLE_DIR)
+
+    stra = 'cnxt_' + str(args.context_length)
+    args.emb_file = '_'.join([str(args.sid), args.emb_type, stra, 'embeddings.pkl'])
+    args.signal_file = '_'.join([str(args.sid), 'trimmed_signal.pkl'])
+    args.output_dir = os.path.join(os.getcwd(), 'results')
+
+    vars(args).update(path_dict)
+    return args

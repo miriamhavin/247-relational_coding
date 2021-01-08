@@ -2,8 +2,8 @@ import argparse
 import os
 
 from sklearn.decomposition import PCA
-from tfsenc_main import setup_environ
 from tfsenc_read_datum import read_datum
+from tfsenc_utils import setup_environ
 
 
 def run_pca(args, df):

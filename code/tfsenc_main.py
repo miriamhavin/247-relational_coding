@@ -6,7 +6,8 @@ from datetime import datetime
 import pandas as pd
 from scipy.io import loadmat
 from tfsenc_read_datum import read_datum
-from tfsenc_utils import encoding_regression, load_header
+from tfsenc_utils import encoding_regression, load_header, setup_environ
+from tfsenc_pca import run_pca
 
 
 def load_pickle(file):
@@ -32,9 +33,11 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--word-value', type=str, default='all')
     parser.add_argument('--window-size', type=int, default=200)
+    
     group1 = parser.add_mutually_exclusive_group()
     group1.add_argument('--shuffle', action='store_true', default=False)
     group1.add_argument('--phase-shuffle', action='store_true', default=False)
+    
     parser.add_argument('--lags', nargs='+', type=int)
     parser.add_argument('--output-prefix', type=str, default='test')
     parser.add_argument('--emb-type', type=str, default=None)
@@ -50,26 +53,17 @@ def parse_arguments():
     group.add_argument('--sid', nargs='?', type=int, default=None)
     group.add_argument('--sig-elec-file', nargs='?', type=str, default=None)
 
+    parser.add_argument('--pca-flag', action='store_true', default=False)
+    parser.add_argument('--reduce-to', type=int, default=0)
+
     args = parser.parse_args()
+
+    if args.pca_flag and not args.reduce_to:
+        parser.error("Cannot reduce PCA to 0 dimensions")
 
     if not args.sid and args.electrodes:
         parser.error("--electrodes requires --sid")
 
-    return args
-
-
-def setup_environ(args):
-    """Update args with project specific directories and other flags
-    """
-    PICKLE_DIR = os.path.join(os.getcwd(), 'data')
-    path_dict = dict(PICKLE_DIR=PICKLE_DIR)
-
-    stra = 'cnxt_' + str(args.context_length)
-    args.emb_file = '_'.join([str(args.sid), args.emb_type, stra, 'embeddings.pkl'])
-    args.signal_file = '_'.join([str(args.sid), 'trimmed_signal.pkl'])
-    args.output_dir = os.path.join(os.getcwd(), 'results')
-
-    vars(args).update(path_dict)
     return args
 
 
@@ -80,19 +74,17 @@ def process_subjects(args, datum):
         os.path.join(args.PICKLE_DIR, str(args.sid), args.signal_file))
 
     trimmed_signal = trimmed_signal_dict['trimmed_signal']
-    electrodes = trimmed_signal_dict['electrodes']
-
-    names = [f'elec{i:03}' for i in electrodes]
+    electrode_ids = trimmed_signal_dict['electrode_ids']
+    electrode_names = trimmed_signal_dict['electrode_names']
 
     if args.electrodes:
-        electrodes = trimmed_signal_dict['electrodes']
-        indices = [electrodes.index(i) for i in args.electrodes]
+        indices = [electrode_ids.index(i) for i in args.electrodes]
 
         trimmed_signal = trimmed_signal[:, indices]
-        names = [f'elec{i:03}' for i in args.electrodes]
+        electrode_names = [electrode_names[i] for i in indices]
 
     # Loop over each electrode
-    for elec_signal, name in zip(trimmed_signal.T, names):
+    for elec_signal, name in zip(trimmed_signal.T, electrode_names):
         encoding_regression(args, args.sid, datum, elec_signal, name)
 
     return
@@ -148,6 +140,10 @@ if __name__ == "__main__":
 
     # Locate and read datum
     datum = read_datum(args)
+
+    if args.pca_flag:
+        datum = run_pca(args, datum)
+
     # Processing significant electrodes or individual subjects
     if args.sig_elec_file:
         process_sig_electrodes(args, datum)

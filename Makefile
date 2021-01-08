@@ -2,7 +2,7 @@ FILE := tfsenc_main
 USR := $(shell whoami | head -c 2)
 DT := $(shell date +"%Y%m%d")
 
-# E_LIST := $(shell seq 1 2)
+E_LIST := $(shell seq 1 2)
 SID := 625
 NPERM := 1
 LAGS := {-5000..5000..500}
@@ -14,15 +14,17 @@ CNXT_LEN := 512
 
 MWF := 1
 WV := all
+
 # SH := --shuffle
 # PSH := --phase-shuffle
+PCA := --pca-flag
+PCA_TO := 50 
 
 CMD := python
 # CMD := sbatch submit1.sh
 
 # move paths to makefile
-# electrode list
-# add shuffle flag
+
 # plotting modularity
 # make separate models with separate electrodes (all at once is possible)
 PDIR := $(shell dirname `pwd`)
@@ -47,17 +49,17 @@ run-encoding:
 		--sid $(SID) \
 		--electrodes $(E_LIST) \
 		--emb-type $(EMB) \
+		--context-length $(CNXT_LEN) \
 		--window-size $(WS) \
 		--word-value $(WV) \
-		--glove $(GLOVE) \
-		--gpt2 $(GPT2) \
 		--npermutations $(NPERM) \
 		--lags $(LAGS) \
-		--sig-elec-file $(SE) \
 		--min-word-freq $(MWF) \
+		$(PCA) \
+		--reduce-to $(PCA_TO) \
 		$(SH) \
 		$(PSH) \
-		--output-prefix cp-$(DT)-$(USR)-$(WS)ms-$(WV)-$(EMB)-$(EMB_DIM)d; \
+		--output-prefix test-$(DT)-$(USR)-$(WS)ms-$(WV); \
 
 plot-encoding:
 	python code/tfsenc_plots.py \
@@ -71,3 +73,14 @@ pca-on-embedding:
 			--emb-type $(EMB) \
 			--context-length $(CNXT_LEN) \
 			--reduce-to $(EMB_RED_DIM); 
+
+plot-encoding1:
+	mkdir -p results/figures
+	python code/tfsenc_plots.py \
+			--input-directory \
+				20210105-hg-200ms-all-gpt2-625 \
+			--labels \
+				gpt2-768 \
+			--output-file-name \
+				'test_harsha1' \
+			;
