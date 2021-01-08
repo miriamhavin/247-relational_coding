@@ -1,32 +1,34 @@
 FILE := tfsenc_main
 USR := $(shell whoami | head -c 2)
-
-E_LIST := $(shell seq 1 2)
-SID := 676
-NPERM := 1
-LAGS := {-5000..5000..25}
-EMB := glove50
-WS := 200
 DT := $(shell date +"%Y%m%d")
-GPT2 := 0
-GLOVE := 0
+
+# E_LIST := $(shell seq 1 2)
+SID := 625
+NPERM := 1
+LAGS := {-5000..5000..500}
+EMB := gpt2
+EMB_DIM := 768
+EMB_RED_DIM := 50
+WS := 200
+CNXT_LEN := 512
+
 MWF := 1
 WV := all
 # SH := --shuffle
 # PSH := --phase-shuffle
 
 CMD := python
-#CMD := sbatch submit1.sh
+# CMD := sbatch submit1.sh
 
 # move paths to makefile
 # electrode list
 # add shuffle flag
 # plotting modularity
 # make separate models with separate electrodes (all at once is possible)
-
+PDIR := $(shell dirname `pwd`)
 link-data:
-	PDIR=$(dirname `pwd`)
-	ln -fs $PDIR/247-pickling/results/* data/
+	find data/ -xtype l -delete
+	ln -fs $(PDIR)/247-pickling/results/* data/
 
 target1:
 	for elec in $(E_LIST); do \
@@ -55,10 +57,17 @@ run-encoding:
 		--min-word-freq $(MWF) \
 		$(SH) \
 		$(PSH) \
-		--output-prefix $(DT)-$(USR)-$(WS)ms-$(WV)-$(EMB); \
+		--output-prefix cp-$(DT)-$(USR)-$(WS)ms-$(WV)-$(EMB)-$(EMB_DIM)d; \
 
 plot-encoding:
-	python tfsenc_plots.py \
-		--sid code/$(SID) \
+	python code/tfsenc_plots.py \
+		--sid $(SID) \
 		--input-directory $(DT)-$(USR)-$(WS)ms-$(WV)-$(EMB)-$(SID) \
 		--embedding-type $(EMB);
+
+pca-on-embedding:
+	python code/tfsenc_pca.py \
+			--sid $(SID) \
+			--emb-type $(EMB) \
+			--context-length $(CNXT_LEN) \
+			--reduce-to $(EMB_RED_DIM); 

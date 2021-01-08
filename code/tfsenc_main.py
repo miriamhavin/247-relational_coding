@@ -35,18 +35,13 @@ def parse_arguments():
     group1 = parser.add_mutually_exclusive_group()
     group1.add_argument('--shuffle', action='store_true', default=False)
     group1.add_argument('--phase-shuffle', action='store_true', default=False)
-    parser.add_argument('--pilot', type=str, default='')
     parser.add_argument('--lags', nargs='+', type=int)
     parser.add_argument('--output-prefix', type=str, default='test')
-    parser.add_argument('--nonWords', action='store_true', default=False)
     parser.add_argument('--emb-type', type=str, default=None)
+    parser.add_argument('--context-length', type=int, default=0)
     parser.add_argument('--datum-emb-fn',
                         type=str,
                         default='podcast-datum-glove-50d.csv')
-    parser.add_argument('--gpt2', type=int, default=1)
-    parser.add_argument('--bert', type=int, default=None)
-    parser.add_argument('--bart', type=int, default=None)
-    parser.add_argument('--glove', type=int, default=1)
     parser.add_argument('--electrodes', nargs='*', type=int)
     parser.add_argument('--npermutations', type=int, default=1)
     parser.add_argument('--min-word-freq', nargs='?', type=int, default=1)
@@ -69,7 +64,8 @@ def setup_environ(args):
     PICKLE_DIR = os.path.join(os.getcwd(), 'data')
     path_dict = dict(PICKLE_DIR=PICKLE_DIR)
 
-    args.emb_file = '_'.join([str(args.sid), args.emb_type, 'embeddings.pkl'])
+    stra = 'cnxt_' + str(args.context_length)
+    args.emb_file = '_'.join([str(args.sid), args.emb_type, stra, 'embeddings.pkl'])
     args.signal_file = '_'.join([str(args.sid), 'trimmed_signal.pkl'])
     args.output_dir = os.path.join(os.getcwd(), 'results')
 
@@ -103,7 +99,7 @@ def process_subjects(args, datum):
 
 
 def process_sig_electrodes(args, datum):
-    """Run encoding on select significant elctrodes specified by a file 
+    """Run encoding on select significant electrodes specified by a file 
     """
     flag = 'prediction_presentation' if not args.tiger else ''
 
