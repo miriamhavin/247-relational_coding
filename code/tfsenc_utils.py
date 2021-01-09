@@ -1,12 +1,14 @@
 import csv
 import os
 import sys
+from datetime import datetime
 
 import mat73
 import numpy as np
 from numba import jit, prange
 from scipy import stats
 from sklearn.model_selection import KFold
+
 from tfsenc_phase_shuffle import phase_shuffle
 
 
@@ -116,7 +118,7 @@ def fit_model(X, y):
     return beta
 
 
-@jit(nopython=True)
+# @jit(nopython=True)
 def build_Y(onsets, brain_signal, lags, window_size):
     """[summary]
 
@@ -146,6 +148,8 @@ def build_Y(onsets, brain_signal, lags, window_size):
         # subtracting 1 from starts to account for 0-indexing
         starts = index_onsets - half_window - 1
         stops = index_onsets + half_window
+
+        # vec = brain_signal[np.array([np.arange(*item) for item in zip(starts, stops)])]
 
         for i, (start, stop) in enumerate(zip(starts, stops)):
             Y1[i, lag, :] = brain_signal[start:stop].reshape(-1)
@@ -248,9 +252,14 @@ def load_header(conversation_dir, subject_id):
 
 def create_output_directory(args, sid):
     output_prefix_add = '-'.join(args.emb_file.split('_')[:-1])
+
     folder_name = '-'.join([args.output_prefix, output_prefix_add])
+    folder_name = folder_name + '-pca_' + str(args.reduce_to) + 'd'
+
     full_output_dir = os.path.join(args.output_dir, folder_name)
+
     os.makedirs(full_output_dir, exist_ok=True)
+
     return full_output_dir
 
 
@@ -270,8 +279,6 @@ def encoding_regression(args, sid, datum, elec_signal, name):
 
     print(f'{sid} {name} Prod: {len(prod_X)} Comp: {len(comp_X)}')
 
-    
-
     # Run permutation and save results
     filename = os.path.join(output_dir, name + '_prod.csv')
     run_save_permutation(args, prod_X, prod_Y, filename)
@@ -289,7 +296,8 @@ def setup_environ(args):
     path_dict = dict(PICKLE_DIR=PICKLE_DIR)
 
     stra = 'cnxt_' + str(args.context_length)
-    args.emb_file = '_'.join([str(args.sid), args.emb_type, stra, 'embeddings.pkl'])
+    args.emb_file = '_'.join(
+        [str(args.sid), args.emb_type, stra, 'embeddings.pkl'])
     args.signal_file = '_'.join([str(args.sid), 'trimmed_signal.pkl'])
     args.output_dir = os.path.join(os.getcwd(), 'results')
 

@@ -5,9 +5,10 @@ from datetime import datetime
 
 import pandas as pd
 from scipy.io import loadmat
+
+from tfsenc_pca import run_pca
 from tfsenc_read_datum import read_datum
 from tfsenc_utils import encoding_regression, load_header, setup_environ
-from tfsenc_pca import run_pca
 
 
 def load_pickle(file):
@@ -33,11 +34,11 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--word-value', type=str, default='all')
     parser.add_argument('--window-size', type=int, default=200)
-    
+
     group1 = parser.add_mutually_exclusive_group()
     group1.add_argument('--shuffle', action='store_true', default=False)
     group1.add_argument('--phase-shuffle', action='store_true', default=False)
-    
+
     parser.add_argument('--lags', nargs='+', type=int)
     parser.add_argument('--output-prefix', type=str, default='test')
     parser.add_argument('--emb-type', type=str, default=None)
