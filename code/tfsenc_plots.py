@@ -27,9 +27,8 @@ def extract_correlations(directory_list, file_str=None):
             glob.glob(os.path.join(dir, '*' + file_str + '.csv')))
 
         electrode_list = [
-            os.path.split(item)[1].split('_')[0] for item in file_list
+            '_'.join(os.path.split(item)[1].split('_')[:-1]) for item in file_list
         ]
-
         dir_corrs = []
         for file in file_list:
             with open(file, 'r') as csv_file:
@@ -134,7 +133,7 @@ def plot_average_correlations_multiple(pp, prod_corr_mean, comp_corr_mean,
 
 def plot_individual_correlation_multiple(pp, prod_corr, comp_corr, prod_list,
                                          args):
-    print(prod_corr.shape)
+    prod_list = [item.replace('_', '\_') for item in prod_list]    
 
     prod_corr = np.moveaxis(prod_corr, [0, 1, 2], [1, 0, 2])
     comp_corr = np.moveaxis(comp_corr, [0, 1, 2], [1, 0, 2])
@@ -175,7 +174,7 @@ def plot_individual_correlation_multiple(pp, prod_corr, comp_corr, prod_list,
 if __name__ == '__main__':
     args = parse_arguments()
     args.output_pdf = os.path.join(os.getcwd(), args.output_file_name + '.pdf')
-    print(args)
+
     assert len(args.input_directory) == len(args.labels), "Unequal number of"
 
     results_dirs = [
