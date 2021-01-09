@@ -38,7 +38,7 @@ def read_datum(args):
     datum = load_pickle(file_name)
 
     df = pd.DataFrame.from_dict(datum)
-    df = df.dropna(subset=['embeddings'])
+    # df = df.dropna(subset=['embeddings'])
 
     # is_embedding_nan()
     df['is_nan'] = df['embeddings'].apply(lambda x: np.isnan(x).all())
