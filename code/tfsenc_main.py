@@ -72,8 +72,6 @@ def parse_arguments():
     if not args.sid and args.electrodes:
         parser.error("--electrodes requires --sid")
 
-
-
     return args
 
 

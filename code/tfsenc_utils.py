@@ -250,7 +250,7 @@ def load_header(conversation_dir, subject_id):
     return labels
 
 
-def create_output_directory(args, sid):
+def create_output_directory(args):
     output_prefix_add = '-'.join(args.emb_file.split('_')[:-1])
 
     folder_name = '-'.join([args.output_prefix, output_prefix_add])
@@ -265,7 +265,7 @@ def create_output_directory(args, sid):
 
 def encoding_regression(args, sid, datum, elec_signal, name):
 
-    output_dir = create_output_directory(args, str(sid))
+    output_dir = args.full_output_dir
 
     # Build design matrices
     X, Y = build_XY(args, datum, elec_signal)
@@ -295,11 +295,28 @@ def setup_environ(args):
     PICKLE_DIR = os.path.join(os.getcwd(), 'data')
     path_dict = dict(PICKLE_DIR=PICKLE_DIR)
 
-    stra = 'cnxt_' + str(args.context_length)
-    args.emb_file = '_'.join(
-        [str(args.sid), args.emb_type, stra, 'embeddings.pkl'])
+    if args.emb_type == 'glove50':
+        stra = 'cnxt_' + str(args.context_length)
+        args.emb_file = '_'.join(
+            [str(args.sid), args.emb_type, stra, 'embeddings.pkl'])
+
+        args.emb_type = args.align_with
+        args.context_length = args.align_target_context_length
+
+        stra = 'cnxt_' + str(args.context_length)
+        args.load_emb_file = '_'.join(
+            [str(args.sid), args.emb_type, stra, 'embeddings.pkl'])
+    else:
+        stra = 'cnxt_' + str(args.context_length)
+        args.emb_file = '_'.join(
+            [str(args.sid), args.emb_type, stra, 'embeddings.pkl'])
+        args.load_emb_file = args.emb_file
+
     args.signal_file = '_'.join([str(args.sid), 'trimmed_signal.pkl'])
     args.output_dir = os.path.join(os.getcwd(), 'results')
+    args.full_output_dir = create_output_directory(args)
+
+    raise Exception(args.full_output_dir)
 
     vars(args).update(path_dict)
     return args

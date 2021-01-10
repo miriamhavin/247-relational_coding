@@ -34,7 +34,8 @@ def read_datum(args):
     Returns:
         DataFrame: processed datum
     """
-    file_name = os.path.join(args.PICKLE_DIR, str(args.sid), args.emb_file)
+    file_name = os.path.join(args.PICKLE_DIR, str(args.sid),
+                             args.load_emb_file)
     datum = load_pickle(file_name)
 
     df = pd.DataFrame.from_dict(datum)
@@ -47,11 +48,17 @@ def read_datum(args):
     df = df[~df['is_nan']]
 
     # use columns where token is root
-    if 'gpt2' in args.emb_type:
+    if 'gpt2' in [args.align_with, args.emb_type]:
         df = df[df['gpt2_token_is_root']]
-    elif 'bert' in args.emb_type:
+    elif 'bert' in [args.align_with, args.emb_type]:
         df = df[df['bert_token_is_root']]
     else:
         pass
+
+    #TODO maybe should always include filtering on glove embeddings
+
+    if args.emb_type == 'glove50':
+        df['embeddings'] = df['glove50_embeddings']
+        df = df[df.embeddings.isna()]
 
     return df

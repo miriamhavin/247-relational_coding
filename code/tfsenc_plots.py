@@ -1,4 +1,5 @@
 import argparse
+import csv
 import glob
 import os
 
@@ -23,15 +24,15 @@ def extract_correlations(directory_list, file_str=None):
     """
     all_corrs = []
     for dir in directory_list:
-        file_list = sorted(
-            glob.glob(os.path.join(dir, '*' + file_str + '.csv')))
+        # file_list = glob.glob(os.path.join(dir, '*' + file_str + '.csv'))
 
-        electrode_list = [
-            '_'.join(os.path.split(item)[1].split('_')[:-1])
-            for item in file_list
-        ]
+        with open(os.path.join(dir, 'electrodes.csv'), 'r') as file:
+            reader = csv.reader(file)
+            electrode_list = list(reader)
+
         dir_corrs = []
-        for file in file_list:
+        for electrode in electrode_list:
+            file = os.path.join(dir, electrode + '_' + file_str + '.csv')
             with open(file, 'r') as csv_file:
                 ha = list(map(float, csv_file.readline().strip().split(',')))
             dir_corrs.append(ha)
