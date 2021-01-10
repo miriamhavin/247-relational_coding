@@ -1,4 +1,5 @@
 import argparse
+import csv
 import os
 import pickle
 from datetime import datetime
@@ -57,7 +58,13 @@ def parse_arguments():
     parser.add_argument('--pca-flag', action='store_true', default=False)
     parser.add_argument('--reduce-to', type=int, default=0)
 
+    parser.add_argument('--align-with', type=str, default=None)
+    parser.add_argument('--align-target-context-length', type=int, default=0)
+
     args = parser.parse_args()
+
+    if not args.pca_flag:
+        args.reduce_to = 0
 
     if args.pca_flag and not args.reduce_to:
         parser.error("Cannot reduce PCA to 0 dimensions")
@@ -65,7 +72,15 @@ def parse_arguments():
     if not args.sid and args.electrodes:
         parser.error("--electrodes requires --sid")
 
+
+
     return args
+
+
+def write_electrodes(args, electrode_names):
+    with open(os.path.join(args.full_output_dir, 'electrodes.csv'), 'w') as f:
+        write = csv.writer(f)
+        write.writerows([electrode_names])
 
 
 def process_subjects(args, datum):
@@ -87,6 +102,8 @@ def process_subjects(args, datum):
     # Loop over each electrode
     for elec_signal, name in zip(trimmed_signal.T, electrode_names):
         encoding_regression(args, args.sid, datum, elec_signal, name)
+
+    write_electrodes(args, electrode_names)
 
     return
 
