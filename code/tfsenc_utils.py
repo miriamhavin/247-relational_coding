@@ -8,7 +8,6 @@ import numpy as np
 from numba import jit, prange
 from scipy import stats
 from sklearn.model_selection import KFold
-
 from tfsenc_phase_shuffle import phase_shuffle
 
 
@@ -118,7 +117,7 @@ def fit_model(X, y):
     return beta
 
 
-# @jit(nopython=True)
+@jit(nopython=True)
 def build_Y(onsets, brain_signal, lags, window_size):
     """[summary]
 
@@ -300,12 +299,12 @@ def setup_environ(args):
         args.emb_file = '_'.join(
             [str(args.sid), args.emb_type, stra, 'embeddings.pkl'])
 
-        args.emb_type = args.align_with
-        args.context_length = args.align_target_context_length
+        # args.emb_type = args.align_with
+        # args.context_length = args.align_target_context_length
 
-        stra = 'cnxt_' + str(args.context_length)
+        stra = 'cnxt_' + str(args.align_target_context_length)
         args.load_emb_file = '_'.join(
-            [str(args.sid), args.emb_type, stra, 'embeddings.pkl'])
+            [str(args.sid), args.align_with, stra, 'embeddings.pkl'])
     else:
         stra = 'cnxt_' + str(args.context_length)
         args.emb_file = '_'.join(
@@ -313,10 +312,10 @@ def setup_environ(args):
         args.load_emb_file = args.emb_file
 
     args.signal_file = '_'.join([str(args.sid), 'trimmed_signal.pkl'])
+    args.electrode_file = '_'.join([str(args.sid), 'electrode_names.pkl'])
+
     args.output_dir = os.path.join(os.getcwd(), 'results')
     args.full_output_dir = create_output_directory(args)
-
-    raise Exception(args.full_output_dir)
 
     vars(args).update(path_dict)
     return args
