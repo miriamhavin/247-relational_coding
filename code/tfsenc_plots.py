@@ -2,7 +2,7 @@ import argparse
 import csv
 import glob
 import os
-
+import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -11,8 +11,20 @@ from matplotlib.backends.backend_pdf import PdfPages
 # TODO: this file is work in progress
 plt.rcParams.update({"text.usetex": True})
 
+def load_pickle(file):
+    """Load the datum pickle and returns as a dataframe
+    Args:
+        file (string): labels pickle from 247-decoding/tfs_pickling.py
+    Returns:
+        DataFrame: pickle contents returned as dataframe
+    """
+    with open(file, 'rb') as fh:
+        datum = pickle.load(fh)
 
-def extract_correlations(directory_list, file_str=None):
+    return datum
+
+
+def extract_correlations(args, directory_list, file_str=None):
     """[summary]
 
     Args:
@@ -26,9 +38,11 @@ def extract_correlations(directory_list, file_str=None):
     for dir in directory_list:
         # file_list = glob.glob(os.path.join(dir, '*' + file_str + '.csv'))
 
-        with open(os.path.join(dir, 'electrodes.csv'), 'r') as file:
-            reader = csv.reader(file)
-            electrode_list = list(reader)
+        # with open(os.path.join(dir, 'electrodes.csv'), 'r') as file:
+        #     reader = csv.reader(file)
+        #     electrode_list = list(reader)
+
+        electrode_list = load_pickle(args.electrode_file).values()
 
         dir_corrs = []
         for electrode in electrode_list:
@@ -176,6 +190,7 @@ def plot_individual_correlation_multiple(pp, prod_corr, comp_corr, prod_list,
 if __name__ == '__main__':
     args = parse_arguments()
     args.output_pdf = os.path.join(os.getcwd(), args.output_file_name + '.pdf')
+    args.electrode_file = os.path.join(os.getcwd(), 'data', str(args.sid), str(args.sid) + '_electrode_names.pkl')
 
     assert len(args.input_directory) == len(args.labels), "Unequal number of"
 
@@ -184,10 +199,9 @@ if __name__ == '__main__':
         for directory in args.input_directory
     ]
 
-    prod_corr, prod_corr_mean, prod_list = extract_correlations(
-        results_dirs, 'prod')
+    prod_corr, prod_corr_mean, prod_list = extract_correlations(args, results_dirs, 'prod')
 
-    comp_corr, comp_corr_mean, _ = extract_correlations(results_dirs, 'comp')
+    comp_corr, comp_corr_mean, _ = extract_correlations(args, results_dirs, 'comp')
 
     # Find maximum correlations (across all lags)
     prod_max = np.max(prod_corr, axis=-1)  # .reshape(-1, 1)
