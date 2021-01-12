@@ -55,10 +55,9 @@ def read_datum(args):
     else:
         pass
 
-    #TODO maybe should always include filtering on glove embeddings
+    df = df[~df['glove50_embeddings'].isna()]
 
     if args.emb_type == 'glove50':
         df['embeddings'] = df['glove50_embeddings']
-        df = df[df.embeddings.isna()]
 
     return df
