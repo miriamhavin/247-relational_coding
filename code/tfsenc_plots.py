@@ -3,6 +3,7 @@ import csv
 import glob
 import os
 import pickle
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -10,6 +11,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 # TODO: this file is work in progress
 plt.rcParams.update({"text.usetex": True})
+
 
 def load_pickle(file):
     """Load the datum pickle and returns as a dataframe
@@ -34,15 +36,12 @@ def extract_correlations(args, directory_list, file_str=None):
     Returns:
         [type]: [description]
     """
+
+    # Load the subject's electrode file
+    electrode_list = load_pickle(args.electrode_file).values()
+
     all_corrs = []
     for dir in directory_list:
-        # file_list = glob.glob(os.path.join(dir, '*' + file_str + '.csv'))
-
-        # with open(os.path.join(dir, 'electrodes.csv'), 'r') as file:
-        #     reader = csv.reader(file)
-        #     electrode_list = list(reader)
-
-        electrode_list = load_pickle(args.electrode_file).values()
 
         dir_corrs = []
         for electrode in electrode_list:
@@ -53,10 +52,13 @@ def extract_correlations(args, directory_list, file_str=None):
 
         all_corrs.append(dir_corrs)
 
-    hat = np.stack(all_corrs)
-    mean_corr = np.mean(hat, axis=1)
+    # all_corrs.shape = [len(directory_list), len(electrode_list), num_lags]
+    all_corrs = np.stack(all_corrs)
 
-    return hat, mean_corr, electrode_list
+    # all_corrs.shape = [len(directory_list), 1, num_lags]
+    mean_corr = np.mean(all_corrs, axis=1)
+
+    return all_corrs, mean_corr, electrode_list
 
 
 def save_max_correlations(args, prod_max, comp_max, prod_list):
@@ -74,10 +76,6 @@ def save_max_correlations(args, prod_max, comp_max, prod_list):
     df = df[['electrode', 'production', 'comprehension']]
     df.to_csv(args.max_corr_csv, index=False)
     return
-
-
-def extract_electrode_list():
-    pass
 
 
 def parse_arguments():
@@ -119,95 +117,88 @@ def initial_setup(args):
     return
 
 
-def plot_average_correlations_multiple(pp, prod_corr_mean, comp_corr_mean,
-                                       args):
-    fig, ax = plt.subplots()
-    lags = np.arange(-5000, 5001, 25)
-    data = np.vstack([prod_corr_mean, comp_corr_mean])
+def set_plot_styles(args):
+    linestyles = ['-', '--', ':']
+    color = ['b', 'r']
+
+    linestyles = np.repeat(linestyles[0:len(args.labels)], 2)
+    color = color * len(args.labels)
+
+    return (color, linestyles)
+
+
+def set_legend_labels(args):
     legend_labels = []
-    for item in ['production', 'comprehension']:
-        for label in args.labels:
+
+    for label in args.labels:
+        for item in ['production', 'comprehension']:
             legend_labels.append(r'\textit{' + '-'.join([label, item]) + '}')
+    return legend_labels
 
-    linestyles = ['-', '--'] * (data.shape[0] // 2)
 
-    color_set = ['b', 'r']
-    color = [val for val in color_set for _ in range(data.shape[0] // 2)]
+def plot_data(args, data, pp, title=None):
+    lags = np.arange(-5000, 5001, 25)
+
+    fig, ax = plt.subplots()
+    color, linestyles = set_plot_styles(args)
     ax.set_prop_cycle(color=color, linestyle=linestyles)
-
     ax.plot(lags, data.T, linewidth=0.75)
-    ax.legend(legend_labels, frameon=False)
+    ax.legend(set_legend_labels(args), frameon=False)
     ax.set(xlabel=r'\textit{lag (s)}',
            ylabel=r'\textit{correlation}',
-           title=r'\textit{Average Correlation (all electrodes)}')
+           title=title)
     ax.set_ylim(-0.05, 0.50)
-    ax.vlines(0, -.05, 0.50, linestyles='dashed', linewidth=.75)
+    ax.vlines(0, -0.05, 0.50, linestyles='dashed', linewidth=.75)
 
     pp.savefig(fig)
     plt.close()
 
 
+def plot_average_correlations_multiple(pp, prod_corr_mean, comp_corr_mean,
+                                       args):
+
+    data = np.vstack([prod_corr_mean, comp_corr_mean])
+    plot_data(args, data, pp, r'\textit{Average Correlation (all electrodes)}')
+
+
 def plot_individual_correlation_multiple(pp, prod_corr, comp_corr, prod_list,
                                          args):
     prod_list = [item.replace('_', '\_') for item in prod_list]
-
     prod_corr = np.moveaxis(prod_corr, [0, 1, 2], [1, 0, 2])
     comp_corr = np.moveaxis(comp_corr, [0, 1, 2], [1, 0, 2])
 
     for prod_row, comp_row, electrode_id in zip(prod_corr, comp_corr,
                                                 prod_list):
-
-        fig, ax = plt.subplots()
-        lags = np.arange(-5000, 5001, 25)
-
         data = np.vstack([prod_row, comp_row])
-
-        legend_labels = []
-        for item in ['production', 'comprehension']:
-            for label in args.labels:
-                legend_labels.append(r'\textit{' + '-'.join([label, item]) +
-                                     '}')
-
-        linestyles = ['-', '--'] * (data.shape[0] // 2)
-
-        color_set = ['b', 'r']
-        color = [val for val in color_set for _ in range(data.shape[0] // 2)]
-        ax.set_prop_cycle(color=color, linestyle=linestyles)
-
-        ax.plot(lags, data.T, linewidth=0.75)
-
-        ax.legend(legend_labels, frameon=False)
-        ax.set(xlabel=r'\textit{lag (s)}',
-               ylabel=r'\textit{correlation}',
-               title=electrode_id)
-        ax.set_ylim(-0.05, 0.40)
-        ax.vlines(0, -.05, 0.40, linestyles='dashed', linewidth=.75)
-
-        pp.savefig(fig)
-        plt.close()
+        plot_data(args, data, pp, electrode_id)
 
 
 if __name__ == '__main__':
+    # Parse input arguments
     args = parse_arguments()
-    args.output_pdf = os.path.join(os.getcwd(), args.output_file_name + '.pdf')
-    args.electrode_file = os.path.join(os.getcwd(), 'data', str(args.sid), str(args.sid) + '_electrode_names.pkl')
+
+    args.output_pdf = os.path.join(os.getcwd(), 'results', 'figures',
+                                   args.output_file_name + '.pdf')
+    args.electrode_file = os.path.join(os.getcwd(), 'data', str(args.sid),
+                                       str(args.sid) + '_electrode_names.pkl')
 
     assert len(args.input_directory) == len(args.labels), "Unequal number of"
 
+    # Results folders to be plotted
     results_dirs = [
         glob.glob(os.path.join(os.getcwd(), 'results', directory))[0]
         for directory in args.input_directory
     ]
 
-    prod_corr, prod_corr_mean, prod_list = extract_correlations(args, results_dirs, 'prod')
+    prod_corr, prod_corr_mean, prod_list = extract_correlations(
+        args, results_dirs, 'prod')
 
-    comp_corr, comp_corr_mean, _ = extract_correlations(args, results_dirs, 'comp')
+    comp_corr, comp_corr_mean, _ = extract_correlations(
+        args, results_dirs, 'comp')
 
     # Find maximum correlations (across all lags)
     prod_max = np.max(prod_corr, axis=-1)  # .reshape(-1, 1)
     comp_max = np.max(comp_corr, axis=-1)  # .reshape(-1, 1)
-
-    # electrode_list = extract_electrode_list()
 
     # save correlations to a file
     # save_max_correlations(args, prod_max, comp_max, prod_list)
