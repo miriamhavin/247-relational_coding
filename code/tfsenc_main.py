@@ -1,9 +1,10 @@
 import argparse
-import csv
+import glob
 import os
 import pickle
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 from scipy.io import loadmat
 
@@ -75,33 +76,117 @@ def parse_arguments():
     return args
 
 
-def write_electrodes(args, electrode_names):
-    with open(os.path.join(args.full_output_dir, 'electrodes.csv'), 'w') as f:
-        write = csv.writer(f)
-        write.writerows([electrode_names])
+def trim_signal(signal):
+    bin_size = 32  # 62.5 ms (62.5/1000 * 512)
+    signal_length = signal.shape[0]
+
+    if signal_length < bin_size:
+        print("Ignoring conversation: Small signal")
+        return None
+
+    cutoff_portion = signal_length % bin_size
+    if cutoff_portion:
+        signal = signal[:-cutoff_portion, :]
+
+    return signal
+
+
+def load_electrode_data(args, elec_id):
+    '''Loads specific electrodes mat files
+    '''
+    DATA_DIR = '/projects/HASSON/247/data/conversations-car'
+    convos = sorted(glob.glob(os.path.join(DATA_DIR, str(args.sid), '*')))
+
+    all_signal = []
+    for convo in convos:
+        file = glob.glob(
+            os.path.join(convo, 'preprocessed',
+                         '*' + str(elec_id) + '.mat'))[0]
+        mat_signal = loadmat(file)['p1st']
+
+        # mat_signal = trim_signal(mat_signal)
+
+        if mat_signal is None:
+            continue
+        all_signal.append(mat_signal)
+
+    elec_signal = np.vstack(all_signal)
+
+    return elec_signal
+
+
+def process_datum(args, df):
+    df['is_nan'] = df['embeddings'].apply(lambda x: np.isnan(x).all())
+
+    # drop empty embeddings
+    df = df[~df['is_nan']]
+
+    # use columns where token is root
+    if 'gpt2' in [args.align_with, args.emb_type]:
+        df = df[df['gpt2_token_is_root']]
+    elif 'bert' in [args.align_with, args.emb_type]:
+        df = df[df['bert_token_is_root']]
+    else:
+        pass
+
+    df = df[~df['glove50_embeddings'].isna()]
+
+    if args.emb_type == 'glove50':
+        df['embeddings'] = df['glove50_embeddings']
+
+    return df
+
+
+def load_processed_datum(args):
+    conversations = sorted(
+        glob.glob(
+            os.path.join(os.getcwd(), 'data', str(args.sid), 'conv_embeddings',
+                         '*')))
+    all_datums = []
+    for conversation in conversations:
+        datum = load_pickle(conversation)
+        df = pd.DataFrame.from_dict(datum)
+        df = process_datum(args, df)
+        all_datums.append(df)
+
+    concatenated_datum = pd.concat(all_datums, ignore_index=True)
+
+    return concatenated_datum
 
 
 def process_subjects(args, datum):
     """Run encoding on particular subject (requires specifying electrodes)
     """
-    trimmed_signal_dict = load_pickle(
-        os.path.join(args.PICKLE_DIR, str(args.sid), args.signal_file))
+    electrode_info = load_pickle(
+        os.path.join(args.PICKLE_DIR, str(args.sid), args.electrode_file))
 
-    trimmed_signal = trimmed_signal_dict['trimmed_signal']
-    electrode_ids = trimmed_signal_dict['electrode_ids']
-    electrode_names = trimmed_signal_dict['electrode_names']
+    # trimmed_signal = trimmed_signal_dict['trimmed_signal']
+
+    # if args.electrodes:
+    #     indices = [electrode_ids.index(i) for i in args.electrodes]
+
+    #     trimmed_signal = trimmed_signal[:, indices]
+    #     electrode_names = [electrode_names[i] for i in indices]
 
     if args.electrodes:
-        indices = [electrode_ids.index(i) for i in args.electrodes]
-
-        trimmed_signal = trimmed_signal[:, indices]
-        electrode_names = [electrode_names[i] for i in indices]
+        electrode_info = {
+            key: electrode_info.get(key, None)
+            for key in args.electrodes
+        }
 
     # Loop over each electrode
-    for elec_signal, name in zip(trimmed_signal.T, electrode_names):
-        encoding_regression(args, args.sid, datum, elec_signal, name)
+    for elec_id, elec_name in electrode_info.items():
 
-    write_electrodes(args, electrode_names)
+        if elec_name is None:
+            print(f'Electrode ID {elec_id} does not exist')
+            continue
+
+        elec_signal = load_electrode_data(args, elec_id)
+        # datum = load_processed_datum(args)
+
+        encoding_regression(args, args.sid, datum, elec_signal, elec_name)
+
+    # write_electrodes(args, electrode_names)
 
     return
 
