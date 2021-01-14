@@ -4,8 +4,6 @@ import pickle
 import numpy as np
 import pandas as pd
 
-# import statistics
-
 
 def load_pickle(file):
     """Load the datum pickle and returns as a dataframe
@@ -14,12 +12,21 @@ def load_pickle(file):
         file (string): labels pickle from 247-decoding/tfs_pickling.py
 
     Returns:
-        DataFrame: pickle contents returned as dataframe
+        dict/list: pickle contents returned as dataframe
     """
     with open(file, 'rb') as fh:
         datum = pickle.load(fh)
 
     return datum
+
+
+def drop_nan_embeddings(df):
+    """Drop rows containing all nan's for embedding
+    """    
+    df['is_nan'] = df['embeddings'].apply(lambda x: np.isnan(x).all())
+    df = df[~df['is_nan']]
+
+    return df
 
 
 def read_datum(args):
@@ -39,13 +46,7 @@ def read_datum(args):
     datum = load_pickle(file_name)
 
     df = pd.DataFrame.from_dict(datum)
-    # df = df.dropna(subset=['embeddings'])
-
-    # is_embedding_nan()
-    df['is_nan'] = df['embeddings'].apply(lambda x: np.isnan(x).all())
-
-    # drop empty embeddings
-    df = df[~df['is_nan']]
+    df = drop_nan_embeddings(df)
 
     # use columns where token is root
     if 'gpt2' in [args.align_with, args.emb_type]:
@@ -57,6 +58,7 @@ def read_datum(args):
 
     df = df[~df['glove50_embeddings'].isna()]
 
+    # if encoding is on glove embeddings copy them into 'embeddings' column
     if args.emb_type == 'glove50':
         df['embeddings'] = df['glove50_embeddings']
 
