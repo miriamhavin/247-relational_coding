@@ -1,27 +1,34 @@
 FILE := tfsenc_main
 USR := $(shell whoami | head -c 2)
-DT := $(shell date +"%Y%m%d")
+DT := $(shell date +"%Y%m%d-%H%M")
 
-E_LIST := $(shell seq 1 2)
+# 625 Electrode IDs
+# E_LIST := $(shell seq 15 15)
+
+# 676 Electrode IDs
+E_LIST := $(shell seq 1 1)
+
 SID := 625
 NPERM := 1
-LAGS := {-5000..5000..500}
+LAGS := {-5000..5000..25}
+# LAGS := 0
 EMB := gpt2
-EMB_DIM := 768
-EMB_RED_DIM := 50
 WS := 200
-CNXT_LEN := 512
+CNXT_LEN := 1024
+ALIGN_WITH := gpt2
+ALIGN_TGT_CNXT_LEN := 1024
 
 MWF := 1
 WV := all
 
 # SH := --shuffle
 # PSH := --phase-shuffle
-PCA := --pca-flag
-PCA_TO := 50 
+# PCA := --pca-flag
+PCA_TO := 50
 
 CMD := python
 # CMD := sbatch submit1.sh
+# CMD := echo
 
 # move paths to makefile
 
@@ -29,7 +36,6 @@ CMD := python
 # make separate models with separate electrodes (all at once is possible)
 PDIR := $(shell dirname `pwd`)
 link-data:
-	find data/ -xtype l -delete
 	ln -fs $(PDIR)/247-pickling/results/* data/
 
 target1:
@@ -50,6 +56,8 @@ run-encoding:
 		--electrodes $(E_LIST) \
 		--emb-type $(EMB) \
 		--context-length $(CNXT_LEN) \
+		--align-with $(ALIGN_WITH) \
+		--align-target-context-length $(ALIGN_TGT_CNXT_LEN) \
 		--window-size $(WS) \
 		--word-value $(WV) \
 		--npermutations $(NPERM) \
@@ -59,13 +67,29 @@ run-encoding:
 		--reduce-to $(PCA_TO) \
 		$(SH) \
 		$(PSH) \
-		--output-prefix test-$(DT)-$(USR)-$(WS)ms-$(WV); \
+		--output-prefix colton-test-$(DT)-$(USR)-$(WS)ms-$(WV); \
 
-plot-encoding:
-	python code/tfsenc_plots.py \
-		--sid $(SID) \
-		--input-directory $(DT)-$(USR)-$(WS)ms-$(WV)-$(EMB)-$(SID) \
-		--embedding-type $(EMB);
+run-encoding-slurm:
+	mkdir -p logs
+	for elec in $(E_LIST); do \
+		$(CMD) code/$(FILE).py \
+			--sid $(SID) \
+			--electrodes $$elec \
+			--emb-type $(EMB) \
+			--context-length $(CNXT_LEN) \
+			--align-with $(ALIGN_WITH) \
+			--align-target-context-length $(ALIGN_TGT_CNXT_LEN) \
+			--window-size $(WS) \
+			--word-value $(WV) \
+			--npermutations $(NPERM) \
+			--lags $(LAGS) \
+			--min-word-freq $(MWF) \
+			$(PCA) \
+			--reduce-to $(PCA_TO) \
+			$(SH) \
+			$(PSH) \
+			--output-prefix $(DT)-$(USR)-$(WS)ms-$(WV); \
+	done
 
 pca-on-embedding:
 	python code/tfsenc_pca.py \
@@ -77,10 +101,14 @@ pca-on-embedding:
 plot-encoding1:
 	mkdir -p results/figures
 	python code/tfsenc_plots.py \
+			--sid $(SID) \
 			--input-directory \
-				20210105-hg-200ms-all-gpt2-625 \
+				20210114-0845-hg-200ms-all-676-gpt2-cnxt-1024-pca_0d \
+				20210114-0845-hg-200ms-all-676-gpt2-cnxt-1024-pca_50d \
+				20210114-0844-hg-200ms-all-676-glove50-cnxt-0-pca_0d \
 			--labels \
-				gpt2-768 \
+				gpt2-Fcnxt-pca0d \
+				gpt2-Fcnxt-pca50d \
+				glove50 \
 			--output-file-name \
-				'test_harsha1' \
-			;
+				'$(DT)-$(SID)-glove50_gpt2-xl_Fcnxt-gpt2-xl_Fcnxt-pca_50d';
