@@ -121,8 +121,8 @@ def set_plot_styles(args):
     linestyles = ['-', '--', ':']
     color = ['b', 'r']
 
-    linestyles = np.repeat(linestyles[0:len(args.labels)], 2)
-    color = color * len(args.labels)
+    linestyles = linestyles[0:len(args.labels)] * 2
+    color = np.repeat(color[0:len(args.labels)], len(args.labels))
 
     return (color, linestyles)
 
@@ -130,8 +130,8 @@ def set_plot_styles(args):
 def set_legend_labels(args):
     legend_labels = []
 
-    for label in args.labels:
-        for item in ['production', 'comprehension']:
+    for item in ['production', 'comprehension']:
+        for label in args.labels:
             legend_labels.append(r'\textit{' + '-'.join([label, item]) + '}')
     return legend_labels
 
