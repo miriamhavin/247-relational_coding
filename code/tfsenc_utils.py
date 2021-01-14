@@ -1,14 +1,12 @@
 import csv
 import os
-import sys
-from datetime import datetime
 
 import mat73
 import numpy as np
 from numba import jit, prange
 from scipy import stats
 from sklearn.model_selection import KFold
-from tfsenc_phase_shuffle import phase_shuffle
+from tfsenc_phase_shuffle import phase_randomize
 
 
 def encColCorr(CA, CB):
@@ -156,17 +154,6 @@ def build_Y(onsets, brain_signal, lags, window_size):
     return Y1
 
 
-def make_Y(args, onsets, brain_signal, lags, window_size):
-    Y = build_Y(onsets, brain_signal, lags, window_size)
-
-    if args.phase_shuffle:
-        pass
-    else:
-        Y = np.mean(Y, axis=-1)
-
-    return Y
-
-
 def build_XY(args, datum, brain_signal):
     """[summary]
 
@@ -185,23 +172,27 @@ def build_XY(args, datum, brain_signal):
     lags = np.array(args.lags)
     brain_signal = brain_signal.reshape(-1, 1)
 
-    Y = make_Y(args, onsets, brain_signal, lags, args.window_size)
+    Y = build_Y(onsets, brain_signal, lags, args.window_size)
 
     return X, Y
 
 
 def encode_lags_numba(args, X, Y):
     """[summary]
-
     Args:
         X ([type]): [description]
         Y ([type]): [description]
-
     Returns:
         [type]: [description]
     """
     if args.shuffle:
         np.random.shuffle(Y)
+    
+    if args.phase_shuffle:
+        Y = phase_randomize(Y)
+
+    Y = np.mean(Y, axis=-1)
+
     PY_hat = cv_lm_003(X, Y, 10)
     rp, _, _ = encColCorr(Y, PY_hat)
 
