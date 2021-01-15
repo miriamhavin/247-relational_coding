@@ -93,7 +93,7 @@ def cv_lm_003(X, Y, kfolds):
         Ytes -= np.mean(Ytes, axis=0)
 
         # Fit model
-        B = fit_model(Xtra, Ytra)
+        B = np.linalg.pinv(Xtra) @ Ytra
 
         # Predict
         foldYhat = Xtes @ B
@@ -187,7 +187,7 @@ def encode_lags_numba(args, X, Y):
     """
     if args.shuffle:
         np.random.shuffle(Y)
-    
+
     if args.phase_shuffle:
         Y = phase_randomize(Y)
 
