@@ -1,5 +1,6 @@
 import math
 
+import numexpr as ne
 import numpy as np
 from scipy.fftpack import fft, ifft
 
@@ -37,6 +38,8 @@ def phase_randomize(data):
 
     n_examples, n_lags, n_samples = data.shape
 
+    np.random.seed(seed=np.random.randint(10000))
+
     # Get randomized phase shifts
     if n_samples % 2 == 0:
         pos_freq = np.arange(1, n_samples // 2)
@@ -52,8 +55,14 @@ def phase_randomize(data):
     fft_data = np.fft.fft(data, axis=-1)
 
     # Shift pos and neg frequencies symmetrically, to keep signal real
-    fft_data[:, :, pos_freq] *= np.exp(1j * phase_shifts)
-    fft_data[:, :, neg_freq] *= np.exp(-1j * phase_shifts)
+    # fft_data[:, :, pos_freq] *= jnp.exp(1j * phase_shifts)
+    # fft_data[:, :, neg_freq] *= jnp.exp(-1j * phase_shifts)
+
+    a = fft_data[:, :, pos_freq]
+    b = fft_data[:, :, neg_freq]
+
+    fft_data[:, :, pos_freq] = ne.evaluate('a * exp(1j * phase_shifts)')
+    fft_data[:, :, neg_freq] = ne.evaluate('b * exp(-1j * phase_shifts)')
 
     # Inverse FFT to put data back in time domain
     shifted_data = np.real(ifft(fft_data, axis=-1))
