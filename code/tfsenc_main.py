@@ -7,7 +7,6 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
-
 from tfsenc_pca import run_pca
 from tfsenc_read_datum import read_datum
 from tfsenc_utils import encoding_regression, load_header, setup_environ

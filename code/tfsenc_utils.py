@@ -1,5 +1,7 @@
 import csv
 import os
+from functools import partial
+from multiprocessing import Pool
 
 import mat73
 import numpy as np
@@ -199,6 +201,11 @@ def encode_lags_numba(args, X, Y):
     return rp
 
 
+def encoding_mp(_, args, prod_X, prod_Y):
+    perm_rc = encode_lags_numba(args, prod_X, prod_Y)
+    return perm_rc
+
+
 def run_save_permutation(args, prod_X, prod_Y, filename):
     """[summary]
 
@@ -209,10 +216,10 @@ def run_save_permutation(args, prod_X, prod_Y, filename):
         filename ([type]): [description]
     """
     if prod_X.shape[0]:
-        perm_prod = []
-        for _ in range(args.npermutations):
-            perm_rc = encode_lags_numba(args, prod_X, prod_Y)
-            perm_prod.append(perm_rc)
+        with Pool() as pool:
+            perm_prod = pool.map(
+                partial(encoding_mp, args=args, prod_X=prod_X, prod_Y=prod_Y),
+                range(args.npermutations))
 
         perm_prod = np.stack(perm_prod)
         with open(filename, 'w') as csvfile:
