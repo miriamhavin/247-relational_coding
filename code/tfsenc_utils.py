@@ -221,7 +221,6 @@ def run_save_permutation(args, prod_X, prod_Y, filename):
                 partial(encoding_mp, args=args, prod_X=prod_X, prod_Y=prod_Y),
                 range(args.npermutations))
 
-        perm_prod = np.stack(perm_prod)
         with open(filename, 'w') as csvfile:
             csvwriter = csv.writer(csvfile)
             csvwriter.writerows(perm_prod)
