@@ -118,7 +118,7 @@ def load_electrode_data(args, elec_id):
     convos = sorted(glob.glob(os.path.join(DATA_DIR, str(args.sid), '*')))
 
     all_signal = []
-    for convo in convos[:1]:
+    for convo in convos:
         file = glob.glob(
             os.path.join(convo, 'preprocessed',
                          '*' + str(elec_id) + '.mat'))[0]
@@ -177,9 +177,6 @@ def load_processed_datum(args):
 def process_subjects(args):
     """Run encoding on particular subject (requires specifying electrodes)
     """
-    electrode_info = load_pickle(
-        os.path.join(args.PICKLE_DIR, args.electrode_file))
-
     # trimmed_signal = trimmed_signal_dict['trimmed_signal']
 
     # if args.electrodes:
@@ -187,6 +184,9 @@ def process_subjects(args):
 
     #     trimmed_signal = trimmed_signal[:, indices]
     #     electrode_names = [electrode_names[i] for i in indices]
+
+    electrode_info = load_pickle(
+        os.path.join(args.PICKLE_DIR, args.electrode_file))
 
     if args.electrodes:
         electrode_info = {
