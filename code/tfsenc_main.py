@@ -18,20 +18,6 @@ from tfsenc_utils import (append_jobid_to_string, create_output_directory,
                           load_header, setup_environ)
 
 
-def main_timer(func):
-    def function_wrapper():
-        start_time = datetime.now()
-        print(f'Start Time: {start_time.strftime("%A %m/%d/%Y %H:%M:%S")}')
-
-        func()
-
-        end_time = datetime.now()
-        print(f'End Time: {end_time.strftime("%A %m/%d/%Y %H:%M:%S")}')
-        print(f'Total runtime: {end_time - start_time} (HH:MM:SS)')
-
-    return
-
-
 def load_pickle(file):
     """Load the datum pickle and returns as a dataframe
 
@@ -212,7 +198,7 @@ def process_subjects(args):
 
 
 def process_sig_electrodes(args, datum):
-    """Run encoding on select significant electrodes specified by a file 
+    """Run encoding on select significant electrodes specified by a file
     """
     flag = 'prediction_presentation' if not args.tiger else ''
 
@@ -297,10 +283,10 @@ def this_is_where_you_perform_regression(args, electrode_info, datum):
             write_output(args, comp_corr, elec_name, 'comp')
         else:
             encoding_regression(args, datum, elec_signal, elec_name)
-    return
+
+    return None
 
 
-@main_timer
 def main():
     # Read command line arguments
     args = parse_arguments()
@@ -322,4 +308,11 @@ def main():
 
 
 if __name__ == "__main__":
+    start_time = datetime.now()
+    print(f'Start Time: {start_time.strftime("%A %m/%d/%Y %H:%M:%S")}')
+
     main()
+
+    end_time = datetime.now()
+    print(f'End Time: {end_time.strftime("%A %m/%d/%Y %H:%M:%S")}')
+    print(f'Total runtime: {end_time - start_time} (HH:MM:SS)')
