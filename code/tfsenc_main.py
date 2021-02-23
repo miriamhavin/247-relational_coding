@@ -1,99 +1,20 @@
-import argparse
 import csv
 import glob
 import os
-import pickle
-from datetime import datetime
 from functools import partial
 from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
+from tfsenc_parser import parse_arguments
 from tfsenc_pca import run_pca
 from tfsenc_phase_shuffle import phase_randomize_1d
 from tfsenc_read_datum import read_datum
 from tfsenc_utils import (append_jobid_to_string, create_output_directory,
                           encoding_regression, encoding_regression_pr,
                           load_header, setup_environ)
-
-
-def main_timer(func):
-    def function_wrapper():
-        start_time = datetime.now()
-        print(f'Start Time: {start_time.strftime("%A %m/%d/%Y %H:%M:%S")}')
-
-        func()
-
-        end_time = datetime.now()
-        print(f'End Time: {end_time.strftime("%A %m/%d/%Y %H:%M:%S")}')
-        print(f'Total runtime: {end_time - start_time} (HH:MM:SS)')
-
-    return function_wrapper
-
-
-def load_pickle(file):
-    """Load the datum pickle and returns as a dataframe
-
-    Args:
-        file (string): labels pickle from 247-decoding/tfs_pickling.py
-
-    Returns:
-        DataFrame: pickle contents returned as dataframe
-    """
-    with open(file, 'rb') as fh:
-        datum = pickle.load(fh)
-
-    return datum
-
-
-def parse_arguments():
-    """Read commandline arguments
-    Returns:
-        Namespace: input as well as default arguments
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--word-value', type=str, default='all')
-    parser.add_argument('--window-size', type=int, default=200)
-
-    group1 = parser.add_mutually_exclusive_group()
-    group1.add_argument('--shuffle', action='store_true', default=False)
-    group1.add_argument('--phase-shuffle', action='store_true', default=False)
-
-    parser.add_argument('--lags', nargs='+', type=int)
-    parser.add_argument('--output-prefix', type=str, default='test')
-    parser.add_argument('--emb-type', type=str, default=None)
-    parser.add_argument('--context-length', type=int, default=0)
-    parser.add_argument('--datum-emb-fn',
-                        type=str,
-                        default='podcast-datum-glove-50d.csv')
-    parser.add_argument('--electrodes', nargs='*', type=int)
-    parser.add_argument('--npermutations', type=int, default=1)
-    parser.add_argument('--min-word-freq', nargs='?', type=int, default=1)
-    parser.add_argument('--job-id', type=int, default=0)
-
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('--sid', nargs='?', type=int, default=None)
-    group.add_argument('--sig-elec-file', nargs='?', type=str, default=None)
-
-    parser.add_argument('--pca-flag', action='store_true', default=False)
-    parser.add_argument('--reduce-to', type=int, default=0)
-
-    parser.add_argument('--align-with', type=str, default=None)
-    parser.add_argument('--align-target-context-length', type=int, default=0)
-
-    args = parser.parse_args()
-
-    if not args.pca_flag:
-        args.reduce_to = 0
-
-    if args.pca_flag and not args.reduce_to:
-        parser.error("Cannot reduce PCA to 0 dimensions")
-
-    if not args.sid and args.electrodes:
-        parser.error("--electrodes requires --sid")
-
-    return args
+from utils import load_pickle, main_timer
 
 
 def trim_signal(signal):
