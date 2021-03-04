@@ -213,8 +213,7 @@ def this_is_where_you_perform_regression(args, electrode_info, datum):
                             name=elec_name), range(args.npermutations))
 
             prod_corr, comp_corr = map(list, zip(*corr))
-            print("i am out")
-            write_output(args, comp_corr, elec_name, 'prod')
+            write_output(args, prod_corr, elec_name, 'prod')
             write_output(args, comp_corr, elec_name, 'comp')
         else:
             encoding_regression(args, datum, elec_signal, elec_name)
