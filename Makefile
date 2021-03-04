@@ -9,19 +9,19 @@ DT := $(shell date +"%Y%m%d-%H%M")
 E_LIST := $(shell seq 1 1)
 
 SID := 625
-NPERM := 1
-LAGS := {-5000..5000..25}
+NPERM := 2
+LAGS := {-50..50..25}
 # LAGS := 0
-EMB := gpt2
+EMB := gpt2-xl
 WS := 200
 CNXT_LEN := 1024
-ALIGN_WITH := gpt2
+ALIGN_WITH := gpt2-xl
 ALIGN_TGT_CNXT_LEN := 1024
 
 MWF := 1
 WV := all
 
-# SH := --shuffle
+SH := --shuffle
 # PSH := --phase-shuffle
 # PCA := --pca-flag
 PCA_TO := 50
@@ -72,24 +72,27 @@ run-encoding:
 run-encoding-slurm:
 	mkdir -p logs
 	for elec in $(E_LIST); do \
-		$(CMD) code/$(FILE).py \
-			--sid $(SID) \
-			--electrodes $$elec \
-			--emb-type $(EMB) \
-			--context-length $(CNXT_LEN) \
-			--align-with $(ALIGN_WITH) \
-			--align-target-context-length $(ALIGN_TGT_CNXT_LEN) \
-			--window-size $(WS) \
-			--word-value $(WV) \
-			--npermutations $(NPERM) \
-			--lags $(LAGS) \
-			--min-word-freq $(MWF) \
-			$(PCA) \
-			--reduce-to $(PCA_TO) \
-			$(SH) \
-			$(PSH) \
-			--output-prefix $(DT)-$(USR)-$(WS)ms-$(WV); \
-	done
+		for jobid in $(shell seq 1 1); do \
+			$(CMD) code/$(FILE).py \
+				--sid $(SID) \
+				--electrodes $$elec \
+				--emb-type $(EMB) \
+				--context-length $(CNXT_LEN) \
+				--align-with $(ALIGN_WITH) \
+				--align-target-context-length $(ALIGN_TGT_CNXT_LEN) \
+				--window-size $(WS) \
+				--word-value $(WV) \
+				--npermutations $(NPERM) \
+				--lags $(LAGS) \
+				--min-word-freq $(MWF) \
+				$(PCA) \
+				--reduce-to $(PCA_TO) \
+				$(SH) \
+				$(PSH) \
+				--output-prefix test-$(DT)-$(USR)-$(WS)ms-$(WV) \
+				--job-id $$jobid; \
+		done; \
+	done;
 
 pca-on-embedding:
 	python code/tfsenc_pca.py \

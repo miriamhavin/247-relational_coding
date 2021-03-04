@@ -41,8 +41,7 @@ def read_datum(args):
     Returns:
         DataFrame: processed datum
     """
-    file_name = os.path.join(args.PICKLE_DIR, str(args.sid),
-                             args.load_emb_file)
+    file_name = os.path.join(args.PICKLE_DIR, args.load_emb_file)
     datum = load_pickle(file_name)
 
     df = pd.DataFrame.from_dict(datum)

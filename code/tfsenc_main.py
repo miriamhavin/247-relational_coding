@@ -1,78 +1,20 @@
-import argparse
+import csv
 import glob
 import os
-import pickle
-from datetime import datetime
+from functools import partial
+from multiprocessing import Pool
 
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
+from tfsenc_parser import parse_arguments
 from tfsenc_pca import run_pca
+from tfsenc_phase_shuffle import phase_randomize_1d
 from tfsenc_read_datum import read_datum
-from tfsenc_utils import encoding_regression, load_header, setup_environ
-
-
-def load_pickle(file):
-    """Load the datum pickle and returns as a dataframe
-
-    Args:
-        file (string): labels pickle from 247-decoding/tfs_pickling.py
-
-    Returns:
-        DataFrame: pickle contents returned as dataframe
-    """
-    with open(file, 'rb') as fh:
-        datum = pickle.load(fh)
-
-    return datum
-
-
-def parse_arguments():
-    """Read commandline arguments
-    Returns:
-        Namespace: input as well as default arguments
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--word-value', type=str, default='all')
-    parser.add_argument('--window-size', type=int, default=200)
-
-    group1 = parser.add_mutually_exclusive_group()
-    group1.add_argument('--shuffle', action='store_true', default=False)
-    group1.add_argument('--phase-shuffle', action='store_true', default=False)
-
-    parser.add_argument('--lags', nargs='+', type=int)
-    parser.add_argument('--output-prefix', type=str, default='test')
-    parser.add_argument('--emb-type', type=str, default=None)
-    parser.add_argument('--context-length', type=int, default=0)
-    parser.add_argument('--datum-emb-fn',
-                        type=str,
-                        default='podcast-datum-glove-50d.csv')
-    parser.add_argument('--electrodes', nargs='*', type=int)
-    parser.add_argument('--npermutations', type=int, default=1)
-    parser.add_argument('--min-word-freq', nargs='?', type=int, default=1)
-
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('--sid', nargs='?', type=int, default=None)
-    group.add_argument('--sig-elec-file', nargs='?', type=str, default=None)
-
-    parser.add_argument('--pca-flag', action='store_true', default=False)
-    parser.add_argument('--reduce-to', type=int, default=0)
-
-    parser.add_argument('--align-with', type=str, default=None)
-    parser.add_argument('--align-target-context-length', type=int, default=0)
-
-    args = parser.parse_args()
-
-    if not args.pca_flag:
-        args.reduce_to = 0
-
-    if args.pca_flag and not args.reduce_to:
-        parser.error("Cannot reduce PCA to 0 dimensions")
-
-    if not args.sid and args.electrodes:
-        parser.error("--electrodes requires --sid")
-
-    return args
+from tfsenc_utils import (append_jobid_to_string, create_output_directory,
+                          encoding_regression, encoding_regression_pr,
+                          load_header, setup_environ)
+from utils import load_pickle, main_timer
 
 
 def trim_signal(signal):
@@ -153,12 +95,9 @@ def load_processed_datum(args):
     return concatenated_datum
 
 
-def process_subjects(args, datum):
+def process_subjects(args):
     """Run encoding on particular subject (requires specifying electrodes)
     """
-    electrode_info = load_pickle(
-        os.path.join(args.PICKLE_DIR, str(args.sid), args.electrode_file))
-
     # trimmed_signal = trimmed_signal_dict['trimmed_signal']
 
     # if args.electrodes:
@@ -167,31 +106,34 @@ def process_subjects(args, datum):
     #     trimmed_signal = trimmed_signal[:, indices]
     #     electrode_names = [electrode_names[i] for i in indices]
 
+    electrode_info = load_pickle(
+        os.path.join(args.PICKLE_DIR, args.electrode_file))
+
     if args.electrodes:
         electrode_info = {
             key: electrode_info.get(key, None)
             for key in args.electrodes
         }
 
-    # Loop over each electrode
-    for elec_id, elec_name in electrode_info.items():
+    # # Loop over each electrode
+    # for elec_id, elec_name in electrode_info.items():
 
-        if elec_name is None:
-            print(f'Electrode ID {elec_id} does not exist')
-            continue
+    #     if elec_name is None:
+    #         print(f'Electrode ID {elec_id} does not exist')
+    #         continue
 
-        elec_signal = load_electrode_data(args, elec_id)
-        # datum = load_processed_datum(args)
+    #     elec_signal = load_electrode_data(args, elec_id)
+    #     # datum = load_processed_datum(args)
 
-        encoding_regression(args, args.sid, datum, elec_signal, elec_name)
+    #     encoding_regression(args, datum, elec_signal, elec_name)
 
-    # write_electrodes(args, electrode_names)
+    # # write_electrodes(args, electrode_names)
 
-    return
+    return electrode_info
 
 
 def process_sig_electrodes(args, datum):
-    """Run encoding on select significant electrodes specified by a file 
+    """Run encoding on select significant electrodes specified by a file
     """
     flag = 'prediction_presentation' if not args.tiger else ''
 
@@ -228,10 +170,59 @@ def process_sig_electrodes(args, datum):
     return
 
 
-if __name__ == "__main__":
-    start_time = datetime.now()
-    print(f'Start Time: {start_time.strftime("%A %m/%d/%Y %H:%M:%S")}')
+def dumdum1(iter_idx, args, datum, signal, name):
+    np.random.seed(iter_idx)
+    new_signal = phase_randomize_1d(signal)
+    (prod_corr, comp_corr) = encoding_regression_pr(args, datum, new_signal,
+                                                    name)
 
+    return (prod_corr, comp_corr)
+
+
+def write_output(args, output_mat, name, output_str):
+
+    output_dir = create_output_directory(args)
+
+    if all(output_mat):
+        trial_str = append_jobid_to_string(args, output_str)
+        filename = os.path.join(output_dir, name + trial_str + '.csv')
+        with open(filename, 'w') as csvfile:
+            csvwriter = csv.writer(csvfile)
+            csvwriter.writerows(output_mat)
+
+
+def this_is_where_you_perform_regression(args, electrode_info, datum):
+
+    # Loop over each electrode
+    for elec_id, elec_name in electrode_info.items():
+
+        if elec_name is None:
+            print(f'Electrode ID {elec_id} does not exist')
+            continue
+
+        elec_signal = load_electrode_data(args, elec_id)
+
+        # Perform encoding/regression
+        if args.phase_shuffle:
+            with Pool(16) as pool:
+                corr = pool.map(
+                    partial(dumdum1,
+                            args=args,
+                            datum=datum,
+                            signal=elec_signal,
+                            name=elec_name), range(args.npermutations))
+
+            prod_corr, comp_corr = map(list, zip(*corr))
+            write_output(args, prod_corr, elec_name, 'prod')
+            write_output(args, comp_corr, elec_name, 'comp')
+        else:
+            encoding_regression(args, datum, elec_signal, elec_name)
+
+    return None
+
+
+@main_timer
+def main():
     # Read command line arguments
     args = parse_arguments()
 
@@ -245,12 +236,11 @@ if __name__ == "__main__":
         datum = run_pca(args, datum)
 
     # Processing significant electrodes or individual subjects
-    if args.sig_elec_file:
-        process_sig_electrodes(args, datum)
-    else:
-        process_subjects(args, datum)
+    electrode_info = process_subjects(args)
+    this_is_where_you_perform_regression(args, electrode_info, datum)
 
-    end_time = datetime.now()
-    print(f'End Time: {end_time.strftime("%A %m/%d/%Y %H:%M:%S")}')
+    return
 
-    print(f'Total runtime: {end_time - start_time} (HH:MM:SS)')
+
+if __name__ == "__main__":
+    main()
