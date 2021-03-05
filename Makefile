@@ -5,24 +5,28 @@ DT := $(shell date +"%Y%m%d-%H%M")
 # 625 Electrode IDs
 # E_LIST := $(shell seq 15 15)
 
+PRJCT_ID := podcast
+PRJCT_ID := tfs
+
 # 676 Electrode IDs
 E_LIST := $(shell seq 1 1)
 
 SID := 625
-NPERM := 2
-LAGS := {-50..50..25}
+CONVERSATION_IDX := 5
+NPERM := 1
+LAGS := {-2000..2000..25}
 # LAGS := 0
 EMB := gpt2-xl
 WS := 200
 CNXT_LEN := 1024
-ALIGN_WITH := gpt2-xl
+ALIGN_WITH := glove50
 ALIGN_TGT_CNXT_LEN := 1024
 
 MWF := 1
 WV := all
 
-SH := --shuffle
-# PSH := --phase-shuffle
+# SH := --shuffle
+PSH := --phase-shuffle
 # PCA := --pca-flag
 PCA_TO := 50
 
@@ -52,7 +56,9 @@ target1:
 run-encoding:
 	mkdir -p logs
 	$(CMD) code/$(FILE).py \
+		--project-id $(PRJCT_ID) \
 		--sid $(SID) \
+		--conversation-id $(CONVERSATION_IDX) \
 		--electrodes $(E_LIST) \
 		--emb-type $(EMB) \
 		--context-length $(CNXT_LEN) \
@@ -67,7 +73,11 @@ run-encoding:
 		--reduce-to $(PCA_TO) \
 		$(SH) \
 		$(PSH) \
-		--output-prefix colton-test-$(DT)-$(USR)-$(WS)ms-$(WV); \
+		--output-parent-dir colton-phase-shuffle \
+		--output-prefix '';\
+
+# Recommended naming convention for output_folder
+#--output-prefix $(USR)-$(WS)ms-$(WV); \
 
 run-encoding-slurm:
 	mkdir -p logs

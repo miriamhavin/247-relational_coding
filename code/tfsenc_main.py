@@ -14,7 +14,7 @@ from tfsenc_read_datum import read_datum
 from tfsenc_utils import (append_jobid_to_string, create_output_directory,
                           encoding_regression, encoding_regression_pr,
                           load_header, setup_environ)
-from utils import load_pickle, main_timer
+from utils import load_pickle, main_timer, write_config
 
 
 def trim_signal(signal):
@@ -39,7 +39,9 @@ def load_electrode_data(args, elec_id):
     convos = sorted(glob.glob(os.path.join(DATA_DIR, str(args.sid), '*')))
 
     all_signal = []
-    for convo in convos:
+    for convo_id, convo in enumerate(convos, 1):
+        if args.conversation_id and convo_id != args.conversation_id:
+            continue
         file = glob.glob(
             os.path.join(convo, 'preprocessed',
                          '*' + str(elec_id) + '.mat'))[0]
@@ -204,7 +206,7 @@ def this_is_where_you_perform_regression(args, electrode_info, datum):
 
         # Perform encoding/regression
         if args.phase_shuffle:
-            with Pool(16) as pool:
+            with Pool() as pool:
                 corr = pool.map(
                     partial(dumdum1,
                             args=args,
@@ -228,6 +230,9 @@ def main():
 
     # Setup paths to data
     args = setup_environ(args)
+
+    # Saving configuration to output directory
+    write_config(vars(args))
 
     # Locate and read datum
     datum = read_datum(args)

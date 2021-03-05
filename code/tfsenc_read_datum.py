@@ -41,11 +41,15 @@ def read_datum(args):
     Returns:
         DataFrame: processed datum
     """
+
     file_name = os.path.join(args.PICKLE_DIR, args.load_emb_file)
     datum = load_pickle(file_name)
 
     df = pd.DataFrame.from_dict(datum)
     df = drop_nan_embeddings(df)
+
+    if args.conversation_id:
+        df = df[df.conversation_id == args.conversation_id]
 
     # use columns where token is root
     if 'gpt2' in [args.align_with, args.emb_type]:

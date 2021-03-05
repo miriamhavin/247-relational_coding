@@ -228,6 +228,7 @@ def run_save_permutation(args, prod_X, prod_Y, filename):
         filename ([type]): [description]
     """
     if prod_X.shape[0]:
+        print('save permutation')
         with Pool(16) as pool:
             perm_prod = pool.map(
                 partial(encoding_mp, args=args, prod_X=prod_X, prod_Y=prod_Y),
@@ -259,12 +260,15 @@ def load_header(conversation_dir, subject_id):
 
 
 def create_output_directory(args):
-    output_prefix_add = '-'.join(args.emb_file.split('_')[:-1])
+    # output_prefix_add = '-'.join(args.emb_file.split('_')[:-1])
 
-    folder_name = '-'.join([args.output_prefix, output_prefix_add])
-    folder_name = folder_name + '-pca_' + str(args.reduce_to) + 'd'
+    # folder_name = folder_name + '-pca_' + str(args.reduce_to) + 'd'
+    # full_output_dir = os.path.join(args.output_dir, folder_name)
 
-    full_output_dir = os.path.join(args.output_dir, folder_name)
+    folder_name = '-'.join([args.output_prefix, str(args.sid)])
+    folder_name = folder_name.strip('-')
+    full_output_dir = os.path.join(os.getcwd(), 'results', args.project_id,
+                                   args.output_parent_dir, folder_name)
 
     os.makedirs(full_output_dir, exist_ok=True)
 
@@ -328,7 +332,8 @@ def encoding_regression(args, datum, elec_signal, name):
 def setup_environ(args):
     """Update args with project specific directories and other flags
     """
-    PICKLE_DIR = os.path.join(os.getcwd(), 'data', str(args.sid), 'pickles')
+    PICKLE_DIR = os.path.join(os.getcwd(), 'data', args.project_id,
+                              str(args.sid), 'pickles')
     path_dict = dict(PICKLE_DIR=PICKLE_DIR)
 
     if args.emb_type == 'glove50':
