@@ -1,16 +1,22 @@
 #!/bin/bash
-#SBATCH --time=02:30:00
-#SBATCH --mem=96GB
+#!/bin/bash
+#SBATCH --time=6:00:00
+#SBATCH --mem=128GB
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=16
 #SBATCH -o './logs/%A.out'
 #SBATCH -e './logs/%A.err'
-##SBATCH --mail-type=fail
-##SBATCH --mail-user=hvgazula@umich.edu
+#SBATCH --mail-type=fail
+#SBATCH --mail-user=hvgazula@umich.edu
 
 if [[ "$HOSTNAME" == *"tiger"* ]]
 then
     echo "It's tiger"
+    module load anaconda
+    source activate torch-env
+elif [[ "$HOSTNAME" == *"della"* ]]
+then
+    echo "It's Della"
     module load anaconda
     source activate torch-env
 else
