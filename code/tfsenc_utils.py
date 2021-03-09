@@ -364,6 +364,15 @@ def setup_environ(args):
 
 
 def append_jobid_to_string(args, speech_str):
+    """Adds job id to the output eletrode.csv file.
+
+    Args:
+        args (Namespace): Contains all commandline agruments
+        speech_str (string): Production (prod)/Comprehension (comp)
+
+    Returns:
+        string: concatenated string
+    """
     speech_str = '_' + speech_str
 
     if args.job_id:
