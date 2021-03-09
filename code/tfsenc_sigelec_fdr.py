@@ -5,12 +5,12 @@ import numpy as np
 import pandas as pd
 from statsmodels.stats import multitest
 
-
 if __name__ == "__main__":
     subjects = sorted(
         glob.glob(
-            '/scratch/gpfs/hgazula/247-encoding/results/tfs/colton-no-shuffle/*'))
-    
+            '/scratch/gpfs/hgazula/247-encoding/results/tfs/colton-no-shuffle/*'
+        ))
+
     lags = np.arange(-2000, 2001, 25)
     names = []
     pVals = []
