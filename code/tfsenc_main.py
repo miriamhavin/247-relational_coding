@@ -40,8 +40,6 @@ def load_electrode_data(args, elec_id):
 
     all_signal = []
     for convo_id, convo in enumerate(convos, 1):
-        if args.conversation_id and convo_id != args.conversation_id:
-            continue
         file = glob.glob(
             os.path.join(convo, 'preprocessed',
                          '*' + str(elec_id) + '.mat'))[0]
@@ -206,13 +204,17 @@ def this_is_where_you_perform_regression(args, electrode_info, datum):
 
         # Perform encoding/regression
         if args.phase_shuffle:
-            with Pool() as pool:
-                corr = pool.map(
-                    partial(dumdum1,
-                            args=args,
-                            datum=datum,
-                            signal=elec_signal,
-                            name=elec_name), range(args.npermutations))
+            # with Pool() as pool:
+            #     corr = pool.map(
+            #         partial(dumdum1,
+            #                 args=args,
+            #                 datum=datum,
+            #                 signal=elec_signal,
+            #                 name=elec_name), range(args.npermutations))
+
+            corr = []
+            for i in range(args.npermutations):
+                corr.append(dumdum1(i, args, datum, elec_signal, elec_name))
 
             prod_corr, comp_corr = map(list, zip(*corr))
             write_output(args, prod_corr, elec_name, 'prod')

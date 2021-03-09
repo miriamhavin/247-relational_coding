@@ -1,23 +1,8 @@
 import os
-import pickle
 
 import numpy as np
 import pandas as pd
-
-
-def load_pickle(file):
-    """Load the datum pickle and returns as a dataframe
-
-    Args:
-        file (string): labels pickle from 247-decoding/tfs_pickling.py
-
-    Returns:
-        dict/list: pickle contents returned as dataframe
-    """
-    with open(file, 'rb') as fh:
-        datum = pickle.load(fh)
-
-    return datum
+from utils import load_pickle
 
 
 def drop_nan_embeddings(df):

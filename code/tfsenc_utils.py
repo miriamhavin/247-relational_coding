@@ -228,11 +228,14 @@ def run_save_permutation(args, prod_X, prod_Y, filename):
         filename ([type]): [description]
     """
     if prod_X.shape[0]:
-        print('save permutation')
-        with Pool(16) as pool:
-            perm_prod = pool.map(
-                partial(encoding_mp, args=args, prod_X=prod_X, prod_Y=prod_Y),
-                range(args.npermutations))
+        # with Pool(16) as pool:
+        #     perm_prod = pool.map(
+        #         partial(encoding_mp, args=args, prod_X=prod_X, prod_Y=prod_Y),
+        #         range(args.npermutations))
+
+        perm_prod = []
+        for i in range(args.npermutations):
+            perm_prod.append(encoding_mp(i, args, prod_X, prod_Y))
 
         with open(filename, 'w') as csvfile:
             csvwriter = csv.writer(csvfile)
