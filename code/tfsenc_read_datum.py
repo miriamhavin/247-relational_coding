@@ -2,7 +2,6 @@ import os
 
 import numpy as np
 import pandas as pd
-
 from utils import load_pickle
 
 
@@ -15,28 +14,70 @@ def drop_nan_embeddings(df):
     return df
 
 
-def adjust_onset_offset(args, df):
+def return_stitch_index(args):
+    """[summary]
 
+    Args:
+        args ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
     stitch_file = os.path.join(args.PICKLE_DIR, args.stitch_file)
+    stitch_index = load_pickle(stitch_file)
+    return stitch_index
+
+
+def adjust_onset_offset(args, df):
+    """[summary]
+
+    Args:
+        args ([type]): [description]
+        df ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    stitch_index = return_stitch_index(args)
+    assert len(stitch_index) == df.conversation_id.nunique()
+
+    stitch_index = [0] + stitch_index[:-1]
 
     df['adjusted_onset'], df['onset'] = df['onset'], np.nan
     df['adjusted_offset'], df['offset'] = df['offset'], np.nan
 
-    stitch_index = load_pickle(stitch_file)
-
-    assert len(stitch_index) == df.conversation_id.nunique()
-
     for idx, conv in enumerate(df.conversation_id.unique()):
-        shift = stitch_index[idx - 1]
-
-        if idx == 0:
-            continue
+        shift = stitch_index[idx]
         df.loc[df.conversation_id == conv,
                'onset'] = df.loc[df.conversation_id == conv,
                                  'adjusted_onset'] - shift
         df.loc[df.conversation_id == conv,
                'offset'] = df.loc[df.conversation_id == conv,
                                   'adjusted_offset'] - shift
+
+    return df
+
+
+def add_signal_length(args, df):
+    """[summary]
+
+    Args:
+        args ([type]): [description]
+        df ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    stitch_index = return_stitch_index(args)
+
+    signal_lengths = np.diff(stitch_index).tolist()
+    signal_lengths.insert(0, stitch_index[0])
+
+    df['conv_signal_length'] = np.nan
+
+    for idx, conv in enumerate(df.conversation_id.unique()):
+        df.loc[df.conversation_id == conv,
+               'conv_signal_length'] = signal_lengths[idx]
 
     return df
 
@@ -58,6 +99,8 @@ def read_datum(args):
     datum = load_pickle(file_name)
 
     df = pd.DataFrame.from_dict(datum)
+    df = add_signal_length(args, df)
+
     if args.project_id == 'tfs' and not all(
         [item in df.columns
          for item in ['adjusted_onset', 'adjusted_offset']]):

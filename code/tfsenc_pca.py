@@ -2,7 +2,6 @@ import argparse
 import os
 
 from sklearn.decomposition import PCA
-
 from tfsenc_read_datum import read_datum
 from tfsenc_utils import setup_environ
 

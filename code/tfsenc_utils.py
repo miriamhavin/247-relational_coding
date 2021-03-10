@@ -108,7 +108,7 @@ def cv_lm_003(X, Y, kfolds):
 @jit(nopython=True)
 def fit_model(X, y):
     """Calculate weight vector using normal form of regression.
-    
+
     Returns:
         [type]: (X'X)^-1 * (X'y)
     """
