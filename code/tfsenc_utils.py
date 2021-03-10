@@ -358,6 +358,7 @@ def setup_environ(args):
 
     args.signal_file = '_'.join([str(args.sid), 'full_signal.pkl'])
     args.electrode_file = '_'.join([str(args.sid), 'electrode_names.pkl'])
+    args.stitch_file = '_'.join([str(args.sid), 'full_stitch_index.pkl'])
 
     args.output_dir = os.path.join(os.getcwd(), 'results')
     args.full_output_dir = create_output_directory(args)

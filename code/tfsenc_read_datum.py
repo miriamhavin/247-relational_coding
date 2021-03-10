@@ -15,6 +15,32 @@ def drop_nan_embeddings(df):
     return df
 
 
+def adjust_onset_offset(args, df):
+
+    stitch_file = os.path.join(args.PICKLE_DIR, args.stitch_file)
+
+    df['adjusted_onset'], df['onset'] = df['onset'], np.nan
+    df['adjusted_offset'], df['offset'] = df['offset'], np.nan
+
+    stitch_index = load_pickle(stitch_file)
+
+    assert len(stitch_index) == df.conversation_id.nunique()
+
+    for idx, conv in enumerate(df.conversation_id.unique()):
+        shift = stitch_index[idx - 1]
+
+        if idx == 0:
+            continue
+        df.loc[df.conversation_id == conv,
+               'onset'] = df.loc[df.conversation_id == conv,
+                                 'adjusted_onset'] - shift
+        df.loc[df.conversation_id == conv,
+               'offset'] = df.loc[df.conversation_id == conv,
+                                  'adjusted_offset'] - shift
+
+    return df
+
+
 def read_datum(args):
     """Read and process the datum based on input arguments
 
@@ -32,6 +58,10 @@ def read_datum(args):
     datum = load_pickle(file_name)
 
     df = pd.DataFrame.from_dict(datum)
+    if args.project_id == 'tfs' and not all(
+        [item in df.columns
+         for item in ['adjusted_onset', 'adjusted_offset']]):
+        df = adjust_onset_offset(args, df)
     df = drop_nan_embeddings(df)
 
     if args.conversation_id:
