@@ -1,6 +1,11 @@
+# Non-configurable paramters. Don't touch.
 FILE := tfsenc_main
 USR := $(shell whoami | head -c 2)
 DT := $(shell date +"%Y%m%d-%H%M")
+
+# -----------------------------------------------------------------------------
+#  Configurable options
+# -----------------------------------------------------------------------------
 
 PRJCT_ID := podcast
 PRJCT_ID := tfs
@@ -11,31 +16,50 @@ E_LIST := $(shell seq 1 105)
 
 # 676 Electrode IDs
 SID := 676
-# E_LIST := $(shell seq 1 125)
+E_LIST := $(shell seq 1 125)
 
+# number of permutations (goes with SH and PSH)
+NPERM := 1000
+
+# Choose the lags to run for.
+LAGS := {-5000..5000..25}
 
 CONVERSATION_IDX := 0
-NPERM := 1000
-LAGS := {-2000..2000..25}
+
+# Choose which set of embeddings to use
 EMB := glove50
-WS := 200
+EMB := gpt2-xl
 CNXT_LEN := 1024
+
+# Choose the window size to average for each point
+WS := 200
+
+# Choose which set of embeddings to align with
 ALIGN_WITH := gpt2-xl
 ALIGN_TGT_CNXT_LEN := 1024
 
+# Specify the minimum word frequency
 MWF := 1
+
+# TODO: explain this parameter.
 WV := all
 
-# SH := --shuffle
+# Choose whether to label or phase shuffle
+SH := --shuffle
 PSH := --phase-shuffle
-# PCA := --pca-flag
+
+
+# Choose whether to PCA the embeddings before regressing or not
+PCA := --pca-flag
 PCA_TO := 50
 
+# Choose the command to run: python runs locally, echo is for debugging, sbatch
+# is for running on SLURM all lags in parallel.
 CMD := python
 CMD := sbatch submit1.sh
-# CMD := echo
+CMD := echo
 
-# move paths to makefile
+#TODO: move paths to makefile
 
 # plotting modularity
 # make separate models with separate electrodes (all at once is possible)
@@ -43,6 +67,9 @@ PDIR := $(shell dirname `pwd`)
 link-data:
 	ln -fs $(PDIR)/247-pickling/results/* data/
 
+# -----------------------------------------------------------------------------
+# Encoding
+# -----------------------------------------------------------------------------
 target1:
 	for elec in $(E_LIST); do \
 		$(CMD) code/$(FILE).py \
@@ -54,6 +81,9 @@ target1:
 			--output-folder $(SID)-$(USR)-test1; \
 	done
 
+# Run the encoding model for the given electrodes in one swoop
+# Note that the code will add the subject, embedding type, and PCA details to
+# the output folder name
 run-encoding:
 	mkdir -p logs
 	for elec in $(E_LIST); do \
@@ -82,6 +112,8 @@ run-encoding:
 # Recommended naming convention for output_folder
 #--output-prefix $(USR)-$(WS)ms-$(WV); \
 
+# Run the encoding model for the given electrodes __one at a time__, ideally
+# with slurm so it's all parallelized.
 run-encoding-slurm:
 	mkdir -p logs
 	for elec in $(E_LIST); do \
@@ -114,6 +146,9 @@ pca-on-embedding:
 			--context-length $(CNXT_LEN) \
 			--reduce-to $(EMB_RED_DIM); 
 
+# -----------------------------------------------------------------------------
+# Plotting
+# -----------------------------------------------------------------------------
 plot-encoding1:
 	mkdir -p results/figures
 	python code/tfsenc_plots.py \
