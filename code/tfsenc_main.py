@@ -133,17 +133,20 @@ def process_subjects(args):
 
 
 def process_sig_electrodes(args, datum):
-    """Run encoding on select significant electrodes specified by a file
+    """Run encoding on select significant elctrodes specified by a file
     """
-    flag = 'prediction_presentation' if not args.tiger else ''
-
     # Read in the significant electrodes
-    sig_elec_file = os.path.join(args.PROJ_DIR, flag, args.sig_elec_file)
-    sig_elec_list = pd.read_csv(sig_elec_file, header=None)[0].tolist()
+    sig_elec_file = os.path.join(
+        os.path.join(os.getcwd(), 'code', args.sig_elec_file))
+    sig_elec_list = pd.read_csv(sig_elec_file)
 
     # Loop over each electrode
-    for sig_elec in sig_elec_list:
-        subject_id, elec_name = sig_elec[:29], sig_elec[30:]
+    for subject, elec_name in sig_elec_list.itertuples(index=False):
+
+        if isinstance(subject, int):
+            subject_id = glob.glob(
+                os.path.join(args.CONV_DIR, 'NY' + str(subject) + '*'))[0]
+            subject_id = os.path.basename(subject_id)
 
         # Read subject's header
         labels = load_header(args.CONV_DIR, subject_id)
@@ -165,7 +168,8 @@ def process_sig_electrodes(args, datum):
             continue
 
         # Perform encoding/regression
-        encoding_regression(args, subject_id, datum, elec_signal, elec_name)
+        encoding_regression(args, datum, elec_signal,
+                            str(subject) + '_' + elec_name)
 
     return
 
@@ -243,8 +247,11 @@ def main():
         datum = run_pca(args, datum)
 
     # Processing significant electrodes or individual subjects
-    electrode_info = process_subjects(args)
-    this_is_where_you_perform_regression(args, electrode_info, datum)
+    if args.sig_elec_file:
+        process_sig_electrodes(args, datum)
+    else:
+        electrode_info = process_subjects(args)
+        this_is_where_you_perform_regression(args, electrode_info, datum)
 
     return
 
