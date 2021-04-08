@@ -35,15 +35,30 @@ def trim_signal(signal):
 def load_electrode_data(args, elec_id):
     '''Loads specific electrodes mat files
     '''
-    DATA_DIR = '/projects/HASSON/247/data/conversations-car'
+    if args.project_id == 'tfs':
+        DATA_DIR = '/projects/HASSON/247/data/conversations-car'
+        process_flag = 'preprocessed'
+    elif args.project_id == 'podcast':
+        DATA_DIR = '/projects/HASSON/247/data/podcast-data'
+        process_flag = 'preprocessed_all'
+    else:
+        raise Exception('Invalid Project ID')
+
     convos = sorted(glob.glob(os.path.join(DATA_DIR, str(args.sid), '*')))
 
     all_signal = []
     for convo_id, convo in enumerate(convos, 1):
         file = glob.glob(
-            os.path.join(convo, 'preprocessed',
-                         '*' + str(elec_id) + '.mat'))[0]
+            os.path.join(convo, process_flag,
+                         '*_' + str(elec_id) + '.mat'))[0]
+
+        print(elec_id, os.path.basename(file).split('_')[-1])
+
+        import sys
+        sys.exit()
+
         mat_signal = loadmat(file)['p1st']
+        mat_signal = mat_signal.reshape(-1, 1)
 
         # mat_signal = trim_signal(mat_signal)
 
@@ -51,7 +66,10 @@ def load_electrode_data(args, elec_id):
             continue
         all_signal.append(mat_signal)
 
-    elec_signal = np.vstack(all_signal)
+    if args.project_id == 'tfs':
+        elec_signal = np.vstack(all_signal)
+    else:
+        elec_signal = np.array(all_signal)
 
     return elec_signal
 
@@ -106,12 +124,14 @@ def process_subjects(args):
     #     trimmed_signal = trimmed_signal[:, indices]
     #     electrode_names = [electrode_names[i] for i in indices]
 
-    electrode_info = load_pickle(
-        os.path.join(args.PICKLE_DIR, args.electrode_file))
+    df = pd.DataFrame(
+        load_pickle(os.path.join(args.PICKLE_DIR, args.electrode_file)))
 
     if args.electrodes:
         electrode_info = {
-            key: electrode_info.get(key, None)
+            key:
+            df.loc[(df.subject == str(args.sid)) & (df.electrode_id == key),
+                   'electrode_name'].item()
             for key in args.electrodes
         }
 
@@ -163,6 +183,7 @@ def process_sig_electrodes(args, datum):
             ]))
         try:
             elec_signal = loadmat(electrode_file)['p1st']
+            elec_signal = elec_signal.reshape(-1, 1)
         except FileNotFoundError:
             print(f'Missing: {electrode_file}')
             continue
@@ -175,7 +196,8 @@ def process_sig_electrodes(args, datum):
 
 
 def dumdum1(iter_idx, args, datum, signal, name):
-    np.random.seed(iter_idx)
+    seed = iter_idx + (os.getenv("SLURM_ARRAY_TASk_ID") * 10000)
+    np.random.seed(seed)
     new_signal = phase_randomize_1d(signal)
     (prod_corr, comp_corr) = encoding_regression_pr(args, datum, new_signal,
                                                     name)
@@ -208,17 +230,18 @@ def this_is_where_you_perform_regression(args, electrode_info, datum):
 
         # Perform encoding/regression
         if args.phase_shuffle:
-            # with Pool() as pool:
-            #     corr = pool.map(
-            #         partial(dumdum1,
-            #                 args=args,
-            #                 datum=datum,
-            #                 signal=elec_signal,
-            #                 name=elec_name), range(args.npermutations))
-
-            corr = []
-            for i in range(args.npermutations):
-                corr.append(dumdum1(i, args, datum, elec_signal, elec_name))
+            if args.project_id == 'podcast':
+                with Pool() as pool:
+                    corr = pool.map(
+                        partial(dumdum1,
+                                args=args,
+                                datum=datum,
+                                signal=elec_signal,
+                                name=elec_name), range(args.npermutations))
+            else:
+                corr = []
+                for i in range(args.npermutations):
+                    corr.append(dumdum1(i, args, datum, elec_signal, elec_name))
 
             prod_corr, comp_corr = map(list, zip(*corr))
             write_output(args, prod_corr, elec_name, 'prod')

@@ -42,6 +42,7 @@ def parse_arguments():
     parser.add_argument('--align-target-context-length', type=int, default=0)
 
     parser.add_argument('--output-parent-dir', type=str, default='test')
+    parser.add_argument('--pkl-identifier', type=str, default=None)
 
     args = parser.parse_args()
 

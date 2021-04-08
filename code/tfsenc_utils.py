@@ -348,12 +348,16 @@ def setup_environ(args):
         # args.context_length = args.align_target_context_length
 
         stra = 'cnxt_' + str(args.align_target_context_length)
-        args.load_emb_file = '_'.join(
-            [str(args.sid), args.align_with, stra, 'embeddings.pkl'])
+        args.load_emb_file = '_'.join([
+            str(args.sid), args.pkl_identifier, args.align_with, stra,
+            'embeddings.pkl'
+        ])
     else:
         stra = 'cnxt_' + str(args.context_length)
-        args.emb_file = '_'.join(
-            [str(args.sid), args.emb_type, stra, 'embeddings.pkl'])
+        args.emb_file = '_'.join([
+            str(args.sid), args.pkl_identifier, args.emb_type, stra,
+            'embeddings.pkl'
+        ])
         args.load_emb_file = args.emb_file
 
     args.signal_file = '_'.join([str(args.sid), 'full_signal.pkl'])
