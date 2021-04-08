@@ -109,7 +109,7 @@ if __name__ == "__main__":
 
         if not curr_key:
             if int(subject) == 798:
-                filter_hemisphere.append((subject, electrode))    
+                filter_hemisphere.append((subject, electrode))
         elif len(curr_key) == 2:
             if electrode.startswith(('L', 'DL')):
                 filter_hemisphere.append((subject, electrode))
@@ -119,6 +119,8 @@ if __name__ == "__main__":
             filter_hemisphere.append((subject, electrode))
 
     df2 = pd.DataFrame(filter_hemisphere, columns=['subject', 'electrode'])
-    df2.to_csv('post_fdr_lh.csv', index=False, columns=['subject', 'electrode'])
+    df2.to_csv('post_fdr_lh.csv',
+               index=False,
+               columns=['subject', 'electrode'])
 
 # phase-1000-sig-elec-glove50d-perElec-FDR-01-LH-hg

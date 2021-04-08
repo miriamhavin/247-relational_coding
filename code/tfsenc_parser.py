@@ -55,7 +55,7 @@ def parse_arguments():
     if not args.sid and args.electrodes:
         parser.error("--electrodes requires --sid")
 
-    if not args.shuffle and not args.phase_shuffle:
+    if not (args.shuffle or args.phase_shuffle):
         args.npermutations = 1
 
     return args

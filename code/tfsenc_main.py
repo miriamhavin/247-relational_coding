@@ -49,8 +49,7 @@ def load_electrode_data(args, elec_id):
     all_signal = []
     for convo_id, convo in enumerate(convos, 1):
         file = glob.glob(
-            os.path.join(convo, process_flag,
-                         '*_' + str(elec_id) + '.mat'))[0]
+            os.path.join(convo, process_flag, '*_' + str(elec_id) + '.mat'))[0]
 
         print(elec_id, os.path.basename(file).split('_')[-1])
 
@@ -241,7 +240,8 @@ def this_is_where_you_perform_regression(args, electrode_info, datum):
             else:
                 corr = []
                 for i in range(args.npermutations):
-                    corr.append(dumdum1(i, args, datum, elec_signal, elec_name))
+                    corr.append(dumdum1(i, args, datum, elec_signal,
+                                        elec_name))
 
             prod_corr, comp_corr = map(list, zip(*corr))
             write_output(args, prod_corr, elec_name, 'prod')
