@@ -49,9 +49,6 @@ def load_electrode_data(args, elec_id):
     all_signal = []
     for convo_id, convo in enumerate(convos, 1):
 
-        if convo_id != args.conversation_id:
-            continue
-
         file = glob.glob(
             os.path.join(convo, process_flag, '*_' + str(elec_id) + '.mat'))[0]
 
@@ -127,9 +124,9 @@ def process_subjects(args):
 
     if args.electrodes:
         electrode_info = {
-            key:
-            df.loc[(df.subject == str(args.sid)) & (df.electrode_id == key),
-                   'electrode_name'].item()
+            key: next(
+                iter(df.loc[(df.subject == str(args.sid)) &
+                            (df.electrode_id == key), 'electrode_name']), None)
             for key in args.electrodes
         }
 
