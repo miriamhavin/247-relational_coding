@@ -48,13 +48,12 @@ def load_electrode_data(args, elec_id):
 
     all_signal = []
     for convo_id, convo in enumerate(convos, 1):
+
+        if convo_id != args.conversation_id:
+            continue
+
         file = glob.glob(
             os.path.join(convo, process_flag, '*_' + str(elec_id) + '.mat'))[0]
-
-        print(elec_id, os.path.basename(file).split('_')[-1])
-
-        import sys
-        sys.exit()
 
         mat_signal = loadmat(file)['p1st']
         mat_signal = mat_signal.reshape(-1, 1)
