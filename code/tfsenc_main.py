@@ -194,7 +194,7 @@ def process_sig_electrodes(args, datum):
 
 
 def dumdum1(iter_idx, args, datum, signal, name):
-    seed = iter_idx + (os.getenv("SLURM_ARRAY_TASk_ID") * 10000)
+    seed = iter_idx + (os.getenv("SLURM_ARRAY_TASk_ID", 0) * 10000)
     np.random.seed(seed)
     new_signal = phase_randomize_1d(signal)
     (prod_corr, comp_corr) = encoding_regression_pr(args, datum, new_signal,
