@@ -105,18 +105,18 @@ def read_datum(args):
 
     df = pd.DataFrame.from_dict(datum)
     df = add_signal_length(args, df)
-
+    
     if args.project_id == 'tfs' and not all(
         [item in df.columns
          for item in ['adjusted_onset', 'adjusted_offset']]):
         df = adjust_onset_offset(args, df)
 
     df = drop_nan_embeddings(df)
-    df = remove_punctuation(df)
+    # df = remove_punctuation(df)
 
     if args.conversation_id:
         df = df[df.conversation_id == args.conversation_id]
-
+    
     # use columns where token is root
     if args.project_id == 'tfs':
         if 'gpt2-xl' in [args.align_with, args.emb_type]:
