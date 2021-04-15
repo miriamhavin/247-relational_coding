@@ -1,8 +1,13 @@
 import os
+import string
 
 import numpy as np
 import pandas as pd
 from utils import load_pickle
+
+
+def remove_punctuation(df):
+    return df[~df.token.isin(list(string.punctuation))]
 
 
 def drop_nan_embeddings(df):
@@ -100,23 +105,26 @@ def read_datum(args):
 
     df = pd.DataFrame.from_dict(datum)
     df = add_signal_length(args, df)
-
+    
     if args.project_id == 'tfs' and not all(
         [item in df.columns
          for item in ['adjusted_onset', 'adjusted_offset']]):
         df = adjust_onset_offset(args, df)
+    
     df = drop_nan_embeddings(df)
+    df = remove_punctuation(df)
 
     if args.conversation_id:
         df = df[df.conversation_id == args.conversation_id]
 
     # use columns where token is root
-    if 'gpt2' in [args.align_with, args.emb_type]:
-        df = df[df['gpt2_token_is_root']]
-    elif 'bert' in [args.align_with, args.emb_type]:
-        df = df[df['bert_token_is_root']]
-    else:
-        pass
+    if args.project_id == 'tfs':
+        if 'gpt2-xl' in [args.align_with, args.emb_type]:
+            df = df[df['gpt2-xl_token_is_root']]
+        elif 'bert' in [args.align_with, args.emb_type]:
+            df = df[df['bert_token_is_root']]
+        else:
+            pass
 
     df = df[~df['glove50_embeddings'].isna()]
 

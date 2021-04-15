@@ -58,4 +58,7 @@ def parse_arguments():
     if not (args.shuffle or args.phase_shuffle):
         args.npermutations = 1
 
+    if args.sig_elec_file:
+        args.sid = 777
+
     return args

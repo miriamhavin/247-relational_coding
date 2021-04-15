@@ -76,8 +76,8 @@ def process_datum(args, df):
     df = df[~df['is_nan']]
 
     # use columns where token is root
-    if 'gpt2' in [args.align_with, args.emb_type]:
-        df = df[df['gpt2_token_is_root']]
+    if 'gpt2-xl' in [args.align_with, args.emb_type]:
+        df = df[df['gpt2-xl_token_is_root']]
     elif 'bert' in [args.align_with, args.emb_type]:
         df = df[df['bert_token_is_root']]
     else:
@@ -159,18 +159,21 @@ def process_sig_electrodes(args, datum):
     for subject, elec_name in sig_elec_list.itertuples(index=False):
 
         if isinstance(subject, int):
+            CONV_DIR = '/projects/HASSON/247/data/podcast'
+            BRAIN_DIR_STR = 'preprocessed_all'
+
             subject_id = glob.glob(
-                os.path.join(args.CONV_DIR, 'NY' + str(subject) + '*'))[0]
+                os.path.join(CONV_DIR, 'NY' + str(subject) + '*'))[0]
             subject_id = os.path.basename(subject_id)
 
         # Read subject's header
-        labels = load_header(args.CONV_DIR, subject_id)
+        labels = load_header(CONV_DIR, subject_id)
         if not labels:
             print('Header Missing')
         electrode_num = labels.index(elec_name)
 
         # Read electrode data
-        brain_dir = os.path.join(args.CONV_DIR, subject_id, args.BRAIN_DIR_STR)
+        brain_dir = os.path.join(CONV_DIR, subject_id, BRAIN_DIR_STR)
         electrode_file = os.path.join(
             brain_dir, ''.join([
                 subject_id, '_electrode_preprocess_file_',
