@@ -105,12 +105,12 @@ def read_datum(args):
 
     df = pd.DataFrame.from_dict(datum)
     df = add_signal_length(args, df)
-    
+
     if args.project_id == 'tfs' and not all(
         [item in df.columns
          for item in ['adjusted_onset', 'adjusted_offset']]):
         df = adjust_onset_offset(args, df)
-    
+
     df = drop_nan_embeddings(df)
     df = remove_punctuation(df)
 
