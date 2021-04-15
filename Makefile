@@ -24,7 +24,7 @@ PKL_IDENTIFIER := full
 
 # podcast electeode IDs
 SID := 661
-E_LIST :=  $(shell seq 1 1)
+E_LIST :=  $(shell seq 1 115)
 # SID := 662
 # E_LIST :=  $(shell seq 1 100)
 # SID := 717
@@ -74,7 +74,7 @@ WV := all
 
 
 # Choose whether to PCA the embeddings before regressing or not
-# PCA := --pca-flag
+PCA := --pca-flag
 PCA_TO := 50
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
@@ -109,13 +109,12 @@ target1:
 # the output folder name
 run-encoding:
 	mkdir -p logs
-	for elec in $(E_LIST); do \
 		$(CMD) code/$(FILE).py \
 			--project-id $(PRJCT_ID) \
 			--pkl-identifier $(PKL_IDENTIFIER) \
 			--sid $(SID) \
 			--conversation-id $(CONVERSATION_IDX) \
-			--electrodes $$elec \
+			--electrodes $(E_LIST) \
 			--emb-type $(EMB) \
 			--context-length $(CNXT_LEN) \
 			--align-with $(ALIGN_WITH) \
@@ -129,9 +128,32 @@ run-encoding:
 			--reduce-to $(PCA_TO) \
 			$(SH) \
 			$(PSH) \
-			--output-parent-dir test-test \
+			--output-parent-dir $(PRJCT_ID)-$(EMB)-pca50d \
 			--output-prefix '';\
-	done;
+
+
+run-sig-encoding:
+	mkdir -p logs
+		$(CMD) code/$(FILE).py \
+			--project-id $(PRJCT_ID) \
+			--pkl-identifier $(PKL_IDENTIFIER) \
+			--conversation-id $(CONVERSATION_IDX) \
+			--sig-elec-file bobbi.csv \
+			--emb-type $(EMB) \
+			--context-length $(CNXT_LEN) \
+			--align-with $(ALIGN_WITH) \
+			--align-target-context-length $(ALIGN_TGT_CNXT_LEN) \
+			--window-size $(WS) \
+			--word-value $(WV) \
+			--npermutations $(NPERM) \
+			--lags $(LAGS) \
+			--min-word-freq $(MWF) \
+			$(PCA) \
+			--reduce-to $(PCA_TO) \
+			$(SH) \
+			$(PSH) \
+			--output-parent-dir $(PRJCT_ID)-$(EMB)-pca50d \
+			--output-prefix '';\
 
 # Recommended naming convention for output_folder
 #--output-prefix $(USR)-$(WS)ms-$(WV); \
@@ -145,8 +167,7 @@ run-encoding-slurm:
 			$(CMD) code/$(FILE).py \
 				--project-id $(PRJCT_ID) \
 				--pkl-identifier $(PKL_IDENTIFIER) \
-				--sid $(SID) \
-				--electrodes $$elec \
+				--sig-elec-file bobbi.csv \
 				--emb-type $(EMB) \
 				--context-length $(CNXT_LEN) \
 				--align-with $(ALIGN_WITH) \
@@ -160,7 +181,35 @@ run-encoding-slurm:
 				--reduce-to $(PCA_TO) \
 				$(SH) \
 				$(PSH) \
-				--output-parent-dir test-test \
+				--output-parent-dir podcast-gpt2-xl-transcription \
+				--output-prefix ''; \
+				# --job-id $(EMB)-$$jobid; \
+		# done; \
+	done;
+
+
+run-sig-encoding-slurm:
+	mkdir -p logs
+	for elec in $(E_LIST); do \
+		# for jobid in $(shell seq 1 1); do \
+			$(CMD) code/$(FILE).py \
+				--project-id $(PRJCT_ID) \
+				--pkl-identifier $(PKL_IDENTIFIER) \
+				--sig-elec-file bobbi.csv \
+				--emb-type $(EMB) \
+				--context-length $(CNXT_LEN) \
+				--align-with $(ALIGN_WITH) \
+				--align-target-context-length $(ALIGN_TGT_CNXT_LEN) \
+				--window-size $(WS) \
+				--word-value $(WV) \
+				--npermutations $(NPERM) \
+				--lags $(LAGS) \
+				--min-word-freq $(MWF) \
+				$(PCA) \
+				--reduce-to $(PCA_TO) \
+				$(SH) \
+				$(PSH) \
+				--output-parent-dir podcast-gpt2-xl-transcription \
 				--output-prefix ''; \
 				# --job-id $(EMB)-$$jobid; \
 		# done; \
