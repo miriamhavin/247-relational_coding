@@ -174,7 +174,7 @@ def build_XY(args, datum, brain_signal):
     brain_signal = brain_signal.reshape(-1, 1)
 
     Y = build_Y(onsets, brain_signal, lags, args.window_size)
-    
+
     return X, Y
 
 
@@ -360,9 +360,11 @@ def setup_environ(args):
         ])
         args.load_emb_file = args.emb_file
 
-    args.signal_file = '_'.join([str(args.sid), args.pkl_identifier, 'signal.pkl'])
+    args.signal_file = '_'.join(
+        [str(args.sid), args.pkl_identifier, 'signal.pkl'])
     args.electrode_file = '_'.join([str(args.sid), 'electrode_names.pkl'])
-    args.stitch_file = '_'.join([str(args.sid), args.pkl_identifier, 'stitch_index.pkl'])
+    args.stitch_file = '_'.join(
+        [str(args.sid), args.pkl_identifier, 'stitch_index.pkl'])
 
     args.output_dir = os.path.join(os.getcwd(), 'results')
     args.full_output_dir = create_output_directory(args)
