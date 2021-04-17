@@ -7,24 +7,25 @@ DT := $(shell date +"%Y%m%d-%H%M")
 #  Configurable options
 # -----------------------------------------------------------------------------
 
-PRJCT_ID := podcast
+PRJCT_ID := tfs
 # {podcast | tfs}
 
 # 625 Electrode IDs
 SID := 625
-# E_LIST := $(shell seq 1 1)
-E_LIST := $(shell seq 1 105)
+E_LIST := $(shell seq 1 12)
+# E_LIST := $(shell seq 1 105)
 
 # # 676 Electrode IDs
 SID := 676
-E_LIST := $(shell seq 1 125)
+E_LIST := $(shell seq 1 25)
+# E_LIST := $(shell seq 1 125)
 
 PKL_IDENTIFIER := full
 # {full | trimmed}
 
 # podcast electeode IDs
-SID := 661
-E_LIST :=  $(shell seq 1 115)
+# SID := 661
+# E_LIST :=  $(shell seq 1 115)
 # SID := 662
 # E_LIST :=  $(shell seq 1 100)
 # SID := 717
@@ -48,10 +49,10 @@ NPERM := 1000
 # Choose the lags to run for.
 LAGS := {-2000..2000..25}
 
-CONVERSATION_IDX := 0
+CONVERSATION_IDX := 35
 
 # Choose which set of embeddings to use
-EMB := gpt2-xl
+EMB := glove50
 # {glove50 | gpt2-xl}
 CNXT_LEN := 1024
 
@@ -70,16 +71,16 @@ WV := all
 
 # Choose whether to label or phase shuffle
 # SH := --shuffle
-# PSH := --phase-shuffle
+PSH := --phase-shuffle
 
 
 # Choose whether to PCA the embeddings before regressing or not
-PCA := --pca-flag
+# PCA := --pca-flag
 PCA_TO := 50
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
-CMD := python
+CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
 #TODO: move paths to makefile
@@ -128,7 +129,7 @@ run-encoding:
 			--reduce-to $(PCA_TO) \
 			$(SH) \
 			$(PSH) \
-			--output-parent-dir $(PRJCT_ID)-$(EMB)-pca50d \
+			--output-parent-dir $(PRJCT_ID)-$(PKL_IDENTIFIER)-$(EMB)-20210415-gptremoved \
 			--output-prefix '';\
 
 
@@ -167,7 +168,9 @@ run-encoding-slurm:
 			$(CMD) code/$(FILE).py \
 				--project-id $(PRJCT_ID) \
 				--pkl-identifier $(PKL_IDENTIFIER) \
-				--sig-elec-file bobbi.csv \
+				--sid $(SID) \
+				--electrodes $$elec \
+				--conversation-id $(CONVERSATION_IDX) \
 				--emb-type $(EMB) \
 				--context-length $(CNXT_LEN) \
 				--align-with $(ALIGN_WITH) \
@@ -181,7 +184,7 @@ run-encoding-slurm:
 				--reduce-to $(PCA_TO) \
 				$(SH) \
 				$(PSH) \
-				--output-parent-dir podcast-gpt2-xl-transcription \
+				--output-parent-dir $(PRJCT_ID)-$(PKL_IDENTIFIER)-$(EMB)-20210415-gptnotremoved \
 				--output-prefix ''; \
 				# --job-id $(EMB)-$$jobid; \
 		# done; \
