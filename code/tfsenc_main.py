@@ -49,7 +49,7 @@ def load_electrode_data(args, elec_id):
     all_signal = []
     for convo_id, convo in enumerate(convos, 1):
 
-        if convo_id != args.conversation_id:
+        if args.conversation_id != 0 and convo_id != args.conversation_id:
             continue
 
         file = glob.glob(
