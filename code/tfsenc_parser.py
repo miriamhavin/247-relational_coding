@@ -14,7 +14,7 @@ def parse_arguments():
     group.add_argument('--sid', nargs='?', type=int, default=None)
     group.add_argument('--sig-elec-file', nargs='?', type=str, default=None)
 
-    parser.add_argument('--conversation-id', type=int, default=None)
+    parser.add_argument('--conversation-id', type=int, default=0)
 
     parser.add_argument('--word-value', type=str, default='all')
     parser.add_argument('--window-size', type=int, default=200)
@@ -22,6 +22,8 @@ def parse_arguments():
     group1 = parser.add_mutually_exclusive_group()
     group1.add_argument('--shuffle', action='store_true', default=False)
     group1.add_argument('--phase-shuffle', action='store_true', default=False)
+
+    parser.add_argument('--normalize', nargs='?', type=str, default=None)
 
     parser.add_argument('--lags', nargs='+', type=int)
     parser.add_argument('--output-prefix', type=str, default='test')

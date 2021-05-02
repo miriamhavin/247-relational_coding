@@ -12,12 +12,10 @@ PRJCT_ID := tfs
 
 # 625 Electrode IDs
 SID := 625
-E_LIST := $(shell seq 1 12)
-# E_LIST := $(shell seq 1 105)
+E_LIST := $(shell seq 1 105)
 
 # # 676 Electrode IDs
-SID := 676
-E_LIST := $(shell seq 1 25)
+# SID := 676
 # E_LIST := $(shell seq 1 125)
 
 PKL_IDENTIFIER := full
@@ -52,7 +50,7 @@ LAGS := {-2000..2000..25}
 CONVERSATION_IDX := 35
 
 # Choose which set of embeddings to use
-EMB := glove50
+EMB := gpt2-xl
 # {glove50 | gpt2-xl}
 CNXT_LEN := 1024
 
@@ -71,8 +69,11 @@ WV := all
 
 # Choose whether to label or phase shuffle
 # SH := --shuffle
-PSH := --phase-shuffle
+# PSH := --phase-shuffle
 
+# Choose whether to normalize the embeddings
+# NM := l2
+# {l1 | l2 | max}
 
 # Choose whether to PCA the embeddings before regressing or not
 # PCA := --pca-flag
@@ -80,7 +81,7 @@ PCA_TO := 50
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
-CMD := sbatch submit1.sh
+CMD := python
 # {echo | python | sbatch submit1.sh}
 
 #TODO: move paths to makefile
@@ -129,7 +130,8 @@ run-encoding:
 			--reduce-to $(PCA_TO) \
 			$(SH) \
 			$(PSH) \
-			--output-parent-dir $(PRJCT_ID)-$(PKL_IDENTIFIER)-$(EMB)-20210415-gptremoved \
+			--normalize $(NM)\
+			--output-parent-dir $(PRJCT_ID)-$(PKL_IDENTIFIER)-$(EMB)-stitch \
 			--output-prefix '';\
 
 

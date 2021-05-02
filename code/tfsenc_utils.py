@@ -57,10 +57,7 @@ def cv_lm_003(X, Y, kfolds):
 
     # Data size
     nSamps = X.shape[0]
-    try:
-        nChans = Y.shape[1]
-    except E:
-        nChans = 1
+    nChans = Y.shape[1] if Y.shape[1:] else 1
 
     # Extract only test folds
     folds = [t[1] for t in skf.split(np.arange(nSamps))]
@@ -117,7 +114,8 @@ def fit_model(X, y):
 
 
 @jit(nopython=True)
-def build_Y(onsets, brain_signal, lags, window_size):
+def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
+            window_size):
     """[summary]
 
     Args:
@@ -131,7 +129,6 @@ def build_Y(onsets, brain_signal, lags, window_size):
     """
 
     half_window = round((window_size / 1000) * 512 / 2)
-    t = len(brain_signal)
 
     Y1 = np.zeros((len(onsets), len(lags), 2 * half_window + 1))
 
@@ -139,15 +136,16 @@ def build_Y(onsets, brain_signal, lags, window_size):
         lag_amount = int(lags[lag] / 1000 * 512)
 
         index_onsets = np.minimum(
-            t - half_window - 1,
-            np.maximum(half_window + 1,
+            convo_offsets - half_window - 1,
+            np.maximum(convo_onsets + half_window + 1,
                        np.round_(onsets, 0, onsets) + lag_amount))
 
         # subtracting 1 from starts to account for 0-indexing
         starts = index_onsets - half_window - 1
         stops = index_onsets + half_window
 
-        # vec = brain_signal[np.array([np.arange(*item) for item in zip(starts, stops)])]
+        # vec = brain_signal[np.array(
+        #     [np.arange(*item) for item in zip(starts, stops)])]
 
         for i, (start, stop) in enumerate(zip(starts, stops)):
             Y1[i, lag, :] = brain_signal[start:stop].reshape(-1)
@@ -169,11 +167,14 @@ def build_XY(args, datum, brain_signal):
     X = np.stack(datum.embeddings).astype('float64')
 
     onsets = datum.onset.values
+    convo_onsets = datum.convo_onset.values
+    convo_offsets = datum.convo_offset.values
 
     lags = np.array(args.lags)
     brain_signal = brain_signal.reshape(-1, 1)
 
-    Y = build_Y(onsets, brain_signal, lags, args.window_size)
+    Y = build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
+                args.window_size)
 
     return X, Y
 
@@ -228,14 +229,17 @@ def run_save_permutation(args, prod_X, prod_Y, filename):
         filename ([type]): [description]
     """
     if prod_X.shape[0]:
-        # with Pool(16) as pool:
-        #     perm_prod = pool.map(
-        #         partial(encoding_mp, args=args, prod_X=prod_X, prod_Y=prod_Y),
-        #         range(args.npermutations))
-
-        perm_prod = []
-        for i in range(args.npermutations):
-            perm_prod.append(encoding_mp(i, args, prod_X, prod_Y))
+        if args.project_id == 'podcast':
+            with Pool(16) as pool:
+                perm_prod = pool.map(
+                    partial(encoding_mp,
+                            args=args,
+                            prod_X=prod_X,
+                            prod_Y=prod_Y), range(args.npermutations))
+        else:
+            perm_prod = []
+            for i in range(args.npermutations):
+                perm_prod.append(encoding_mp(i, args, prod_X, prod_Y))
 
         with open(filename, 'w') as csvfile:
             csvwriter = csv.writer(csvfile)
