@@ -166,14 +166,14 @@ def build_XY(args, datum, brain_signal):
     """
     X = np.stack(datum.embeddings).astype('float64')
 
-    onsets = datum.onset.values
+    word_onsets = datum.onset.values
     convo_onsets = datum.convo_onset.values
     convo_offsets = datum.convo_offset.values
 
     lags = np.array(args.lags)
     brain_signal = brain_signal.reshape(-1, 1)
 
-    Y = build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
+    Y = build_Y(word_onsets, convo_onsets, convo_offsets, brain_signal, lags,
                 args.window_size)
 
     return X, Y

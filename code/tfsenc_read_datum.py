@@ -190,6 +190,8 @@ def read_datum(args):
             df = df[df['gpt2-xl_token_is_root']]
         elif 'bert' in [args.align_with, args.emb_type]:
             df = df[df['bert_token_is_root']]
+        elif 'blenderbot' in [args.align_with, args.emb_type]:
+            df = df[df['bbot_token_is_root']]
         else:
             pass
 
