@@ -186,14 +186,12 @@ def read_datum(args):
 
     # use columns where token is root
     if args.project_id == 'tfs':
-        if 'gpt2-xl' in [args.align_with, args.emb_type]:
-            df = df[df['gpt2-xl_token_is_root']]
-        elif 'bert' in [args.align_with, args.emb_type]:
-            df = df[df['bert_token_is_root']]
-        elif 'blenderbot' in [args.align_with, args.emb_type]:
+        # if 'gpt2-xl' in [args.align_with, args.emb_type]:
+        #     df = df[df['gpt2-xl_token_is_root']]
+        # if 'bert' in [args.align_with, args.emb_type]:
+        #     df = df[df['bert_token_is_root']]
+        if 'blenderbot' in [args.align_with, args.emb_type]:
             df = df[df['bbot_token_is_root']]
-        else:
-            pass
 
     df = df[~df['glove50_embeddings'].isna()]
 

@@ -75,7 +75,7 @@ WV := all
 # NM := l2
 # {l1 | l2 | max}
 
-# PCA_TO := 50
+PCA_TO := 50
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
@@ -188,7 +188,7 @@ run-encoding-slurm:
 				$(SH) \
 				$(PSH) \
 				--normalize $(NM) \
-				--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(EMB)-pca$(PCA_TO) \
+				--output-parent-dir $(PRJCT_ID)-$(PKL_IDENTIFIER)-$(EMB)-pca$(PCA_TO) \
 				--output-prefix ''; \
 				# --job-id $(EMB)-$$jobid; \
 		# done; \

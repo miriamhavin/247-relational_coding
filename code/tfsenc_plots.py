@@ -38,7 +38,7 @@ def extract_correlations(args, directory_list, file_str=None):
     """
 
     # Load the subject's electrode file
-    electrode_list = load_pickle(args.electrode_file).values()
+    electrode_list = load_pickle(args.electrode_file)['electrode_name']
 
     all_corrs = []
     for dir in directory_list:
@@ -46,8 +46,11 @@ def extract_correlations(args, directory_list, file_str=None):
         dir_corrs = []
         for electrode in electrode_list:
             file = os.path.join(dir, electrode + '_' + file_str + '.csv')
-            with open(file, 'r') as csv_file:
-                ha = list(map(float, csv_file.readline().strip().split(',')))
+            try:
+                with open(file, 'r') as csv_file:
+                    ha = list(map(float, csv_file.readline().strip().split(',')))
+            except FileNotFoundError:
+                print(f'{electrode} not Found')
             dir_corrs.append(ha)
 
         all_corrs.append(dir_corrs)
@@ -85,6 +88,7 @@ def parse_arguments():
     """
     parser = argparse.ArgumentParser()
 
+    parser.add_argument('--project-id', type=str, default=None)
     parser.add_argument('--output-prefix', type=str, default='test')
     parser.add_argument('--input-directory', nargs='*', type=str, default=None)
     parser.add_argument('--labels', nargs='*', type=str, default=None)
@@ -121,8 +125,10 @@ def set_plot_styles(args):
     linestyles = ['-', '--', ':']
     color = ['b', 'r']
 
-    linestyles = linestyles[0:len(args.labels)] * 2
-    color = np.repeat(color[0:len(args.labels)], len(args.labels))
+    # linestyles = linestyles[0:len(args.labels)] * 2
+    # color = np.repeat(color[0:len(args.labels)], len(args.labels))
+    linestyles = ['-', '-']
+    color = ['b', 'r']
 
     return (color, linestyles)
 
@@ -137,7 +143,7 @@ def set_legend_labels(args):
 
 
 def plot_data(args, data, pp, title=None):
-    lags = np.arange(-5000, 5001, 25)
+    lags = np.arange(-2000, 2001, 25)
 
     fig, ax = plt.subplots()
     color, linestyles = set_plot_styles(args)
@@ -147,7 +153,7 @@ def plot_data(args, data, pp, title=None):
     ax.set(xlabel=r'\textit{lag (s)}',
            ylabel=r'\textit{correlation}',
            title=title)
-    ax.set_ylim(-0.05, 0.50)
+    ax.set_ylim(-0.05, 0.35)
     ax.vlines(0, -0.05, 0.50, linestyles='dashed', linewidth=.75)
 
     pp.savefig(fig)
@@ -179,14 +185,17 @@ if __name__ == '__main__':
 
     args.output_pdf = os.path.join(os.getcwd(), 'results', 'figures',
                                    args.output_file_name + '.pdf')
-    args.electrode_file = os.path.join(os.getcwd(), 'data', str(args.sid),
+    args.electrode_file = os.path.join(os.getcwd(), 'data', args.project_id,
+                                       str(args.sid), 'pickles',
                                        str(args.sid) + '_electrode_names.pkl')
 
     assert len(args.input_directory) == len(args.labels), "Unequal number of"
 
     # Results folders to be plotted
     results_dirs = [
-        glob.glob(os.path.join(os.getcwd(), 'results', directory))[0]
+        glob.glob(
+            os.path.join(os.getcwd(), 'results', args.project_id, directory,
+                         str(args.sid)))[0]
         for directory in args.input_directory
     ]
 

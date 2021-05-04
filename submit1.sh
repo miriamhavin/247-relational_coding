@@ -1,9 +1,9 @@
 #!/bin/bash
 #!/bin/bash
-#SBATCH --time=6:00:00
+#SBATCH --time=1:30:00
 #SBATCH --mem=128GB
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=4
 #SBATCH -o './logs/%A.out'
 #SBATCH -e './logs/%A.err'
 #SBATCH --mail-type=fail
