@@ -42,16 +42,16 @@ PKL_IDENTIFIER := full
 # E_LIST :=  $(shell seq 1 195)
 
 # number of permutations (goes with SH and PSH)
-NPERM := 1000
+NPERM := 1
 
 # Choose the lags to run for.
 LAGS := {-2000..2000..25}
 
-CONVERSATION_IDX := 35
+CONVERSATION_IDX := 0
 
 # Choose which set of embeddings to use
-EMB := gpt2-xl
-# {glove50 | gpt2-xl}
+EMB := blenderbot-small
+# {glove50 | gpt2-xl | blenderbot-small}
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
@@ -75,14 +75,16 @@ WV := all
 # NM := l2
 # {l1 | l2 | max}
 
-# Choose whether to PCA the embeddings before regressing or not
-# PCA := --pca-flag
-PCA_TO := 50
+# PCA_TO := 50
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
-CMD := python
+CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
+
+# datum
+# DS := podcast-datum-glove-50d.csv
+# DS := podcast-datum-gpt2-xl-c_1024-previous-pca_50d.csv
 
 #TODO: move paths to makefile
 
@@ -103,7 +105,7 @@ target1:
 			--emb-file $(EMB) \
 			--electrode $$elec \
 			--npermutations 
-			--output-folder $(SID)-$(USR)-test1; \
+			--output-folder $(DT)-$(SID)-test; \
 	done
 
 # Run the encoding model for the given electrodes in one swoop
@@ -114,6 +116,7 @@ run-encoding:
 		$(CMD) code/$(FILE).py \
 			--project-id $(PRJCT_ID) \
 			--pkl-identifier $(PKL_IDENTIFIER) \
+			--datum-emb-fn $(DS) \
 			--sid $(SID) \
 			--conversation-id $(CONVERSATION_IDX) \
 			--electrodes $(E_LIST) \
@@ -126,20 +129,19 @@ run-encoding:
 			--npermutations $(NPERM) \
 			--lags $(LAGS) \
 			--min-word-freq $(MWF) \
-			$(PCA) \
-			--reduce-to $(PCA_TO) \
+			--pca-to $(PCA_TO) \
 			$(SH) \
 			$(PSH) \
 			--normalize $(NM)\
-			--output-parent-dir $(PRJCT_ID)-$(PKL_IDENTIFIER)-$(EMB)-stitch \
+			--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB) \
 			--output-prefix '';\
-
 
 run-sig-encoding:
 	mkdir -p logs
 		$(CMD) code/$(FILE).py \
 			--project-id $(PRJCT_ID) \
 			--pkl-identifier $(PKL_IDENTIFIER) \
+			--datum-emb-fn $(DS) \
 			--conversation-id $(CONVERSATION_IDX) \
 			--sig-elec-file bobbi.csv \
 			--emb-type $(EMB) \
@@ -151,11 +153,11 @@ run-sig-encoding:
 			--npermutations $(NPERM) \
 			--lags $(LAGS) \
 			--min-word-freq $(MWF) \
-			$(PCA) \
-			--reduce-to $(PCA_TO) \
+			--pca-to $(PCA_TO) \
 			$(SH) \
 			$(PSH) \
-			--output-parent-dir $(PRJCT_ID)-$(EMB)-pca50d \
+			--normalize $(NM)\
+			--output-parent-dir sig-elec-test-tfs \
 			--output-prefix '';\
 
 # Recommended naming convention for output_folder
@@ -182,11 +184,11 @@ run-encoding-slurm:
 				--npermutations $(NPERM) \
 				--lags $(LAGS) \
 				--min-word-freq $(MWF) \
-				$(PCA) \
-				--reduce-to $(PCA_TO) \
+				--pca-to $(PCA_TO) \
 				$(SH) \
 				$(PSH) \
-				--output-parent-dir $(PRJCT_ID)-$(PKL_IDENTIFIER)-$(EMB)-20210415-gptnotremoved \
+				--normalize $(NM) \
+				--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(EMB)-pca$(PCA_TO) \
 				--output-prefix ''; \
 				# --job-id $(EMB)-$$jobid; \
 		# done; \
@@ -210,8 +212,7 @@ run-sig-encoding-slurm:
 				--npermutations $(NPERM) \
 				--lags $(LAGS) \
 				--min-word-freq $(MWF) \
-				$(PCA) \
-				--reduce-to $(PCA_TO) \
+				--pca-to $(PCA_TO) \
 				$(SH) \
 				$(PSH) \
 				--output-parent-dir podcast-gpt2-xl-transcription \
@@ -225,7 +226,7 @@ pca-on-embedding:
 			--sid $(SID) \
 			--emb-type $(EMB) \
 			--context-length $(CNXT_LEN) \
-			--reduce-to $(EMB_RED_DIM); 
+			--pca-to $(EMB_RED_DIM); 
 
 # -----------------------------------------------------------------------------
 # Plotting
@@ -233,14 +234,11 @@ pca-on-embedding:
 plot-encoding1:
 	mkdir -p results/figures
 	python code/tfsenc_plots.py \
+			--project-id $(PRJCT_ID) \
 			--sid $(SID) \
 			--input-directory \
-				20210114-0845-hg-200ms-all-676-gpt2-cnxt-1024-pca_0d \
-				20210114-0845-hg-200ms-all-676-gpt2-cnxt-1024-pca_50d \
-				20210114-0844-hg-200ms-all-676-glove50-cnxt-0-pca_0d \
+				20210503-2040-tfs-full-625-blenderbot-small-test \
 			--labels \
-				gpt2-Fcnxt-pca0d \
-				gpt2-Fcnxt-pca50d \
-				glove50 \
+				blenderbot-small \
 			--output-file-name \
-				'$(DT)-$(SID)-glove50_gpt2-xl_Fcnxt-gpt2-xl_Fcnxt-pca_50d';
+				20210503-2040-tfs-full-625-blenderbot-small-test;

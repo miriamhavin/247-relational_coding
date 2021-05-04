@@ -268,7 +268,7 @@ def main():
     # Locate and read datum
     datum = read_datum(args)
 
-    if args.pca_flag:
+    if not args.pca_to:
         datum = run_pca(args, datum)
 
     # Processing significant electrodes or individual subjects

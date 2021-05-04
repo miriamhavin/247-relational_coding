@@ -7,7 +7,7 @@ from tfsenc_utils import setup_environ
 
 
 def run_pca(args, df):
-    pca = PCA(n_components=args.reduce_to, svd_solver='auto')
+    pca = PCA(n_components=args.pca_to, svd_solver='auto')
 
     df_emb = df['embeddings']
 
@@ -25,7 +25,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--sid', nargs='?', type=int, default=None)
     parser.add_argument('--emb-type', type=str, default=None)
-    parser.add_argument('--reduce-to', type=int, default=1)
+    parser.add_argument('--pca-to', type=int, default=1)
     parser.add_argument('--context-length', type=int, default=0)
 
     args = parser.parse_args()
