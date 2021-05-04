@@ -166,7 +166,7 @@ def build_XY(args, datum, brain_signal):
     """
     X = np.stack(datum.embeddings).astype('float64')
 
-    word_onsets = datum.onset.values
+    word_onsets = datum.adjusted_onset.values
     convo_onsets = datum.convo_onset.values
     convo_offsets = datum.convo_offset.values
 
