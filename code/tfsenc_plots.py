@@ -49,9 +49,9 @@ def extract_correlations(args, directory_list, file_str=None):
             try:
                 with open(file, 'r') as csv_file:
                     ha = list(map(float, csv_file.readline().strip().split(',')))
+                dir_corrs.append(ha)
             except FileNotFoundError:
                 print(f'{electrode} not Found')
-            dir_corrs.append(ha)
 
         all_corrs.append(dir_corrs)
 

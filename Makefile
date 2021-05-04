@@ -237,8 +237,8 @@ plot-encoding1:
 			--project-id $(PRJCT_ID) \
 			--sid $(SID) \
 			--input-directory \
-				20210503-2040-tfs-full-625-blenderbot-small-test \
+				tfs-full-blenderbot-small-pca50 \
 			--labels \
 				blenderbot-small \
 			--output-file-name \
-				20210503-2040-tfs-full-625-blenderbot-small-test;
+				tfs-full-blenderbot-small-pca50;
