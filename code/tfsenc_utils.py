@@ -229,7 +229,8 @@ def run_save_permutation(args, prod_X, prod_Y, filename):
         filename ([type]): [description]
     """
     if prod_X.shape[0]:
-        if args.project_id == 'podcast':
+        if args.parallel:
+            print(f'Running {args.npermutations} in parallel')
             with Pool(16) as pool:
                 perm_prod = pool.map(
                     partial(encoding_mp,

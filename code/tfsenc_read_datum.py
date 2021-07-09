@@ -6,6 +6,8 @@ import pandas as pd
 from sklearn.preprocessing import normalize
 from utils import load_pickle
 
+NONWORDS = {'hm', 'huh', 'mhm', 'mm', 'oh', 'uh', 'uhuh', 'um'}
+
 
 def remove_punctuation(df):
     return df[~df.token.isin(list(string.punctuation))]
@@ -169,31 +171,35 @@ def read_datum(args):
 
     df = pd.DataFrame.from_dict(datum)
     df = add_signal_length(args, df)
+    start_n = len(df)
 
     if args.project_id == 'tfs' and not all(
         [item in df.columns
          for item in ['adjusted_onset', 'adjusted_offset']]):
         df = adjust_onset_offset(args, df)
+    else:
+        df['adjusted_onset'], df['onset'] = df['onset'], np.nan
+        df['adjusted_offset'], df['offset'] = df['offset'], np.nan
 
     df = add_convo_onset_offset(args, df)
     df = drop_nan_embeddings(df)
     df = remove_punctuation(df)
+    # df = df[~df['glove50_embeddings'].isna()]
+
+    # Apply filters
+    common = df.in_glove
+    if 'gpt2' in args.align_with.lower() or 'gpt2' in args.emb_type.lower():
+        common = common & df.in_gpt2
+    nonword_mask = df.word.str.lower().apply(lambda x: x in NONWORDS)
+    freq_mask = df.word_freq_overall >= args.min_word_freq
+    df = df[common & freq_mask & ~nonword_mask]
+    end_n = len(df)
+    print(f'Went from {start_n} words to {end_n} words')
 
     if args.conversation_id:
         df = df[df.conversation_id == args.conversation_id]
         df.convo_offset = df['convo_offset'] - df['convo_onset']
         df.convo_onset = 0
-
-    # use columns where token is root
-    if args.project_id == 'tfs':
-        # if 'gpt2-xl' in [args.align_with, args.emb_type]:
-        #     df = df[df['gpt2-xl_token_is_root']]
-        # if 'bert' in [args.align_with, args.emb_type]:
-        #     df = df[df['bert_token_is_root']]
-        if 'blenderbot' in [args.align_with, args.emb_type]:
-            df = df[df['bbot_token_is_root']]
-
-    df = df[~df['glove50_embeddings'].isna()]
 
     # if encoding is on glove embeddings copy them into 'embeddings' column
     if args.emb_type == 'glove50':
