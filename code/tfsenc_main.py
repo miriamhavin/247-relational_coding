@@ -122,8 +122,8 @@ def process_subjects(args):
     #     trimmed_signal = trimmed_signal[:, indices]
     #     electrode_names = [electrode_names[i] for i in indices]
 
-    df = pd.DataFrame(
-        load_pickle(os.path.join(args.PICKLE_DIR, args.electrode_file)))
+    ds = load_pickle(os.path.join(args.PICKLE_DIR, args.electrode_file))
+    df = pd.DataFrame(ds)
 
     if args.electrodes:
         electrode_info = {
@@ -155,32 +155,31 @@ def process_sig_electrodes(args, datum):
     """
     # Read in the significant electrodes
     sig_elec_file = os.path.join(
-        os.path.join(os.getcwd(), 'code', args.sig_elec_file))
+        os.path.join(os.getcwd(), 'data', args.sig_elec_file))
     sig_elec_list = pd.read_csv(sig_elec_file)
 
     # Loop over each electrode
     for subject, elec_name in sig_elec_list.itertuples(index=False):
 
-        if isinstance(subject, int):
-            CONV_DIR = '/projects/HASSON/247/data/podcast'
-            BRAIN_DIR_STR = 'preprocessed_all'
+        assert isinstance(subject, int)
+        CONV_DIR = '/projects/HASSON/247/data/podcast'
+        BRAIN_DIR_STR = 'preprocessed_all'
 
-            subject_id = glob.glob(
-                os.path.join(CONV_DIR, 'NY' + str(subject) + '*'))[0]
-            subject_id = os.path.basename(subject_id)
+        subject_id = glob.glob(
+            os.path.join(CONV_DIR, 'NY' + str(subject) + '*'))[0]
+        subject_id = os.path.basename(subject_id)
 
         # Read subject's header
         labels = load_header(CONV_DIR, subject_id)
-        if not labels:
-            print('Header Missing')
-        electrode_num = labels.index(elec_name)
+        assert labels is not None, 'Missing header'
+        electrode_num = labels.index(elec_name) + 1
 
         # Read electrode data
         brain_dir = os.path.join(CONV_DIR, subject_id, BRAIN_DIR_STR)
         electrode_file = os.path.join(
             brain_dir, ''.join([
                 subject_id, '_electrode_preprocess_file_',
-                str(electrode_num + 1), '.mat'
+                str(electrode_num), '.mat'
             ]))
         try:
             elec_signal = loadmat(electrode_file)['p1st']
@@ -268,7 +267,8 @@ def main():
     # Locate and read datum
     datum = read_datum(args)
 
-    if not args.pca_to:
+    if args.pca_to:
+        print(f'PCAing to {args.pca_to}')
         datum = run_pca(args, datum)
 
     # Processing significant electrodes or individual subjects

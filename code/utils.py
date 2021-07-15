@@ -27,6 +27,7 @@ def load_pickle(file):
     Returns:
         DataFrame: pickle contents returned as dataframe
     """
+    print(f'Loading {file}')
     with open(file, 'rb') as fh:
         datum = pickle.load(fh)
 

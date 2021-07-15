@@ -39,10 +39,17 @@ def extract_correlations(args, directory_list, file_str=None):
 
     # Load the subject's electrode file
     electrode_list = load_pickle(args.electrode_file)['electrode_name']
+    if len(args.electrodes):
+        electrode_list = [electrode_list[i-1] for i in args.electrodes]
+
+    if args.sig_elec_file is not None:
+        elec_file = os.path.join(
+            os.path.join(os.getcwd(), 'data', args.sig_elec_file))
+        elecs = pd.read_csv(elec_file)
+        electrode_list = elecs.subject.astype(str) + '_' + elecs.electrode
 
     all_corrs = []
     for dir in directory_list:
-
         dir_corrs = []
         for electrode in electrode_list:
             file = os.path.join(dir, electrode + '_' + file_str + '.csv')
@@ -51,14 +58,19 @@ def extract_correlations(args, directory_list, file_str=None):
                     ha = list(map(float, csv_file.readline().strip().split(',')))
                 dir_corrs.append(ha)
             except FileNotFoundError:
-                print(f'{electrode} not Found')
+                file = os.path.join(dir, '*' + electrode + '_' + file_str + '.csv')
+                files = glob.glob(file)
+                if len(files):
+                    file = files[0]
+                    with open(file, 'r') as csv_file:
+                        ha = list(map(float, csv_file.readline().strip().split(',')))
+                    dir_corrs.append(ha)
+                elif len(args.electrodes) or args.sig_elec_file is not None:
+                    print(f'{electrode} not found for {file_str} under {dir}')
 
         all_corrs.append(dir_corrs)
 
-    # all_corrs.shape = [len(directory_list), len(electrode_list), num_lags]
     all_corrs = np.stack(all_corrs)
-
-    # all_corrs.shape = [len(directory_list), 1, num_lags]
     mean_corr = np.mean(all_corrs, axis=1)
 
     return all_corrs, mean_corr, electrode_list
@@ -93,12 +105,12 @@ def parse_arguments():
     parser.add_argument('--input-directory', nargs='*', type=str, default=None)
     parser.add_argument('--labels', nargs='*', type=str, default=None)
     parser.add_argument('--embedding-type', type=str, default=None)
-    parser.add_argument('--electrodes', nargs='*', type=int)
+    parser.add_argument('--electrodes', nargs='*', type=int, default=[])
     parser.add_argument('--output-file-name', type=str, default=None)
 
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('--sid', nargs='?', type=int, default=None)
-    group.add_argument('--sig-elec-file', nargs='?', type=str, default=None)
+    # group = parser.add_mutually_exclusive_group()
+    parser.add_argument('--sid', nargs='?', type=int, default=None)
+    parser.add_argument('--sig-elec-file', nargs='?', type=str, default=None)
 
     args = parser.parse_args()
 
@@ -122,15 +134,19 @@ def initial_setup(args):
 
 
 def set_plot_styles(args):
-    linestyles = ['-', '--', ':']
-    color = ['b', 'r']
+    linestyles = ['-', '--']
+    color = ['b', 'r', 'g']
 
-    # linestyles = linestyles[0:len(args.labels)] * 2
-    # color = np.repeat(color[0:len(args.labels)], len(args.labels))
-    linestyles = ['-', '-']
-    color = ['b', 'r']
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-    return (color, linestyles)
+    linestyles = np.repeat(linestyles[0:len(args.labels)], len(args.labels))
+    colors = colors[0:len(args.labels)] * 2
+
+    # hack?
+    if len(linestyles) == 1:
+        linestyles = ['-', '--']
+
+    return (colors, linestyles)
 
 
 def set_legend_labels(args):
@@ -162,7 +178,6 @@ def plot_data(args, data, pp, title=None):
 
 def plot_average_correlations_multiple(pp, prod_corr_mean, comp_corr_mean,
                                        args):
-
     data = np.vstack([prod_corr_mean, comp_corr_mean])
     plot_data(args, data, pp, r'\textit{Average Correlation (all electrodes)}')
 
@@ -189,25 +204,38 @@ if __name__ == '__main__':
                                        str(args.sid), 'pickles',
                                        str(args.sid) + '_electrode_names.pkl')
 
-    assert len(args.input_directory) == len(args.labels), "Unequal number of"
+    assert len(args.input_directory) <= len(args.labels), "Unequal number of"
 
     # Results folders to be plotted
-    results_dirs = [
-        glob.glob(
-            os.path.join(os.getcwd(), 'results', args.project_id, directory,
-                         str(args.sid)))[0]
-        for directory in args.input_directory
-    ]
+    results_dirs = []
+    for directory in args.input_directory:
+        fn = os.path.join(os.getcwd(),
+                          'results',
+                          args.project_id,
+                          directory,
+                          str(args.sid))
+        matches = glob.glob(fn)
+        if len(matches) > 0:
+            results_dirs += matches
+        else:
+            print(f'No results found under {directory}')
 
-    prod_corr, prod_corr_mean, prod_list = extract_correlations(
-        args, results_dirs, 'prod')
+    # prod_corr, prod_corr_mean, prod_list = extract_correlations(
+    #     args, results_dirs, 'prod')
 
-    comp_corr, comp_corr_mean, _ = extract_correlations(
+    comp_corr, comp_corr_mean, comp_list = extract_correlations(
         args, results_dirs, 'comp')
 
+    # assert prod_corr.size > 0 or comp_corr.size > 0, 'Results not found'
+
+    # NOTE workaround
+    prod_corr = comp_corr
+    prod_corr_mean = comp_corr_mean
+    prod_list = comp_list
+
     # Find maximum correlations (across all lags)
-    prod_max = np.max(prod_corr, axis=-1)  # .reshape(-1, 1)
-    comp_max = np.max(comp_corr, axis=-1)  # .reshape(-1, 1)
+    # prod_max = np.max(prod_corr, axis=-1)  # .reshape(-1, 1)
+    # comp_max = np.max(comp_corr, axis=-1)  # .reshape(-1, 1)
 
     # save correlations to a file
     # save_max_correlations(args, prod_max, comp_max, prod_list)

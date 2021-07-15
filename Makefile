@@ -2,17 +2,22 @@
 FILE := tfsenc_main
 USR := $(shell whoami | head -c 2)
 DT := $(shell date +"%Y%m%d-%H%M")
+DT := ${USR}
 
 # -----------------------------------------------------------------------------
 #  Configurable options
 # -----------------------------------------------------------------------------
 
 PRJCT_ID := tfs
+PRJCT_ID := podcast
 # {podcast | tfs}
 
 # 625 Electrode IDs
 SID := 625
 E_LIST := $(shell seq 1 105)
+E_LIST := 63
+E_LIST := 1 7 11 13 14 17 18 20 22 24 25 27 29 30 31 32 33 35 36 37 38 39 40 41 42 45 46 47 49 50 51 52 54 56 57 58 59 62 63 64 65
+E_LIST := 1 7 11 13 14 17 18 20 22 24 25 27 29 30 31 32 33 35 36 37 38 39 40 41 42 45 46 47 49 50 51 52 54 56 57
 
 # # 676 Electrode IDs
 # SID := 676
@@ -41,6 +46,8 @@ PKL_IDENTIFIER := full
 # SID := 798
 # E_LIST :=  $(shell seq 1 195)
 
+SID := 777
+
 # number of permutations (goes with SH and PSH)
 NPERM := 1
 
@@ -50,19 +57,23 @@ LAGS := {-2000..2000..25}
 CONVERSATION_IDX := 0
 
 # Choose which set of embeddings to use
-EMB := blenderbot-small
 # {glove50 | gpt2-xl | blenderbot-small}
+EMB := blenderbot
+EMB := blenderbot-small
+EMB := glove50
+EMB := gpt2-xl
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
 WS := 200
 
 # Choose which set of embeddings to align with
+ALIGN_WITH := blenderbot-small
 ALIGN_WITH := gpt2-xl
 ALIGN_TGT_CNXT_LEN := 1024
 
 # Specify the minimum word frequency
-MWF := 1
+MWF := 5
 
 # TODO: explain this parameter.
 WV := all
@@ -80,6 +91,7 @@ PCA_TO := 50
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := sbatch submit1.sh
+CMD := python
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -87,6 +99,9 @@ CMD := sbatch submit1.sh
 # DS := podcast-datum-gpt2-xl-c_1024-previous-pca_50d.csv
 
 #TODO: move paths to makefile
+
+SIG_FN := --sig-elec-file test.csv
+SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
 
 # plotting modularity
 # make separate models with separate electrodes (all at once is possible)
@@ -130,34 +145,11 @@ run-encoding:
 			--lags $(LAGS) \
 			--min-word-freq $(MWF) \
 			--pca-to $(PCA_TO) \
+			$(SIG_FN) \
 			$(SH) \
 			$(PSH) \
 			--normalize $(NM)\
 			--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB) \
-			--output-prefix '';\
-
-run-sig-encoding:
-	mkdir -p logs
-		$(CMD) code/$(FILE).py \
-			--project-id $(PRJCT_ID) \
-			--pkl-identifier $(PKL_IDENTIFIER) \
-			--datum-emb-fn $(DS) \
-			--conversation-id $(CONVERSATION_IDX) \
-			--sig-elec-file bobbi.csv \
-			--emb-type $(EMB) \
-			--context-length $(CNXT_LEN) \
-			--align-with $(ALIGN_WITH) \
-			--align-target-context-length $(ALIGN_TGT_CNXT_LEN) \
-			--window-size $(WS) \
-			--word-value $(WV) \
-			--npermutations $(NPERM) \
-			--lags $(LAGS) \
-			--min-word-freq $(MWF) \
-			--pca-to $(PCA_TO) \
-			$(SH) \
-			$(PSH) \
-			--normalize $(NM)\
-			--output-parent-dir sig-elec-test-tfs \
 			--output-prefix '';\
 
 # Recommended naming convention for output_folder
@@ -226,19 +218,42 @@ pca-on-embedding:
 			--sid $(SID) \
 			--emb-type $(EMB) \
 			--context-length $(CNXT_LEN) \
-			--pca-to $(EMB_RED_DIM); 
+			--pca-to $(EMB_RED_DIM);
 
 # -----------------------------------------------------------------------------
 # Plotting
 # -----------------------------------------------------------------------------
-plot-encoding1:
+			# --electrodes $(E_LIST) 
+			# d-tfs-full-625-glove50-55 \
+				d-tfs-full-625-gpt2-xl-55 \
+				d-tfs-full-625-blenderbot-small-55 \
+				d-tfs-full-625-blenderbot-55 
+plot-encoding:
 	mkdir -p results/figures
 	python code/tfsenc_plots.py \
 			--project-id $(PRJCT_ID) \
 			--sid $(SID) \
+			$(SIG_FN) \
 			--input-directory \
-				tfs-full-blenderbot-small-pca50 \
+				d-podcast-full-777-gpt2-xl-nosh-pcafirst \
+				bobbi-full-777-gpt2-xl \
 			--labels \
-				blenderbot-small \
+				py.gpt2 mat.gpt2 \
 			--output-file-name \
-				tfs-full-blenderbot-small-pca50;
+				pod-gpt2-nosh-pca
+	rsync -av --delete results/figures ~/tigress/247-encoding-results
+
+plot-encoding1:
+	mkdir -p results/figures
+	python code/tfsenc_plots.py \
+			--project-id $(PRJCT_ID) \
+			--sid 777 \
+			--input-directory \
+				podcast-e_bb-d_blenderbot-small-w_200/ \
+				podcast-e_bb-d_glove50-w_200/ \
+				podcast-e_bb-d_gpt2-xl-w_200/ \
+			--labels \
+				bbot-small glove gpt2-xl \
+			--output-file-name \
+				podcast-test
+	rsync -av --delete results/figures ~/tigress/247-encoding-results

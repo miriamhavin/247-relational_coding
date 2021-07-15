@@ -1,17 +1,18 @@
 import argparse
-import os
 
+import numpy as np
 from sklearn.decomposition import PCA
 from tfsenc_read_datum import read_datum
 from tfsenc_utils import setup_environ
 
 
 def run_pca(args, df):
-    pca = PCA(n_components=args.pca_to, svd_solver='auto')
+    pca = PCA(n_components=args.pca_to, svd_solver='auto', whiten=True)
 
     df_emb = df['embeddings']
+    embs = np.vstack(df_emb.values)
 
-    pca_output = pca.fit_transform(df_emb.values.tolist())
+    pca_output = pca.fit_transform(embs)
     df['embeddings'] = pca_output.tolist()
 
     return df

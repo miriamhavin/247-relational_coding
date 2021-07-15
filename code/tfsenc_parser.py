@@ -10,9 +10,9 @@ def parse_arguments():
 
     parser.add_argument('--project-id', type=str, default=None)
 
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('--sid', nargs='?', type=int, default=None)
-    group.add_argument('--sig-elec-file', nargs='?', type=str, default=None)
+    # group = parser.add_mutually_exclusive_group()
+    parser.add_argument('--sid', nargs='?', type=int, default=None)
+    parser.add_argument('--sig-elec-file', nargs='?', type=str, default=None)
 
     parser.add_argument('--conversation-id', type=int, default=0)
 
@@ -23,6 +23,8 @@ def parse_arguments():
     group1.add_argument('--shuffle', action='store_true', default=False)
     group1.add_argument('--phase-shuffle', action='store_true', default=False)
 
+    parser.add_argument('--parallel', action='store_true', default=False)
+
     parser.add_argument('--normalize', nargs='?', type=str, default=None)
 
     parser.add_argument('--lags', nargs='+', type=int)
@@ -32,7 +34,7 @@ def parse_arguments():
     parser.add_argument('--datum-emb-fn', nargs='?', type=str, default=None)
     parser.add_argument('--electrodes', nargs='*', type=int)
     parser.add_argument('--npermutations', type=int, default=1)
-    parser.add_argument('--min-word-freq', nargs='?', type=int, default=1)
+    parser.add_argument('--min-word-freq', nargs='?', type=int, default=5)
     parser.add_argument('--job-id', type=int, default=0)
 
     parser.add_argument('--pca-to', nargs='?', type=int, default=0)
