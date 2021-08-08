@@ -182,14 +182,17 @@ def read_datum(args):
         df['adjusted_offset'], df['offset'] = df['offset'], np.nan
 
     df = add_convo_onset_offset(args, df)
-    df = drop_nan_embeddings(df)
-    df = remove_punctuation(df)
+    if args.emb_type == 'glove50':
+        df = df.dropna(subset=['embeddings'])
+    else:
+        df = drop_nan_embeddings(df)
+        df = remove_punctuation(df)
     # df = df[~df['glove50_embeddings'].isna()]
 
     # Apply filters
     common = df.in_glove
     if 'gpt2' in args.align_with.lower() or 'gpt2' in args.emb_type.lower():
-        common = common & df.in_gpt2
+        common = common & df.in_gpt2_xl
     nonword_mask = df.word.str.lower().apply(lambda x: x in NONWORDS)
     freq_mask = df.word_freq_overall >= args.min_word_freq
     df = df[common & freq_mask & ~nonword_mask]
@@ -203,7 +206,10 @@ def read_datum(args):
 
     # if encoding is on glove embeddings copy them into 'embeddings' column
     if args.emb_type == 'glove50':
-        df['embeddings'] = df['glove50_embeddings']
+        try:
+            df['embeddings'] = df['glove50_embeddings']
+        except KeyError as e:
+            pass
 
     if not args.normalize:
         df = normalize_embeddings(args, df)

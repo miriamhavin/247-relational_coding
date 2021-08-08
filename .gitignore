@@ -9,4 +9,6 @@ logs
 results/*
 
 !.gitkeep
+.vscode
+.cache
 

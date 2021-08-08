@@ -2,22 +2,21 @@
 FILE := tfsenc_main
 USR := $(shell whoami | head -c 2)
 DT := $(shell date +"%Y%m%d-%H%M")
-DT := ${USR}
+# DT := ${USR}
 
 # -----------------------------------------------------------------------------
 #  Configurable options
 # -----------------------------------------------------------------------------
 
 PRJCT_ID := tfs
-PRJCT_ID := podcast
 # {podcast | tfs}
 
 # 625 Electrode IDs
 SID := 625
 E_LIST := $(shell seq 1 105)
-E_LIST := 63
-E_LIST := 1 7 11 13 14 17 18 20 22 24 25 27 29 30 31 32 33 35 36 37 38 39 40 41 42 45 46 47 49 50 51 52 54 56 57 58 59 62 63 64 65
-E_LIST := 1 7 11 13 14 17 18 20 22 24 25 27 29 30 31 32 33 35 36 37 38 39 40 41 42 45 46 47 49 50 51 52 54 56 57
+# E_LIST := 63
+# E_LIST := 1 7 11 13 14 17 18 20 22 24 25 27 29 30 31 32 33 35 36 37 38 39 40 41 42 45 46 47 49 50 51 52 54 56 57 58 59 62 63 64 65
+# E_LIST := 1 7 11 13 14 17 18 20 22 24 25 27 29 30 31 32 33 35 36 37 38 39 40 41 42 45 46 47 49 50 51 52 54 56 57
 
 # # 676 Electrode IDs
 # SID := 676
@@ -46,10 +45,10 @@ PKL_IDENTIFIER := full
 # SID := 798
 # E_LIST :=  $(shell seq 1 195)
 
-SID := 777
+# SID := 777
 
 # number of permutations (goes with SH and PSH)
-NPERM := 1
+NPERM := 1000
 
 # Choose the lags to run for.
 LAGS := {-2000..2000..25}
@@ -57,20 +56,17 @@ LAGS := {-2000..2000..25}
 CONVERSATION_IDX := 0
 
 # Choose which set of embeddings to use
-# {glove50 | gpt2-xl | blenderbot-small}
-EMB := blenderbot
-EMB := blenderbot-small
+# {glove50 | gpt2-xl | blenderbot | blenderbot-small}
 EMB := glove50
-EMB := gpt2-xl
-CNXT_LEN := 1024
+CNXT_LEN := 0
 
 # Choose the window size to average for each point
 WS := 200
 
 # Choose which set of embeddings to align with
-ALIGN_WITH := blenderbot-small
-ALIGN_WITH := gpt2-xl
-ALIGN_TGT_CNXT_LEN := 1024
+# {glove50 | gpt2-xl | belnderbot-small}
+ALIGN_WITH := glove50
+ALIGN_TGT_CNXT_LEN := 0
 
 # Specify the minimum word frequency
 MWF := 5
@@ -80,18 +76,17 @@ WV := all
 
 # Choose whether to label or phase shuffle
 # SH := --shuffle
-# PSH := --phase-shuffle
+PSH := --phase-shuffle
 
 # Choose whether to normalize the embeddings
-# NM := l2
+NM := l2
 # {l1 | l2 | max}
 
-PCA_TO := 50
+PCA_TO := 0
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
-CMD := sbatch submit1.sh
-CMD := python
+CMD := echo
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -100,8 +95,8 @@ CMD := python
 
 #TODO: move paths to makefile
 
-SIG_FN := --sig-elec-file test.csv
-SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
+# SIG_FN := --sig-elec-file test.csv
+# SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
 
 # plotting modularity
 # make separate models with separate electrodes (all at once is possible)
@@ -180,8 +175,8 @@ run-encoding-slurm:
 				$(SH) \
 				$(PSH) \
 				--normalize $(NM) \
-				--output-parent-dir $(PRJCT_ID)-$(PKL_IDENTIFIER)-$(EMB)-pca$(PCA_TO) \
-				--output-prefix ''; \
+				--output-parent-dir $(PRJCT_ID)-$(PKL_IDENTIFIER)-$(EMB)-pca$(PCA_TO); \
+				# --output-prefix ''; \
 				# --job-id $(EMB)-$$jobid; \
 		# done; \
 	done;
