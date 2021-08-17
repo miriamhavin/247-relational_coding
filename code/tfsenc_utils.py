@@ -241,6 +241,7 @@ def run_save_permutation(args, prod_X, prod_Y, filename):
             perm_prod = []
             for i in range(args.npermutations):
                 perm_prod.append(encoding_mp(i, args, prod_X, prod_Y))
+                # print(max(perm_prod[-1]), np.mean(perm_prod[-1]))
 
         with open(filename, 'w') as csvfile:
             csvwriter = csv.writer(csvfile)
@@ -260,6 +261,7 @@ def load_header(conversation_dir, subject_id):
     misc_dir = os.path.join(conversation_dir, subject_id, 'misc')
     header_file = os.path.join(misc_dir, subject_id + '_header.mat')
     if not os.path.exists(header_file):
+        print(f'[WARN] no header found in {misc_dir}')
         return
     header = mat73.loadmat(header_file)
     labels = header.header.label
@@ -354,7 +356,7 @@ def setup_environ(args):
 
         stra = 'cnxt_' + str(args.align_target_context_length)
         args.load_emb_file = '_'.join([
-            str(args.sid), args.pkl_identifier, args.align_with, stra,
+            str(args.sid), args.pkl_identifier, args.align_with[0], stra,
             'embeddings.pkl'
         ])
     else:

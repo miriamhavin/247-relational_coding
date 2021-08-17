@@ -39,14 +39,15 @@ def extract_correlations(args, directory_list, file_str=None):
 
     # Load the subject's electrode file
     electrode_list = load_pickle(args.electrode_file)['electrode_name']
-    if len(args.electrodes):
-        electrode_list = [electrode_list[i-1] for i in args.electrodes]
+    # if len(args.electrodes):
+    #     electrode_list = [electrode_list[i-1] for i in args.electrodes]
 
     if args.sig_elec_file is not None:
         elec_file = os.path.join(
             os.path.join(os.getcwd(), 'data', args.sig_elec_file))
         elecs = pd.read_csv(elec_file)
         electrode_list = elecs.subject.astype(str) + '_' + elecs.electrode
+        electrode_list = elecs.electrode  # NOTE for 247
 
     all_corrs = []
     for dir in directory_list:
@@ -72,6 +73,9 @@ def extract_correlations(args, directory_list, file_str=None):
 
     all_corrs = np.stack(all_corrs)
     mean_corr = np.mean(all_corrs, axis=1)
+
+    if not all_corrs.size:
+        print('[WARN] no results found!')
 
     return all_corrs, mean_corr, electrode_list
 
@@ -106,6 +110,7 @@ def parse_arguments():
     parser.add_argument('--labels', nargs='*', type=str, default=None)
     parser.add_argument('--embedding-type', type=str, default=None)
     parser.add_argument('--electrodes', nargs='*', type=int, default=[])
+    parser.add_argument('--lags', nargs='*', type=int, default=[])
     parser.add_argument('--output-file-name', type=str, default=None)
 
     # group = parser.add_mutually_exclusive_group()
@@ -158,19 +163,45 @@ def set_legend_labels(args):
     return legend_labels
 
 
-def plot_data(args, data, pp, title=None):
-    lags = np.arange(-2000, 2001, 25)
+def plot_data(args, data, pp, title=None, asstr=True):
+    lags = np.arange(-2000, 2001, 25, dtype=int)
+    lags = np.array([-60000] + lags.tolist() + [60000], dtype=int)
+    lags = np.asarray(args.lags)
+    lags = lags / 1000
 
+    # fig, axes = plt.subplots(1, 2, gridspec_kw={'width_ratios': [2, 1]})
+    # ax = axes[0]
     fig, ax = plt.subplots()
     color, linestyles = set_plot_styles(args)
     ax.set_prop_cycle(color=color, linestyle=linestyles)
     ax.plot(lags, data.T, linewidth=0.75)
-    ax.legend(set_legend_labels(args), frameon=False)
+
+    ax.legend(set_legend_labels(args), frameon=False, loc='upper left')
+
+    # df = pd.read_csv('avigail.txt', sep='\t')
+    # ax.plot(df.lags, df.means, label='avigail', c='g')
+    # print(df.describe())
+    # breakpoint()
+
     ax.set(xlabel=r'\textit{lag (s)}',
            ylabel=r'\textit{correlation}',
            title=title)
     ax.set_ylim(-0.05, 0.35)
     ax.vlines(0, -0.05, 0.50, linestyles='dashed', linewidth=.75)
+
+    elecdir = f'/projects/HASSON/247/data/elecimg/{args.sid}/'
+    elecname = title.replace('EEG', '').replace('REF', '').replace('\\', '').replace('_', '')
+    elecname = elecname.replace('GR', 'G')
+    imname = elecdir + f'{args.sid}_{elecname}.png'
+    imname = elecdir + f'thumb_{elecname}.png'
+    if os.path.isfile(imname):
+        arr_image = plt.imread(imname, format='png')
+        fig.figimage(arr_image, 
+                     fig.bbox.xmax - arr_image.shape[1],
+                     fig.bbox.ymax - arr_image.shape[0], zorder=5)
+
+    else:
+        print('Missing', imname)
 
     pp.savefig(fig)
     plt.close()
@@ -220,18 +251,17 @@ if __name__ == '__main__':
         else:
             print(f'No results found under {directory}')
 
-    # prod_corr, prod_corr_mean, prod_list = extract_correlations(
-    #     args, results_dirs, 'prod')
+    # NOTE
+    prod_corr_mean = None
+    prod_corr, prod_corr_mean, prod_list = extract_correlations(
+        args, results_dirs, 'prod')
 
     comp_corr, comp_corr_mean, comp_list = extract_correlations(
         args, results_dirs, 'comp')
 
+    print('Production', prod_corr.shape)
+    print('Comprehension', comp_corr.shape)
     # assert prod_corr.size > 0 or comp_corr.size > 0, 'Results not found'
-
-    # NOTE workaround
-    prod_corr = comp_corr
-    prod_corr_mean = comp_corr_mean
-    prod_list = comp_list
 
     # Find maximum correlations (across all lags)
     # prod_max = np.max(prod_corr, axis=-1)  # .reshape(-1, 1)

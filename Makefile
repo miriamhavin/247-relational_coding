@@ -18,14 +18,23 @@ E_LIST := $(shell seq 1 105)
 # E_LIST := 1 7 11 13 14 17 18 20 22 24 25 27 29 30 31 32 33 35 36 37 38 39 40 41 42 45 46 47 49 50 51 52 54 56 57 58 59 62 63 64 65
 # E_LIST := 1 7 11 13 14 17 18 20 22 24 25 27 29 30 31 32 33 35 36 37 38 39 40 41 42 45 46 47 49 50 51 52 54 56 57
 
-# # 676 Electrode IDs
-# SID := 676
-# E_LIST := $(shell seq 1 125)
+# Sig file will override whatever electrodes you choose
+SIG_FN := 
+# SIG_FN := --sig-elec-file colton625.csv
+# SIG_FN := --sig-elec-file test.csv
+# SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
+
+
+# 676 Electrode IDs
+SID := 676
+E_LIST := 1
+E_LIST := $(shell seq 1 125)
 
 PKL_IDENTIFIER := full
 # {full | trimmed}
 
 # podcast electeode IDs
+# SID := 777
 # SID := 661
 # E_LIST :=  $(shell seq 1 115)
 # SID := 662
@@ -45,19 +54,23 @@ PKL_IDENTIFIER := full
 # SID := 798
 # E_LIST :=  $(shell seq 1 195)
 
-# SID := 777
-
 # number of permutations (goes with SH and PSH)
 NPERM := 1000
 
 # Choose the lags to run for.
+LAGS := -60000 {-2000..2000..25} 60000
+LAGS = {-60000..-10000..10000} -5000 {-2000..2000..50} 5000 {10000..60000..10000}
 LAGS := {-2000..2000..25}
 
 CONVERSATION_IDX := 0
 
 # Choose which set of embeddings to use
-# {glove50 | gpt2-xl | blenderbot | blenderbot-small}
+# {glove50 | gpt2-xl | blenderbot-small}
+EMB := blenderbot
 EMB := glove50
+EMB := gpt2-xl
+EMB := blenderbot-small
+CNXT_LEN := 1024
 CNXT_LEN := 0
 
 # Choose the window size to average for each point
@@ -66,10 +79,14 @@ WS := 200
 # Choose which set of embeddings to align with
 # {glove50 | gpt2-xl | belnderbot-small}
 ALIGN_WITH := glove50
+ALIGN_WITH := gpt2-xl
+ALIGN_WITH := blenderbot-small
+ALIGN_WITH := gpt2-xl blenderbot-small
+ALIGN_TGT_CNXT_LEN := 1024
 ALIGN_TGT_CNXT_LEN := 0
 
 # Specify the minimum word frequency
-MWF := 5
+MWF := 0
 
 # TODO: explain this parameter.
 WV := all
@@ -87,6 +104,8 @@ PCA_TO := 0
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
+CMD := python
+CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -103,49 +122,41 @@ CMD := echo
 PDIR := $(shell dirname `pwd`)
 link-data:
 	ln -fs $(PDIR)/247-pickling/results/* data/
+	ln -s /projects/HASSON/247/data/podcast-data/*.csv data/
+	# ln -fs /scratch/gpfs/${USER}/247-pickling/results/* data/
 
 # -----------------------------------------------------------------------------
 # Encoding
 # -----------------------------------------------------------------------------
-target1:
-	for elec in $(E_LIST); do \
-		$(CMD) code/$(FILE).py \
-			--subject $(SID) \
-			--lags $(LAGS) \
-			--emb-file $(EMB) \
-			--electrode $$elec \
-			--npermutations 
-			--output-folder $(DT)-$(SID)-test; \
-	done
 
 # Run the encoding model for the given electrodes in one swoop
 # Note that the code will add the subject, embedding type, and PCA details to
 # the output folder name
 run-encoding:
 	mkdir -p logs
-		$(CMD) code/$(FILE).py \
-			--project-id $(PRJCT_ID) \
-			--pkl-identifier $(PKL_IDENTIFIER) \
-			--datum-emb-fn $(DS) \
-			--sid $(SID) \
-			--conversation-id $(CONVERSATION_IDX) \
-			--electrodes $(E_LIST) \
-			--emb-type $(EMB) \
-			--context-length $(CNXT_LEN) \
-			--align-with $(ALIGN_WITH) \
-			--align-target-context-length $(ALIGN_TGT_CNXT_LEN) \
-			--window-size $(WS) \
-			--word-value $(WV) \
-			--npermutations $(NPERM) \
-			--lags $(LAGS) \
-			--min-word-freq $(MWF) \
-			--pca-to $(PCA_TO) \
-			$(SIG_FN) \
-			$(SH) \
-			$(PSH) \
-			--normalize $(NM)\
-			--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB) \
-			--output-prefix '';\
+	$(CMD) code/$(FILE).py \
+		--project-id $(PRJCT_ID) \
+		--pkl-identifier $(PKL_IDENTIFIER) \
+		--datum-emb-fn $(DS) \
+		--sid $(SID) \
+		--conversation-id $(CONVERSATION_IDX) \
+		--electrodes $(E_LIST) \
+		--emb-type $(EMB) \
+		--context-length $(CNXT_LEN) \
+		--align-with $(ALIGN_WITH) \
+		--align-target-context-length $(ALIGN_TGT_CNXT_LEN) \
+		--window-size $(WS) \
+		--word-value $(WV) \
+		--npermutations $(NPERM) \
+		--lags $(LAGS) \
+		--min-word-freq $(MWF) \
+		--pca-to $(PCA_TO) \
+		$(SIG_FN) \
+		$(SH) \
+		$(PSH) \
+		--normalize $(NM)\
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB) \
+		--output-prefix '';\
 
 # Recommended naming convention for output_folder
 #--output-prefix $(USR)-$(WS)ms-$(WV); \
@@ -222,21 +233,28 @@ pca-on-embedding:
 			# d-tfs-full-625-glove50-55 \
 				d-tfs-full-625-gpt2-xl-55 \
 				d-tfs-full-625-blenderbot-small-55 \
-				d-tfs-full-625-blenderbot-55 
+				zz-podcast-full-777-blenderbot-small \
+				zz-podcast-full-777-blenderbot-small-spk \
+				zz-podcast-full-777-gpt2-xl \
+				d-tfs-full-625-blenderbot-55  \
+				zz-tfs-full-625-blenderbot-small 
 plot-encoding:
 	mkdir -p results/figures
 	python code/tfsenc_plots.py \
 			--project-id $(PRJCT_ID) \
 			--sid $(SID) \
+			--electrodes $(E_LIST) \
+			--lags $(LAGS) \
 			$(SIG_FN) \
 			--input-directory \
-				d-podcast-full-777-gpt2-xl-nosh-pcafirst \
-				bobbi-full-777-gpt2-xl \
+				zz-tfs-full-$(SID)-glove50 \
+				zz-tfs-full-$(SID)-gpt2-xl \
+				zz-tfs-full-$(SID)-blenderbot-small \
 			--labels \
-				py.gpt2 mat.gpt2 \
+				glove gpt2 bbot \
 			--output-file-name \
-				pod-gpt2-nosh-pca
-	rsync -av --delete results/figures ~/tigress/247-encoding-results
+				$(PRJCT_ID)-$(SID)-ggb
+	rsync -av results/figures/ ~/tigress/247-encoding-results/figures/
 
 plot-encoding1:
 	mkdir -p results/figures

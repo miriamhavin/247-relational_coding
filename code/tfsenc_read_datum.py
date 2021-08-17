@@ -177,9 +177,10 @@ def read_datum(args):
         [item in df.columns
          for item in ['adjusted_onset', 'adjusted_offset']]):
         df = adjust_onset_offset(args, df)
-    else:
-        df['adjusted_onset'], df['onset'] = df['onset'], np.nan
-        df['adjusted_offset'], df['offset'] = df['offset'], np.nan
+    # TODO this was needed for podcast but destroys tfs
+    # else:
+    #     df['adjusted_onset'], df['onset'] = df['onset'], np.nan
+    #     df['adjusted_offset'], df['offset'] = df['offset'], np.nan
 
     df = add_convo_onset_offset(args, df)
     if args.emb_type == 'glove50':
@@ -191,11 +192,30 @@ def read_datum(args):
 
     # Apply filters
     common = df.in_glove
-    if 'gpt2' in args.align_with.lower() or 'gpt2' in args.emb_type.lower():
-        common = common & df.in_gpt2_xl
-    nonword_mask = df.word.str.lower().apply(lambda x: x in NONWORDS)
-    freq_mask = df.word_freq_overall >= args.min_word_freq
-    df = df[common & freq_mask & ~nonword_mask]
+    for model in args.align_with:
+        if 'gpt2' in model:
+            common = common & df.in_gpt2
+        elif 'blenderbot-small' in model:
+            common = common & df.in_blenderbot_small_90M
+        elif 'blenderbot' in model:
+            common = common & df.in_blenderbot_3B
+
+    if 'gpt2' in args.emb_type.lower():
+        common = common & df.in_gpt2
+    elif 'blenderbot-small' in args.emb_type.lower():
+        common = common & df.in_blenderbot_small_90M
+    elif 'blenderbot' in args.emb_type.lower():
+        common = common & df.in_blenderbot_3B
+
+    if args.exclude_nonwords:
+        nonword_mask = df.word.str.lower().apply(lambda x: x in NONWORDS)
+        common &= ~nonword_mask
+
+    if args.min_word_freq > 0:
+        freq_mask = df.word_freq_overall >= args.min_word_freq
+        common &= freq_mask
+
+    df = df[common]
     end_n = len(df)
     print(f'Went from {start_n} words to {end_n} words')
 
@@ -208,7 +228,7 @@ def read_datum(args):
     if args.emb_type == 'glove50':
         try:
             df['embeddings'] = df['glove50_embeddings']
-        except KeyError as e:
+        except KeyError:
             pass
 
     if not args.normalize:
