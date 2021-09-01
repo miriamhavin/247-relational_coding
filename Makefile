@@ -26,9 +26,9 @@ SIG_FN :=
 
 
 # 676 Electrode IDs
-SID := 676
-E_LIST := 1
-E_LIST := $(shell seq 1 125)
+# SID := 676
+# E_LIST := 1
+# E_LIST := $(shell seq 1 125)
 
 PKL_IDENTIFIER := full
 # {full | trimmed}
@@ -67,9 +67,9 @@ CONVERSATION_IDX := 0
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
-EMB := glove50
 EMB := gpt2-xl
 EMB := blenderbot-small
+EMB := glove50
 CNXT_LEN := 1024
 CNXT_LEN := 0
 
@@ -77,11 +77,10 @@ CNXT_LEN := 0
 WS := 200
 
 # Choose which set of embeddings to align with
-# {glove50 | gpt2-xl | belnderbot-small}
 ALIGN_WITH := glove50
-ALIGN_WITH := gpt2-xl
 ALIGN_WITH := blenderbot-small
 ALIGN_WITH := gpt2-xl blenderbot-small
+ALIGN_WITH := gpt2-xl
 ALIGN_TGT_CNXT_LEN := 1024
 ALIGN_TGT_CNXT_LEN := 0
 
@@ -104,8 +103,8 @@ PCA_TO := 0
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
-CMD := python
 CMD := sbatch submit1.sh
+CMD := python
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -247,13 +246,11 @@ plot-encoding:
 			--lags $(LAGS) \
 			$(SIG_FN) \
 			--input-directory \
-				zz-tfs-full-$(SID)-glove50 \
-				zz-tfs-full-$(SID)-gpt2-xl \
-				zz-tfs-full-$(SID)-blenderbot-small \
+				zz-tfs-full-625-glove50 \
 			--labels \
-				glove gpt2 bbot \
+				glove \
 			--output-file-name \
-				$(PRJCT_ID)-$(SID)-ggb
+				$(PRJCT_ID)-$(SID)-glove-one
 	rsync -av results/figures/ ~/tigress/247-encoding-results/figures/
 
 plot-encoding1:

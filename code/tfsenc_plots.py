@@ -39,8 +39,8 @@ def extract_correlations(args, directory_list, file_str=None):
 
     # Load the subject's electrode file
     electrode_list = load_pickle(args.electrode_file)['electrode_name']
-    # if len(args.electrodes):
-    #     electrode_list = [electrode_list[i-1] for i in args.electrodes]
+    if len(args.electrodes):
+        electrode_list = [electrode_list[i-1] for i in args.electrodes]
 
     if args.sig_elec_file is not None:
         elec_file = os.path.join(
@@ -165,8 +165,8 @@ def set_legend_labels(args):
 
 def plot_data(args, data, pp, title=None, asstr=True):
     lags = np.arange(-2000, 2001, 25, dtype=int)
-    lags = np.array([-60000] + lags.tolist() + [60000], dtype=int)
-    lags = np.asarray(args.lags)
+    # lags = np.array([-60000] + lags.tolist() + [60000], dtype=int)
+    # lags = np.asarray(args.lags)
     lags = lags / 1000
 
     # fig, axes = plt.subplots(1, 2, gridspec_kw={'width_ratios': [2, 1]})
