@@ -2,7 +2,7 @@
 FILE := tfsenc_main
 USR := $(shell whoami | head -c 2)
 DT := $(shell date +"%Y%m%d-%H%M")
-# DT := ${USR}
+DT := ${USR}
 
 # -----------------------------------------------------------------------------
 #  Configurable options
@@ -14,20 +14,16 @@ PRJCT_ID := tfs
 # 625 Electrode IDs
 SID := 625
 E_LIST := $(shell seq 1 105)
-# E_LIST := 63
-# E_LIST := 1 7 11 13 14 17 18 20 22 24 25 27 29 30 31 32 33 35 36 37 38 39 40 41 42 45 46 47 49 50 51 52 54 56 57 58 59 62 63 64 65
-# E_LIST := 1 7 11 13 14 17 18 20 22 24 25 27 29 30 31 32 33 35 36 37 38 39 40 41 42 45 46 47 49 50 51 52 54 56 57
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
 # SIG_FN := --sig-elec-file colton625.csv
 # SIG_FN := --sig-elec-file test.csv
 # SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
-
+SIG_FN := --sig-elec-file 625-61-mariano-prod.csv 625-58-mariano-comp.csv
 
 # 676 Electrode IDs
 # SID := 676
-# E_LIST := 1
 # E_LIST := $(shell seq 1 125)
 
 PKL_IDENTIFIER := full
@@ -53,13 +49,15 @@ PKL_IDENTIFIER := full
 # E_LIST :=  $(shell seq 1 80)
 # SID := 798
 # E_LIST :=  $(shell seq 1 195)
+#
+# SIG_FN := --sig-elec-file test.csv
+# SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
+
 
 # number of permutations (goes with SH and PSH)
 NPERM := 1000
 
 # Choose the lags to run for.
-LAGS := -60000 {-2000..2000..25} 60000
-LAGS = {-60000..-10000..10000} -5000 {-2000..2000..50} 5000 {10000..60000..10000}
 LAGS := {-2000..2000..25}
 
 CONVERSATION_IDX := 0
@@ -67,11 +65,10 @@ CONVERSATION_IDX := 0
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
-EMB := gpt2-xl
 EMB := blenderbot-small
 EMB := glove50
+EMB := gpt2-xl
 CNXT_LEN := 1024
-CNXT_LEN := 0
 
 # Choose the window size to average for each point
 WS := 200
@@ -81,8 +78,13 @@ ALIGN_WITH := glove50
 ALIGN_WITH := blenderbot-small
 ALIGN_WITH := gpt2-xl blenderbot-small
 ALIGN_WITH := gpt2-xl
-ALIGN_TGT_CNXT_LEN := 1024
-ALIGN_TGT_CNXT_LEN := 0
+
+# Choose layer
+# {1 for glove, 48 for gpt2}
+LAYER_IDX := 48
+
+# Choose whether to PCA
+PCA_TO := 50
 
 # Specify the minimum word frequency
 MWF := 0
@@ -92,19 +94,15 @@ WV := all
 
 # Choose whether to label or phase shuffle
 # SH := --shuffle
-PSH := --phase-shuffle
+# PSH := --phase-shuffle
 
 # Choose whether to normalize the embeddings
-NM := l2
+# NM := l2
 # {l1 | l2 | max}
-
-PCA_TO := 0
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
-CMD := echo
 CMD := sbatch submit1.sh
-CMD := python
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -112,9 +110,6 @@ CMD := python
 # DS := podcast-datum-gpt2-xl-c_1024-previous-pca_50d.csv
 
 #TODO: move paths to makefile
-
-# SIG_FN := --sig-elec-file test.csv
-# SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
 
 # plotting modularity
 # make separate models with separate electrodes (all at once is possible)
@@ -143,13 +138,13 @@ run-encoding:
 		--emb-type $(EMB) \
 		--context-length $(CNXT_LEN) \
 		--align-with $(ALIGN_WITH) \
-		--align-target-context-length $(ALIGN_TGT_CNXT_LEN) \
 		--window-size $(WS) \
 		--word-value $(WV) \
 		--npermutations $(NPERM) \
 		--lags $(LAGS) \
 		--min-word-freq $(MWF) \
 		--pca-to $(PCA_TO) \
+		--layer-idx $(LAYER_IDX) \
 		$(SIG_FN) \
 		$(SH) \
 		$(PSH) \
@@ -267,3 +262,17 @@ plot-encoding1:
 			--output-file-name \
 				podcast-test
 	rsync -av --delete results/figures ~/tigress/247-encoding-results
+
+# 'results/tfs/zz1-tfs-full-625-blenderbot-small/625/*_%s.csv' 
+plot-new:
+	python code/plot.py \
+		--formats \
+			'results/tfs/zz1-tfs-full-625-gpt2-xl/625/*_%s.csv' \
+			'results/tfs/zz1-tfs-full-625-glove50/625/*_%s.csv' \
+		--labels gpt2 glove \
+		$(SIG_FN) \
+		--values $(LAGS) \
+		--keys prod comp \
+		--outfile results/figures/247-625-gg-sig.pdf
+	rsync -av results/figures/ ~/tigress/247-encoding-results/figures/
+

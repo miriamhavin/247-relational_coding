@@ -31,6 +31,7 @@ def parse_arguments():
     parser.add_argument('--output-prefix', type=str, default='test')
     parser.add_argument('--emb-type', type=str, default=None)
     parser.add_argument('--context-length', type=int, default=0)
+    parser.add_argument('--layer-idx', type=int, default=1)
     parser.add_argument('--datum-emb-fn', nargs='?', type=str, default=None)
     parser.add_argument('--electrodes', nargs='*', type=int)
     parser.add_argument('--npermutations', type=int, default=1)
@@ -41,7 +42,6 @@ def parse_arguments():
     parser.add_argument('--pca-to', nargs='?', type=int, default=0)
 
     parser.add_argument('--align-with', nargs='*', type=str, default=None)
-    parser.add_argument('--align-target-context-length', type=int, default=0)
 
     parser.add_argument('--output-parent-dir', type=str, default='test')
     parser.add_argument('--pkl-identifier', type=str, default=None)

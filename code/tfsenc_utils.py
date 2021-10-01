@@ -346,26 +346,16 @@ def setup_environ(args):
                               str(args.sid), 'pickles')
     path_dict = dict(PICKLE_DIR=PICKLE_DIR)
 
+    stra = 'cnxt_' + str(args.context_length)
     if args.emb_type == 'glove50':
-        stra = 'cnxt_' + str(args.context_length)
-        args.emb_file = '_'.join(
-            [str(args.sid), args.emb_type, stra, 'embeddings.pkl'])
+        stra = ''
+        args.layer_idx = 1
 
-        # args.emb_type = args.align_with
-        # args.context_length = args.align_target_context_length
-
-        stra = 'cnxt_' + str(args.align_target_context_length)
-        args.load_emb_file = '_'.join([
-            str(args.sid), args.pkl_identifier, args.align_with[0], stra,
-            'embeddings.pkl'
-        ])
-    else:
-        stra = 'cnxt_' + str(args.context_length)
-        args.emb_file = '_'.join([
-            str(args.sid), args.pkl_identifier, args.emb_type, stra,
-            'embeddings.pkl'
-        ])
-        args.load_emb_file = args.emb_file
+    args.emb_file = '_'.join([
+        str(args.sid), args.pkl_identifier, args.emb_type, stra,
+        f'layer_{args.layer_idx:02d}', 'embeddings.pkl'
+    ])
+    args.load_emb_file = args.emb_file.replace('__', '_')
 
     args.signal_file = '_'.join(
         [str(args.sid), args.pkl_identifier, 'signal.pkl'])
