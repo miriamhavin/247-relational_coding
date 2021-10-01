@@ -162,12 +162,15 @@ def process_sig_electrodes(args, datum):
     for subject, elec_name in sig_elec_list.itertuples(index=False):
 
         assert isinstance(subject, int)
-        CONV_DIR = '/projects/HASSON/247/data/podcast'
+        CONV_DIR = '/projects/HASSON/247/data/conversations'
+        if args.project_id == 'podcast':
+            CONV_DIR = '/projects/HASSON/247/data/podcast'
         BRAIN_DIR_STR = 'preprocessed_all'
 
-        subject_id = glob.glob(
-            os.path.join(CONV_DIR, 'NY' + str(subject) + '*'))[0]
-        subject_id = os.path.basename(subject_id)
+        fname = os.path.join(CONV_DIR, 'NY' + str(subject) + '*')
+        subject_id = glob.glob(fname)
+        assert len(subject_id), f'No data found in {fname}'
+        subject_id = os.path.basename(subject_id[0])
 
         # Read subject's header
         labels = load_header(CONV_DIR, subject_id)

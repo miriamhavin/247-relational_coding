@@ -31,16 +31,17 @@ def parse_arguments():
     parser.add_argument('--output-prefix', type=str, default='test')
     parser.add_argument('--emb-type', type=str, default=None)
     parser.add_argument('--context-length', type=int, default=0)
+    parser.add_argument('--layer-idx', type=int, default=1)
     parser.add_argument('--datum-emb-fn', nargs='?', type=str, default=None)
     parser.add_argument('--electrodes', nargs='*', type=int)
     parser.add_argument('--npermutations', type=int, default=1)
     parser.add_argument('--min-word-freq', nargs='?', type=int, default=5)
+    parser.add_argument('--exclude-nonwords', action='store_true')
     parser.add_argument('--job-id', type=int, default=0)
 
     parser.add_argument('--pca-to', nargs='?', type=int, default=0)
 
-    parser.add_argument('--align-with', type=str, default=None)
-    parser.add_argument('--align-target-context-length', type=int, default=0)
+    parser.add_argument('--align-with', nargs='*', type=str, default=None)
 
     parser.add_argument('--output-parent-dir', type=str, default='test')
     parser.add_argument('--pkl-identifier', type=str, default=None)
@@ -53,7 +54,7 @@ def parse_arguments():
     if not (args.shuffle or args.phase_shuffle):
         args.npermutations = 1
 
-    if args.sig_elec_file:
+    if args.sig_elec_file and args.sid not in [625, 676]:  # NOTE hardcoded
         args.sid = 777
 
     return args

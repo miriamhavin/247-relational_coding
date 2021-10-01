@@ -1,28 +1,26 @@
 #!/bin/bash
-#!/bin/bash
-#SBATCH --time=1:30:00
-#SBATCH --mem=128GB
+#SBATCH --time=3:00:00
+#SBATCH --mem=80GB
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
-#SBATCH -o './logs/%A.out'
-#SBATCH -e './logs/%A.err'
-#SBATCH --mail-type=fail
-#SBATCH --mail-user=hvgazula@umich.edu
+#SBATCH -o 'logs/%A.log'
 
 if [[ "$HOSTNAME" == *"tiger"* ]]
 then
     echo "It's tiger"
     module load anaconda
-    source activate torch-env
+    source activate 247-main
 elif [[ "$HOSTNAME" == *"della"* ]]
 then
     echo "It's Della"
     module load anaconda
-    source activate torch-env
+    source activate 247-main
 else
     module load anacondapy
     source activate srm
 fi
+
+export TRANSFORMERS_OFFLINE=1
 
 echo 'Requester:' $USER
 echo 'Node:' $HOSTNAME
