@@ -129,7 +129,6 @@ def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
     """
 
     half_window = round((window_size / 1000) * 512 / 2)
-
     Y1 = np.zeros((len(onsets), len(lags), 2 * half_window + 1))
 
     for lag in prange(len(lags)):
@@ -152,7 +151,6 @@ def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
 
     return Y1
 
-
 def build_XY(args, datum, brain_signal):
     """[summary]
 
@@ -165,7 +163,6 @@ def build_XY(args, datum, brain_signal):
         [type]: [description]
     """
     X = np.stack(datum.embeddings).astype('float64')
-
     word_onsets = datum.adjusted_onset.values
     convo_onsets = datum.convo_onset.values
     convo_offsets = datum.convo_offset.values
@@ -242,7 +239,6 @@ def run_save_permutation(args, prod_X, prod_Y, filename):
             for i in range(args.npermutations):
                 perm_prod.append(encoding_mp(i, args, prod_X, prod_Y))
                 # print(max(perm_prod[-1]), np.mean(perm_prod[-1]))
-
         with open(filename, 'w') as csvfile:
             csvwriter = csv.writer(csvfile)
             csvwriter.writerows(perm_prod)
@@ -312,8 +308,8 @@ def encoding_regression_pr(args, datum, elec_signal, name):
 
 
 def encoding_regression(args, datum, elec_signal, name):
-
     output_dir = args.full_output_dir
+    datum = datum[datum.adjusted_onset.notna()]
 
     # Build design matrices
     X, Y = build_XY(args, datum, elec_signal)
@@ -337,7 +333,6 @@ def encoding_regression(args, datum, elec_signal, name):
     run_save_permutation(args, comp_X, comp_Y, filename)
 
     return
-
 
 def setup_environ(args):
     """Update args with project specific directories and other flags

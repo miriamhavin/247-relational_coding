@@ -8,19 +8,19 @@ DT := ${USR}
 #  Configurable options
 # -----------------------------------------------------------------------------
 
-PRJCT_ID := tfs
+PRJCT_ID := podcast
 # {podcast | tfs}
 
 # 625 Electrode IDs
-SID := 625
-E_LIST := $(shell seq 1 105)
+# SID := 625
+# E_LIST := $(shell seq 1 105)
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
 # SIG_FN := --sig-elec-file colton625.csv
 # SIG_FN := --sig-elec-file test.csv
 # SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
-SIG_FN := --sig-elec-file 625-61-mariano-prod.csv 625-58-mariano-comp.csv
+# SIG_FN := --sig-elec-file 625-61-mariano-prod.csv 625-58-mariano-comp.csv
 
 # 676 Electrode IDs
 # SID := 676
@@ -30,9 +30,9 @@ PKL_IDENTIFIER := full
 # {full | trimmed}
 
 # podcast electeode IDs
-# SID := 777
+SID := 777
 # SID := 661
-# E_LIST :=  $(shell seq 1 115)
+E_LIST :=  $(shell seq 1 115)
 # SID := 662
 # E_LIST :=  $(shell seq 1 100)
 # SID := 717
@@ -51,8 +51,8 @@ PKL_IDENTIFIER := full
 # E_LIST :=  $(shell seq 1 195)
 #
 # SIG_FN := --sig-elec-file test.csv
-# SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
-
+SIG_FN := --sig-elec-file 160-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH_newVer.csv
+# SIG_FN :=
 
 # number of permutations (goes with SH and PSH)
 NPERM := 1000
@@ -71,12 +71,13 @@ EMB := gpt2-xl
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
-WS := 200
+# For ERP, choose the window size (after onset - before onset)
+WS := 4000
 
 # Choose which set of embeddings to align with
-ALIGN_WITH := glove50
 ALIGN_WITH := blenderbot-small
 ALIGN_WITH := gpt2-xl blenderbot-small
+ALIGN_WITH := glove50
 ALIGN_WITH := gpt2-xl
 
 # Choose layer
@@ -102,7 +103,7 @@ WV := all
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
-CMD := sbatch submit1.sh
+CMD := python
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -122,7 +123,7 @@ link-data:
 # -----------------------------------------------------------------------------
 # Encoding
 # -----------------------------------------------------------------------------
-
+COR := incorrect
 # Run the encoding model for the given electrodes in one swoop
 # Note that the code will add the subject, embedding type, and PCA details to
 # the output folder name
@@ -149,8 +150,8 @@ run-encoding:
 		$(SH) \
 		$(PSH) \
 		--normalize $(NM)\
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB) \
-		--output-prefix '';\
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(COR) \
+		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 # Recommended naming convention for output_folder
 #--output-prefix $(USR)-$(WS)ms-$(WV); \
@@ -220,18 +221,41 @@ pca-on-embedding:
 			--context-length $(CNXT_LEN) \
 			--pca-to $(EMB_RED_DIM);
 
+
+
+# Run erp for the given electrodes in one swoop
+
+# Choose if the datum is split based on GPT2 prediction
+SPLIT := all
+SPLIT := incorrect
+SPLIT := correct
+
+run-erp:
+	mkdir -p logs
+	$(CMD) code/tfserp_main.py \
+		--project-id $(PRJCT_ID) \
+		--pkl-identifier $(PKL_IDENTIFIER) \
+		--datum-emb-fn $(DS) \
+		--sid $(SID) \
+		--conversation-id $(CONVERSATION_IDX) \
+		--electrodes $(E_LIST) \
+		--emb-type $(EMB) \
+		--context-length $(CNXT_LEN) \
+		--align-with $(ALIGN_WITH) \
+		--window-size $(WS) \
+		--word-value $(WV) \
+		--min-word-freq $(MWF) \
+		--layer-idx $(LAYER_IDX) \
+		--split $(SPLIT) \
+		--normalize $(NM)\
+		$(SIG_FN) \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-erp-$(SPLIT) \
+		--output-prefix $(USR)-$(WS)ms-$(WV);\
+
 # -----------------------------------------------------------------------------
 # Plotting
 # -----------------------------------------------------------------------------
-			# --electrodes $(E_LIST) 
-			# d-tfs-full-625-glove50-55 \
-				d-tfs-full-625-gpt2-xl-55 \
-				d-tfs-full-625-blenderbot-small-55 \
-				zz-podcast-full-777-blenderbot-small \
-				zz-podcast-full-777-blenderbot-small-spk \
-				zz-podcast-full-777-gpt2-xl \
-				d-tfs-full-625-blenderbot-55  \
-				zz-tfs-full-625-blenderbot-small 
+
 plot-encoding:
 	mkdir -p results/figures
 	python code/tfsenc_plots.py \
@@ -264,15 +288,19 @@ plot-encoding1:
 	rsync -av --delete results/figures ~/tigress/247-encoding-results
 
 # 'results/tfs/zz1-tfs-full-625-blenderbot-small/625/*_%s.csv' 
+ERP := 
+ERP := erp
+
 plot-new:
 	python code/plot.py \
 		--formats \
-			'results/tfs/zz1-tfs-full-625-gpt2-xl/625/*_%s.csv' \
-			'results/tfs/zz1-tfs-full-625-glove50/625/*_%s.csv' \
-		--labels gpt2 glove \
-		$(SIG_FN) \
+			'results/podcast/kw-podcast-full-777-erp-correct/kw-4000ms-all-777/*_%s.csv' \
+			'results/podcast/kw-podcast-full-777-erp-incorrect/kw-4000ms-all-777/*_%s.csv' \
+		--labels gpt2-correct gpt2-incorrect \
 		--values $(LAGS) \
-		--keys prod comp \
-		--outfile results/figures/247-625-gg-sig.pdf
-	rsync -av results/figures/ ~/tigress/247-encoding-results/figures/
+		--keys comp \
+		--erp $(ERP) \
+		--window-size $(WS) \
+		--outfile results/figures/podcast-777-erp-sig.pdf
+	rsync -av results/figures/ ~/tigress/podcast-encoding-results/figures/
 

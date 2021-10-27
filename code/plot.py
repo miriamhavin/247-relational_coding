@@ -14,6 +14,8 @@ parser.add_argument("--keys", nargs="+",  required=True)
 parser.add_argument("--sid", type=int, default=625)
 parser.add_argument("--sig-elec-file", nargs="+", default=[])
 parser.add_argument("--outfile", default='results/figures/tmp.pdf')
+parser.add_argument("--erp", nargs='?', type=str, default=None)
+parser.add_argument('--window-size', type=int, default=4000)
 args = parser.parse_args()
 
 assert len(args.labels) == len(args.formats)
@@ -39,7 +41,6 @@ def get_elecbrain(electrode):
     name = name.replace('_', '').replace('GR', 'G')
     imname = elecdir + f'thumb_{name}.png'  # + f'{args.sid}_{name}.png'
     return imname
-
 
 # Read significant electrode file(s)
 sigelecs = {}
@@ -77,6 +78,12 @@ if not len(data):
 df = pd.concat(data)
 df.set_index(['label', 'electrode', 'mode'], inplace=True)
 # lags = list(range(len(df.columns)))
+
+if args.erp:
+    half_window = round((args.window_size / 1000) * 512 / 2)
+    window_values = [*range(-half_window, half_window + 1)]
+    args.values = [value * 1000 / 512 for value in window_values]
+
 lags = args.values
 n_av, n_df = len(args.values), len(df.columns)
 assert n_av == n_df, \
@@ -87,6 +94,11 @@ print('Plotting')
 pdf = PdfPages(args.outfile)
 
 # Plot results for each key (i.e. average)
+x_name = 'Lag (s)'
+y_name = 'Correlation (r)'
+if args.erp:
+    y_name = 'Power'
+
 fig, ax = plt.subplots()
 for mode, subdf in df.groupby(['label', 'mode'], axis=0):
     vals = subdf.mean(axis=0)
@@ -95,7 +107,7 @@ for mode, subdf in df.groupby(['label', 'mode'], axis=0):
     label = '-'.join(mode)
     ax.plot(lags, vals, label=f'{label} ({len(subdf)})', color=cmap[mode], ls=smap[mode])
 ax.legend(loc='upper right', frameon=False)
-ax.set(xlabel='Lag (s)', ylabel='Correlation (r)', title='Global average')
+ax.set(xlabel=x_name, ylabel=y_name, title='Global average')
 pdf.savefig(fig)
 plt.close()
 
@@ -109,7 +121,7 @@ for electrode, subdf in df.groupby('electrode', axis=0):
         ax.plot(lags, values, label=label, color=cmap[mode], ls=smap[mode])
     ax.legend(loc='upper left', frameon=False)
     ax.set_ylim(vmin - 0.05, vmax + .05)  # .35
-    ax.set(xlabel='Lag (s)', ylabel='Correlation (r)', title=f'{electrode}')
+    ax.set(xlabel=x_name, ylabel=y_name, title=f'{electrode}')
     imname = get_elecbrain(electrode)
     if os.path.isfile(imname):
         arr_image = plt.imread(imname, format='png')

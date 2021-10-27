@@ -46,6 +46,8 @@ def parse_arguments():
     parser.add_argument('--output-parent-dir', type=str, default='test')
     parser.add_argument('--pkl-identifier', type=str, default=None)
 
+    parser.add_argument('--split',type=str,default='all')
+
     args = parser.parse_args()
 
     if not args.sid and args.electrodes:

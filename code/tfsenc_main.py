@@ -15,6 +15,7 @@ from tfsenc_utils import (append_jobid_to_string, create_output_directory,
                           encoding_regression, encoding_regression_pr,
                           load_header, setup_environ)
 from utils import load_pickle, main_timer, write_config
+import gensim.downloader as api
 
 
 def trim_signal(signal):
@@ -255,11 +256,24 @@ def this_is_where_you_perform_regression(args, electrode_info, datum):
 
     return None
 
+def get_vector(x, glove):
+    try:
+        return glove.get_vector(x)
+    except KeyError:
+        return None
 
 @main_timer
 def main():
+    
     # Read command line arguments
     args = parse_arguments()
+
+    # for filtering words based on gpt predictions
+    # args.emb_type = 'gpt2-xl'
+    # args = setup_environ(args)
+    # datum2 = read_datum(args)
+    # datum3 = datum2[['adjusted_onset','top1_pred']]
+    # args.emb_type = 'glove50'
 
     # Setup paths to data
     args = setup_environ(args)
@@ -269,6 +283,18 @@ def main():
 
     # Locate and read datum
     datum = read_datum(args)
+
+    # datum = datum[datum.adjusted_onset.notna()]
+    # datum3 = datum3[datum3.adjusted_onset.notna()]
+    # datum = datum3.merge(datum, how='inner',on='adjusted_onset')
+
+    datum = datum[datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()] # incorrect
+    # datum = datum[datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()] # correct
+
+    # modified
+    # glove = api.load('glove-wiki-gigaword-50')
+    # datum['embeddings'] = datum['top1_pred'].str.strip().apply(lambda x: get_vector(x.lower(), glove))
+    # datum = datum[datum.embeddings.notna()]
 
     if args.pca_to:
         print(f'PCAing to {args.pca_to}')
