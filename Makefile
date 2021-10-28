@@ -51,6 +51,7 @@ E_LIST :=  $(shell seq 1 115)
 # E_LIST :=  $(shell seq 1 195)
 #
 # SIG_FN := --sig-elec-file test.csv
+# SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
 SIG_FN := --sig-elec-file 160-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH_newVer.csv
 # SIG_FN :=
 
@@ -292,19 +293,20 @@ plot-encoding1:
 	rsync -av --delete results/figures ~/tigress/247-encoding-results
 
 # 'results/tfs/zz1-tfs-full-625-blenderbot-small/625/*_%s.csv' 
-ERP := 
 ERP := erp
+ERP := 
 
 plot-new:
 	python code/plot.py \
 		--formats \
-			'results/podcast/kw-podcast-full-777-erp-correct/kw-4000ms-all-777/*_%s.csv' \
-			'results/podcast/kw-podcast-full-777-erp-incorrect/kw-4000ms-all-777/*_%s.csv' \
-		--labels gpt2-correct gpt2-incorrect \
+			'results/podcast/kw-podcast-full-777-glove50-correct/kw-200ms-all-777/*_%s.csv' \
+			'results/podcast/kw-podcast-full-777-glove50-incorrect/kw-200ms-all-777/*_%s.csv' \
+			'results/podcast/kw-podcast-full-777-glove50-gpt2-pred/kw-200ms-all-777/*_%s.csv' \
+		--labels gpt2-correct gpt2-incorrect gpt2-prediction \
 		--values $(LAGS) \
 		--window-size $(WS) \
 		--keys comp \
 		--erp $(ERP) \
-		--outfile results/figures/podcast-777-erp-sig.pdf
+		--outfile results/figures/podcast-777-glove-mods.pdf
 	rsync -av results/figures/ ~/tigress/podcast-encoding-results/figures/
 
