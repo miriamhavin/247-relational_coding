@@ -164,6 +164,20 @@ def process_sig_electrodes(args, datum):
 
     return
 
+def mod_datum(args, datum):
+    if args.datum_mod == "correct":
+        datum = datum[datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()] # correct
+        print(f'Selected {len(datum.index)} correct words')
+    elif args.datum_mod == "incorrect":
+        datum = datum[datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()] # incorrect
+        print(f'Selected {len(datum.index)} incorrect words')
+    elif args.datum_mod == "all":
+        pass
+    else:
+        raise Exception('Invalid Datum Modification')
+
+    return datum
+
 
 @main_timer
 def main():
@@ -181,13 +195,8 @@ def main():
     # Locate and read datum
     datum = read_datum(args)
 
-    if args.split:
-        if args.split == "correct":
-            datum = datum[datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()] # correct
-            print(f'Selected {len(datum.index)} correct words')
-        elif args.split == "incorrect":
-            datum = datum[datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()] # incorrect
-            print(f'Selected {len(datum.index)} incorrect words')
+    # modify datum if needed (args.datum_mod)
+    datum = mod_datum(args, datum)
 
     # Processing significant electrodes or individual subjects
     if args.sig_elec_file:

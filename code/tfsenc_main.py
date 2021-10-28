@@ -262,18 +262,49 @@ def get_vector(x, glove):
     except KeyError:
         return None
 
+def mod_datum(args, datum):
+    if args.datum_mod == "all": # no need for modification
+        pass
+    else:
+        if 'gpt2' not in args.emb_type: # change the args to load gpt2 embedding pickle
+            args.emb_type = 'gpt2-xl'
+            args.align_with = 'gpt2-xl'
+            args.layer_idx = 48
+            stra = 'cnxt_' + str(args.context_length)
+            args.emb_file = '_'.join([
+                str(args.sid), args.pkl_identifier, args.emb_type, stra,
+                f'layer_{args.layer_idx:02d}', 'embeddings.pkl'
+            ])
+            args.load_emb_file = args.emb_file.replace('__', '_')
+            datum_gpt2 = read_datum(args)[['adjusted_onset','top1_pred']]
+
+            # merge gpt2 prediction columns to datum
+            datum = datum[datum.adjusted_onset.notna()]
+            datum_gpt2 = datum_gpt2[datum_gpt2.adjusted_onset.notna()]
+            datum = datum_gpt2.merge(datum, how='inner',on='adjusted_onset')
+
+        # modify datum
+        if args.datum_mod == "correct": # select words predicted by gpt2 correctly (top 1 pred)
+            datum = datum[datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()] # correct
+            print(f'Selected {len(datum.index)} correct words')
+        elif args.datum_mod == "incorrect": # select words predicted by gpt2 incorrectly (top 1 pred)
+            datum = datum[datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()] # incorrect
+            print(f'Selected {len(datum.index)} incorrect words')
+        elif args.datum_mod == "gpt2-pred": # for incorrectly predicted words, replace with gpt2 top 1 pred
+            glove = api.load('glove-wiki-gigaword-50')
+            datum['embeddings'] = datum['top1_pred'].str.strip().apply(lambda x: get_vector(x.lower(), glove))
+            datum = datum[datum.embeddings.notna()]
+            print(f'Changed words into gpt2 top predictions')
+        else: # exception
+            raise Exception('Invalid Datum Modification')
+
+    return datum
+
 @main_timer
 def main():
     
     # Read command line arguments
     args = parse_arguments()
-
-    # for filtering words based on gpt predictions
-    # args.emb_type = 'gpt2-xl'
-    # args = setup_environ(args)
-    # datum2 = read_datum(args)
-    # datum3 = datum2[['adjusted_onset','top1_pred']]
-    # args.emb_type = 'glove50'
 
     # Setup paths to data
     args = setup_environ(args)
@@ -284,17 +315,8 @@ def main():
     # Locate and read datum
     datum = read_datum(args)
 
-    # datum = datum[datum.adjusted_onset.notna()]
-    # datum3 = datum3[datum3.adjusted_onset.notna()]
-    # datum = datum3.merge(datum, how='inner',on='adjusted_onset')
-
-    datum = datum[datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()] # incorrect
-    # datum = datum[datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()] # correct
-
-    # modified
-    # glove = api.load('glove-wiki-gigaword-50')
-    # datum['embeddings'] = datum['top1_pred'].str.strip().apply(lambda x: get_vector(x.lower(), glove))
-    # datum = datum[datum.embeddings.notna()]
+    # modify datum if needed (args.datum_mod)
+    datum = mod_datum(args, datum)
 
     if args.pca_to:
         print(f'PCAing to {args.pca_to}')

@@ -66,26 +66,26 @@ CONVERSATION_IDX := 0
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
 EMB := blenderbot-small
-EMB := glove50
 EMB := gpt2-xl
+EMB := glove50
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
 # For ERP, choose the window size (after onset - before onset)
-WS := 4000
+WS := 200
 
 # Choose which set of embeddings to align with
 ALIGN_WITH := blenderbot-small
 ALIGN_WITH := gpt2-xl blenderbot-small
-ALIGN_WITH := glove50
 ALIGN_WITH := gpt2-xl
+ALIGN_WITH := glove50
 
 # Choose layer
 # {1 for glove, 48 for gpt2}
-LAYER_IDX := 48
+LAYER_IDX := 1
 
 # Choose whether to PCA
-PCA_TO := 50
+# PCA_TO := 50
 
 # Specify the minimum word frequency
 MWF := 0
@@ -103,12 +103,18 @@ WV := all
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
-CMD := python
+CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
 # datum
 # DS := podcast-datum-glove-50d.csv
 # DS := podcast-datum-gpt2-xl-c_1024-previous-pca_50d.csv
+
+# datum modification based on gpt2 embedding predictions
+MOD := all
+MOD := correct
+MOD := incorrect
+MOD := gpt2-pred
 
 #TODO: move paths to makefile
 
@@ -123,7 +129,7 @@ link-data:
 # -----------------------------------------------------------------------------
 # Encoding
 # -----------------------------------------------------------------------------
-COR := incorrect
+
 # Run the encoding model for the given electrodes in one swoop
 # Note that the code will add the subject, embedding type, and PCA details to
 # the output folder name
@@ -146,11 +152,12 @@ run-encoding:
 		--min-word-freq $(MWF) \
 		--pca-to $(PCA_TO) \
 		--layer-idx $(LAYER_IDX) \
+		--datum-mod $(MOD) \
 		$(SIG_FN) \
 		$(SH) \
 		$(PSH) \
 		--normalize $(NM)\
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(COR) \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(MOD) \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 # Recommended naming convention for output_folder
@@ -226,9 +233,6 @@ pca-on-embedding:
 # Run erp for the given electrodes in one swoop
 
 # Choose if the datum is split based on GPT2 prediction
-SPLIT := all
-SPLIT := incorrect
-SPLIT := correct
 
 run-erp:
 	mkdir -p logs
@@ -246,10 +250,10 @@ run-erp:
 		--word-value $(WV) \
 		--min-word-freq $(MWF) \
 		--layer-idx $(LAYER_IDX) \
-		--split $(SPLIT) \
+		--datum-mod $(MOD) \
 		--normalize $(NM)\
 		$(SIG_FN) \
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-erp-$(SPLIT) \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-erp-$(MOD) \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 # -----------------------------------------------------------------------------
@@ -298,9 +302,9 @@ plot-new:
 			'results/podcast/kw-podcast-full-777-erp-incorrect/kw-4000ms-all-777/*_%s.csv' \
 		--labels gpt2-correct gpt2-incorrect \
 		--values $(LAGS) \
+		--window-size $(WS) \
 		--keys comp \
 		--erp $(ERP) \
-		--window-size $(WS) \
 		--outfile results/figures/podcast-777-erp-sig.pdf
 	rsync -av results/figures/ ~/tigress/podcast-encoding-results/figures/
 
