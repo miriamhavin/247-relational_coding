@@ -13,18 +13,19 @@ from tfsenc_parser import parse_arguments
 from tfsenc_read_datum import read_datum
 from tfsenc_utils import (append_jobid_to_string, setup_environ)
 from utils import load_pickle, main_timer, write_config
+from tfsenc_main import write_output
 
 def erp(args, datum, elec_signal, name):
-    output_dir = args.full_output_dir
     datum = datum[datum.adjusted_onset.notna()]
 
-    erp = calc_average(args, datum, elec_signal) # calculate average erp
+    datum_comp = datum[datum.speaker != 'Speaker1'] # comprehension data
+    datum_prod = datum[datum.speaker == 'Speaker1'] # production data
 
-    trial_str = append_jobid_to_string(args, 'comp')
-    filename = os.path.join(output_dir, name + trial_str + '.csv')
-    with open(filename, 'w') as csvfile:
-            csvwriter = csv.writer(csvfile)
-            csvwriter.writerows(erp)
+    erp_comp = calc_average(args, datum_comp, elec_signal) # calculate average erp
+    erp_prod = calc_average(args, datum_prod, elec_signal) # calculate average erp
+
+    write_output(args, erp_comp, name, 'comp')
+    write_output(args, erp_prod, name, 'prod')
     
     return
 
@@ -156,6 +157,7 @@ def process_sig_electrodes(args, datum):
     """Run encoding on select significant elctrodes specified by a file
     """
     # Read in the significant electrodes
+
     sig_elec_file = os.path.join(
         os.path.join(os.getcwd(), 'data', args.sig_elec_file))
     sig_elec_list = pd.read_csv(sig_elec_file)
@@ -181,7 +183,7 @@ def mod_datum(args, datum):
 
 @main_timer
 def main():
-    
+
     # Read command line arguments
     args = parse_arguments()
     assert 'gpt2' in args.emb_type, 'Need gpt2 embedding' # use GPT2 embedding pickle
