@@ -8,18 +8,19 @@ DT := ${USR}
 #  Configurable options
 # -----------------------------------------------------------------------------
 
-PRJCT_ID := podcast
+PRJCT_ID := tfs
 # {podcast | tfs}
 
 # 625 Electrode IDs
-# SID := 625
-# E_LIST := $(shell seq 1 105)
+SID := 625
+E_LIST := $(shell seq 1 105)
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
-# SIG_FN := --sig-elec-file colton625.csv
 # SIG_FN := --sig-elec-file test.csv
 # SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
+# SIG_FN := --sig-elec-file colton625.csv colton625.csv
+# SIG_FN := --sig-elec-file 676-50-mariano-prod.csv 676-65-mariano-comp.csv
 # SIG_FN := --sig-elec-file 625-61-mariano-prod.csv 625-58-mariano-comp.csv
 
 # 676 Electrode IDs
@@ -30,9 +31,9 @@ PKL_IDENTIFIER := full
 # {full | trimmed}
 
 # podcast electeode IDs
-SID := 777
+# SID := 777
 # SID := 661
-E_LIST :=  $(shell seq 1 115)
+# E_LIST :=  $(shell seq 1 115)
 # SID := 662
 # E_LIST :=  $(shell seq 1 100)
 # SID := 717
@@ -52,7 +53,7 @@ E_LIST :=  $(shell seq 1 115)
 #
 # SIG_FN := --sig-elec-file test.csv
 # SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
-SIG_FN := --sig-elec-file 160-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH_newVer.csv
+# SIG_FN := --sig-elec-file 160-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH_newVer.csv
 # SIG_FN :=
 
 # number of permutations (goes with SH and PSH)
@@ -66,9 +67,9 @@ CONVERSATION_IDX := 0
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
-EMB := blenderbot-small
 EMB := gpt2-xl
 EMB := glove50
+EMB := blenderbot-small
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
@@ -76,17 +77,17 @@ CNXT_LEN := 1024
 WS := 200
 
 # Choose which set of embeddings to align with
-ALIGN_WITH := blenderbot-small
 ALIGN_WITH := gpt2-xl blenderbot-small
 ALIGN_WITH := gpt2-xl
 ALIGN_WITH := glove50
+ALIGN_WITH := blenderbot-small
 
 # Choose layer
-# {1 for glove, 48 for gpt2}
-LAYER_IDX := 1
+# {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
+LAYER_IDX := 8
 
 # Choose whether to PCA
-# PCA_TO := 50
+PCA_TO := 50
 
 # Specify the minimum word frequency
 MWF := 0
@@ -104,6 +105,8 @@ WV := all
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
+CMD := echo
+CMD := python
 CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
@@ -112,10 +115,16 @@ CMD := sbatch submit1.sh
 # DS := podcast-datum-gpt2-xl-c_1024-previous-pca_50d.csv
 
 # datum modification based on gpt2 embedding predictions
-MOD := all
-MOD := correct
-MOD := incorrect
-MOD := gpt2-pred
+DM := gpt2-pred
+DM := incorrect
+DM := correct
+DM := all
+
+# model modification (best-lag model, prod-comp reverse model)
+MM := 
+MM := best-lag
+MM := prod-comp
+
 
 #TODO: move paths to makefile
 
@@ -153,12 +162,13 @@ run-encoding:
 		--min-word-freq $(MWF) \
 		--pca-to $(PCA_TO) \
 		--layer-idx $(LAYER_IDX) \
-		--datum-mod $(MOD) \
+		--datum-mod $(DM) \
+		--model-mod $(MM) \
 		$(SIG_FN) \
 		$(SH) \
 		$(PSH) \
 		--normalize $(NM)\
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(MOD) \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-en-new \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 # Recommended naming convention for output_folder
@@ -254,7 +264,7 @@ run-erp:
 		--datum-mod $(MOD) \
 		--normalize $(NM)\
 		$(SIG_FN) \
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-erp-$(MOD) \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-erp-$(MOD)-new \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 # -----------------------------------------------------------------------------
@@ -299,14 +309,12 @@ ERP :=
 plot-new:
 	python code/plot.py \
 		--formats \
-			'results/podcast/kw-podcast-full-777-glove50-correct/kw-200ms-all-777/*_%s.csv' \
-			'results/podcast/kw-podcast-full-777-glove50-incorrect/kw-200ms-all-777/*_%s.csv' \
-			'results/podcast/kw-podcast-full-777-glove50-gpt2-pred/kw-200ms-all-777/*_%s.csv' \
-		--labels gpt2-correct gpt2-incorrect gpt2-prediction \
+			'results/tfs/kw-tfs-full-625-blenderbot-small-de/kw-200ms-all-625/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-blenderbot-small-de-best-lag/kw-200ms-all-625/*_%s.csv' \
+		--labels decoder decoder-best-lag\
 		--values $(LAGS) \
-		--window-size $(WS) \
-		--keys comp \
-		--erp $(ERP) \
-		--outfile results/figures/podcast-777-glove-mods.pdf
-	rsync -av results/figures/ ~/tigress/podcast-encoding-results/figures/
+		--keys prod comp \
+		$(SIG_FN) \
+		--outfile results/figures/tfs-625-blenderbot-de-best-lag.pdf
+	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
