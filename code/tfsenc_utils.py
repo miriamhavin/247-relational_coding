@@ -40,7 +40,7 @@ def encColCorr(CA, CB):
     return r, p, t
 
 
-def cv_lm_003(X, Y, kfolds, lag):
+def cv_lm_003(X, Y, kfolds):
     """Cross-validated predictions from a regression model using sequential
         block partitions with nuisance regressors included in the training
         folds
@@ -103,27 +103,6 @@ def cv_lm_003(X, Y, kfolds, lag):
 
     return YHAT
 
-def lm_003(Xtra,Ytra,Xtes,lag):
-
-    nChans = Ytra.shape[1] if Ytra.shape[1:] else 1
-
-    Xtra -= np.mean(Xtra, axis=0)
-    Xtes -= np.mean(Xtes, axis=0)
-    Ytra -= np.mean(Ytra, axis=0)
-
-    # Fit model
-    B = np.linalg.pinv(Xtra) @ Ytra
-
-    # if lag != -1:
-    #     assert lag < B.shape[1], f'Lag index out of range'
-    #     B1 = B[:,lag] # take the model for a specific lag
-    #     B = np.repeat(B1[:,np.newaxis],B.shape[1],1)
-
-    # Predict
-    foldYhat = Xtes @ B
-    foldYhat = foldYhat.reshape(-1,nChans)
-
-    return foldYhat
 
 @jit(nopython=True)
 def fit_model(X, y):
@@ -164,8 +143,8 @@ def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
                        np.round_(onsets, 0, onsets) + lag_amount))
 
         # subtracting 1 from starts to account for 0-indexing
-        starts = (index_onsets - half_window - 1)
-        stops = (index_onsets + half_window)
+        starts = index_onsets - half_window - 1
+        stops = index_onsets + half_window
 
         # vec = brain_signal[np.array(
         #     [np.arange(*item) for item in zip(starts, stops)])]
@@ -216,7 +195,7 @@ def encode_lags_numba(args, X, Y):
 
     Y = np.mean(Y, axis=-1)
 
-    PY_hat = cv_lm_003(X, Y, 10 ,args.best_lag)
+    PY_hat = cv_lm_003(X, Y, 10)
     rp, _, _ = encColCorr(Y, PY_hat)
 
     return rp
@@ -225,19 +204,6 @@ def encode_lags_numba(args, X, Y):
 def encoding_mp(_, args, prod_X, prod_Y):
     perm_rc = encode_lags_numba(args, prod_X, prod_Y)
     return perm_rc
-
-def encoding_mp_nocv(args, Xtra, Ytra, Xtes, Ytes):
-    if args.shuffle:
-        np.random.shuffle(Ytra)
-        np.random.shuffle(Ytes)
-
-    Ytra = np.mean(Ytra, axis = -1)
-    Ytes = np.mean(Ytes, axis = -1)
-    PY_hat = lm_003(Xtra,Ytra,Xtes,args.best_lag)
-    rp, _, _ = encColCorr(Ytes, PY_hat)
-
-    return rp
-
 
 
 def run_save_permutation_pr(args, prod_X, prod_Y, filename):
@@ -254,32 +220,6 @@ def run_save_permutation_pr(args, prod_X, prod_Y, filename):
         perm_rc = None
 
     return perm_rc
-
-
-def run_save_permutation_prod_comp(args, Xtra, Ytra, Xtes, Ytes, filename):
-    """[summary]
-
-    Args:
-        args ([type]): [description]
-        Xtra ([type]): [description]
-        Ytra ([type]): [description]
-        Xtes ([type]): [description]
-        Ytes ([type]): [description]
-        filename ([type]): [description]
-    """
-    if Xtra.shape[0] & Xtes.shape[0]:
-        if args.parallel:
-            print('Parallel not implemented yet')
-        else:
-            perm_prod = []
-            for i in range(args.npermutations):
-                perm_prod.append(encoding_mp_nocv(args, Xtra, Ytra, Xtes, Ytes))
-        with open(filename, 'w') as csvfile:
-            csvwriter = csv.writer(csvfile)
-            csvwriter.writerows(perm_prod)
-        if args.model_mod: # reset best_lag
-                args.best_lag = -1
-
 
 def run_save_permutation(args, prod_X, prod_Y, filename):
     """[summary]
@@ -308,12 +248,6 @@ def run_save_permutation(args, prod_X, prod_Y, filename):
         with open(filename, 'w') as csvfile:
             csvwriter = csv.writer(csvfile)
             csvwriter.writerows(perm_prod)
-        
-        if args.model_mod: # do lag models
-            if args.best_lag == -1:
-                args.best_lag = np.argmax(np.array(perm_prod))
-            else:
-                args.best_lag = -1
 
 
 def load_header(conversation_dir, subject_id):
@@ -337,7 +271,7 @@ def load_header(conversation_dir, subject_id):
     return labels
 
 
-def create_output_directory(args, parent_dir):
+def create_output_directory(args):
     # output_prefix_add = '-'.join(args.emb_file.split('_')[:-1])
 
     # folder_name = folder_name + '-pca_' + str(args.reduce_to) + 'd'
@@ -346,7 +280,7 @@ def create_output_directory(args, parent_dir):
     folder_name = '-'.join([args.output_prefix, str(args.sid)])
     folder_name = folder_name.strip('-')
     full_output_dir = os.path.join(os.getcwd(), 'results', args.project_id,
-                                   parent_dir, folder_name)
+                                   args.output_parent_dir, folder_name)
 
     os.makedirs(full_output_dir, exist_ok=True)
 
@@ -403,13 +337,6 @@ def encoding_regression(args, datum, elec_signal, name):
     trial_str = append_jobid_to_string(args, 'comp')
     filename = os.path.join(output_dir, name + trial_str + '.csv')
     run_save_permutation(args, comp_X, comp_Y, filename)
-    print(args.best_lag)
-    if args.best_lag != -1:
-        filename = os.path.join(args.full_output_dir2, name + trial_str + '.csv')
-        if args.model_mod == 'best-lag': # Run permutation based on best-lag model
-            run_save_permutation(args, comp_X, comp_Y, filename)
-        if args.model_mod == 'prod-comp': # Run permutation based on best-lag model and test on comp
-            run_save_permutation_prod_comp(args, prod_X, prod_Y, comp_X, comp_Y, filename)
 
     return
 
