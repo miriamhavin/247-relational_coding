@@ -74,7 +74,7 @@ CNXT_LEN := 1024
 
 # Choose the window size to average for each point
 # For ERP, choose the window size (after onset - before onset)
-WS := 200
+WS := 4000
 
 # Choose which set of embeddings to align with
 ALIGN_WITH := gpt2-xl blenderbot-small
@@ -84,7 +84,7 @@ ALIGN_WITH := blenderbot-small
 
 # Choose layer
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 8
+LAYER_IDX := 16
 
 # Choose whether to PCA
 PCA_TO := 50
@@ -123,6 +123,8 @@ DM := all
 # model modification (best-lag model, prod-comp reverse model)
 MM := 
 MM := best-lag
+MM := prod-comp-cv
+MM := prod-comp-best-lag
 MM := prod-comp
 
 
@@ -168,7 +170,7 @@ run-encoding:
 		$(SH) \
 		$(PSH) \
 		--normalize $(NM)\
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-en-new \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-de \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 # Recommended naming convention for output_folder
@@ -261,10 +263,10 @@ run-erp:
 		--word-value $(WV) \
 		--min-word-freq $(MWF) \
 		--layer-idx $(LAYER_IDX) \
-		--datum-mod $(MOD) \
+		--datum-mod $(DM) \
 		--normalize $(NM)\
 		$(SIG_FN) \
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-erp-$(MOD)-new \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-erp-$(DM) \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 # -----------------------------------------------------------------------------
@@ -303,18 +305,30 @@ plot-encoding1:
 	rsync -av --delete results/figures ~/tigress/247-encoding-results
 
 # 'results/tfs/zz1-tfs-full-625-blenderbot-small/625/*_%s.csv' 
-ERP := erp
-ERP := 
 
 plot-new:
 	python code/plot.py \
 		--formats \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-de/kw-200ms-all-625/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-de-best-lag/kw-200ms-all-625/*_%s.csv' \
-		--labels decoder decoder-best-lag\
+			'results/tfs/kw-tfs-full-625-plot-prod-de/kw-4000ms-all-625/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-plot-comp-de/kw-4000ms-all-625/*_%s.csv' \
+		--labels prod comp \
 		--values $(LAGS) \
+		--keys erp encoding \
+		$(SIG_FN) \
+		--outfile results/figures/tfs-625-erp-encoding-de-all.pdf
+	rsync -av results/figures/ ~/tigress/247-encoding-results/
+
+
+plot-erp:
+	python code/plot_erp.py \
+		--formats \
+			'results/tfs/kw-tfs-full-625-erp-all-new/kw-4000ms-all-625/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-blenderbot-small-en-prod-comp/kw-200ms-all-625/*_%s.csv' \
+		--labels erp prod_comp \
+		--values $(LAGS) \
+		--window-size $(WS) \
 		--keys prod comp \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-625-blenderbot-de-best-lag.pdf
+		--outfile results/figures/tfs-625-erp-encoding-en-all.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 

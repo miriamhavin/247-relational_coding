@@ -53,7 +53,7 @@ def cv_lm_003(X, Y, kfolds, lag):
     Returns:
         [type]: [description]
     """
-
+    print("running normal")
     skf = KFold(n_splits=kfolds, shuffle=False)
 
     # Data size
@@ -96,6 +96,7 @@ def cv_lm_003(X, Y, kfolds, lag):
         B = np.linalg.pinv(Xtra) @ Ytra
 
         if lag != -1:
+            print("running best-lag")
             assert lag < B.shape[1], f'Lag index out of range'
             B1 = B[:,lag] # take the model for a specific lag
             B = np.repeat(B1[:,np.newaxis],B.shape[1],1)
@@ -108,7 +109,8 @@ def cv_lm_003(X, Y, kfolds, lag):
 
     return YHAT
 
-def lm_003(Xtra,Ytra,Xtes,lag):
+def lm_003_prod_comp(Xtra,Ytra,Xtes,lag):
+    print("running prod_comp")
 
     nChans = Ytra.shape[1] if Ytra.shape[1:] else 1
 
@@ -119,16 +121,85 @@ def lm_003(Xtra,Ytra,Xtes,lag):
     # Fit model
     B = np.linalg.pinv(Xtra) @ Ytra
 
-    # if lag != -1:
-    #     assert lag < B.shape[1], f'Lag index out of range'
-    #     B1 = B[:,lag] # take the model for a specific lag
-    #     B = np.repeat(B1[:,np.newaxis],B.shape[1],1)
+    if lag != -1:
+        print("prod_comp_best_lag")
+        assert lag < B.shape[1], f'Lag index out of range'
+        B1 = B[:,lag] # take the model for a specific lag
+        B = np.repeat(B1[:,np.newaxis],B.shape[1],1)
 
     # Predict
     foldYhat = Xtes @ B
     foldYhat = foldYhat.reshape(-1,nChans)
 
     return foldYhat
+
+
+def lm_003_prod_comp_cv(Xtra,Ytra,Xtes,kfolds=5):
+    """Cross-validated predictions from a regression model using sequential
+        block partitions with nuisance regressors included in the training
+        folds
+
+    Args:
+        Xtra ([type]): [description]
+        Ytra ([type]): [description]
+        Xtes ([type]): [description]
+        kfolds ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    print("running prod_comp_cv")
+    skf = KFold(n_splits=kfolds, shuffle=False)
+
+    # Data size
+    nSamps_tra = Xtra.shape[0]
+    nSamps_tes = Xtes.shape[0]
+    nChans = Ytra.shape[1] if Ytra.shape[1:] else 1
+
+    # Extract only test folds
+    folds_tra = [t[1] for t in skf.split(np.arange(nSamps_tra))]
+    folds_tes = [t[1] for t in skf.split(np.arange(nSamps_tes))]
+
+    YHAT = np.zeros((nSamps_tes, nChans))
+    # Go through each fold, and split
+    for i in range(kfolds):
+
+        # Shift the number of folds for this iteration
+        # [0 1 2 3 4] -> [1 2 3 4 0] -> [2 3 4 0 1]
+        #                       ^ dev fold
+        #                         ^ test fold
+        #                 | - | <- train folds
+        folds_ixs = np.roll(range(kfolds), i)
+        test_fold = folds_ixs[-1]
+        train_folds = folds_ixs[:-1]
+        # print(f'\nFold {i}. Training on {train_folds}, '
+        #       f'test on {test_fold}.')
+
+        test_index = folds_tes[test_fold]
+        # print(test_index)
+        train_index = np.concatenate([folds_tra[j] for j in train_folds])
+
+        # Extract each set out of the big matricies
+        Xtraf, Xtesf = Xtra[train_index], Xtes[test_index]
+        Ytraf = Ytra[train_index]
+
+        # Mean-center
+        Xtraf -= np.mean(Xtraf, axis=0)
+        Xtesf -= np.mean(Xtesf, axis=0)
+        Ytraf -= np.mean(Ytraf, axis=0)
+
+        # Fit model
+        B = np.linalg.pinv(Xtraf) @ Ytraf
+
+        # Predict
+        foldYhat = Xtesf @ B
+
+        # Add to data matrices
+        YHAT[test_index, :] = foldYhat.reshape(-1, nChans)
+
+    return YHAT
+
+
 
 @jit(nopython=True)
 def fit_model(X, y):
@@ -228,14 +299,19 @@ def encoding_mp(_, args, prod_X, prod_Y):
     perm_rc = encode_lags_numba(args, prod_X, prod_Y)
     return perm_rc
 
-def encoding_mp_nocv(args, Xtra, Ytra, Xtes, Ytes):
+def encoding_mp_prod_comp(args, Xtra, Ytra, Xtes, Ytes):
     if args.shuffle:
         np.random.shuffle(Ytra)
         np.random.shuffle(Ytes)
 
     Ytra = np.mean(Ytra, axis = -1)
     Ytes = np.mean(Ytes, axis = -1)
-    PY_hat = lm_003(Xtra,Ytra,Xtes,args.best_lag)
+    if 'cv' in args.model_mod: # if need to do cv (folds)
+        PY_hat = lm_003_prod_comp_cv(Xtra,Ytra,Xtes, 5)
+    elif 'best-lag' in args.model_mod: # if need to do best-lag
+        PY_hat = lm_003_prod_comp(Xtra,Ytra,Xtes,args.best_lag)
+    else:
+        PY_hat = lm_003_prod_comp(Xtra,Ytra,Xtes,-1)
     rp, _, _ = encColCorr(Ytes, PY_hat)
 
     return rp
@@ -275,13 +351,17 @@ def run_save_permutation_prod_comp(args, Xtra, Ytra, Xtes, Ytes, filename):
         else:
             perm_prod = []
             for i in range(args.npermutations):
-                perm_prod.append(encoding_mp_nocv(args, Xtra, Ytra, Xtes, Ytes))
+                perm_prod.append(encoding_mp_prod_comp(args, Xtra, Ytra, Xtes, Ytes))
         with open(filename, 'w') as csvfile:
+            print('writing file prod comp')
             csvwriter = csv.writer(csvfile)
             csvwriter.writerows(perm_prod)
-        if args.model_mod: # reset best_lag
+        
+        if args.model_mod: # do best-lag models
+            if args.best_lag == -1:
+                args.best_lag = np.argmax(np.array(perm_prod))
+            else:
                 args.best_lag = -1
-
 
 def run_save_permutation(args, prod_X, prod_Y, filename):
     """[summary]
@@ -306,11 +386,14 @@ def run_save_permutation(args, prod_X, prod_Y, filename):
             for i in range(args.npermutations):
                 perm_prod.append(encoding_mp(i, args, prod_X, prod_Y))
                 # print(max(perm_prod[-1]), np.mean(perm_prod[-1]))
-        with open(filename, 'w') as csvfile:
-            csvwriter = csv.writer(csvfile)
-            csvwriter.writerows(perm_prod)
         
-        if args.model_mod: # do lag models
+        if (not args.model_mod) or (args.best_lag != -1): # do not write the original if model_mod
+            print('writing file')
+            with open(filename, 'w') as csvfile:
+                csvwriter = csv.writer(csvfile)
+                csvwriter.writerows(perm_prod)
+        
+        if args.model_mod: # do best-lag models
             if args.best_lag == -1:
                 args.best_lag = np.argmax(np.array(perm_prod))
             else:
@@ -400,22 +483,22 @@ def encoding_regression(args, datum, elec_signal, name):
     filename = os.path.join(output_dir, name + trial_str + '.csv')
     run_save_permutation(args, prod_X, prod_Y, filename)
     print(args.best_lag)
-    if args.best_lag != -1: # best-lag modification activated
+    if args.model_mod: # model modification activated
         filename = os.path.join(args.full_output_dir2, name + trial_str + '.csv')
         if args.model_mod == 'best-lag': # Run permutation based on best-lag model
             run_save_permutation(args, prod_X, prod_Y, filename)
-        if args.model_mod == 'prod-comp': # Run permutation based on best-lag model and test on prod
+        if 'prod-comp' in args.model_mod: # Run permutation based on best-lag model and test on prod
             run_save_permutation_prod_comp(args, comp_X, comp_Y, prod_X, prod_Y, filename)
     
     trial_str = append_jobid_to_string(args, 'comp')
     filename = os.path.join(output_dir, name + trial_str + '.csv')
     run_save_permutation(args, comp_X, comp_Y, filename)
     print(args.best_lag)
-    if args.best_lag != -1:
+    if args.model_mod:
         filename = os.path.join(args.full_output_dir2, name + trial_str + '.csv')
         if args.model_mod == 'best-lag': # Run permutation based on best-lag model
             run_save_permutation(args, comp_X, comp_Y, filename)
-        if args.model_mod == 'prod-comp': # Run permutation based on best-lag model and test on comp
+        if 'prod-comp' in args.model_mod: # Run permutation based on best-lag model and test on comp
             run_save_permutation_prod_comp(args, prod_X, prod_Y, comp_X, comp_Y, filename)
 
     return

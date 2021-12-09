@@ -211,7 +211,7 @@ def dumdum1(iter_idx, args, datum, signal, name):
 
 def write_output(args, output_mat, name, output_str):
 
-    output_dir = create_output_directory(args)
+    output_dir = create_output_directory(args,args.output_parent_dir)
 
     if all(output_mat):
         trial_str = append_jobid_to_string(args, output_str)
@@ -265,23 +265,22 @@ def get_vector(x, glove):
 def mod_datum(args, datum):
     if args.datum_mod == "all": # no need for modification
         pass
-    else:
-        if 'gpt2' not in args.emb_type: # change the args to load gpt2 embedding pickle
-            args.emb_type = 'gpt2-xl'
-            args.align_with = 'gpt2-xl'
-            args.layer_idx = 48
-            stra = 'cnxt_' + str(args.context_length)
-            args.emb_file = '_'.join([
-                str(args.sid), args.pkl_identifier, args.emb_type, stra,
-                f'layer_{args.layer_idx:02d}', 'embeddings.pkl'
-            ])
-            args.load_emb_file = args.emb_file.replace('__', '_')
-            datum_gpt2 = read_datum(args)[['adjusted_onset','top1_pred']]
+    elif args.emb_type == "glove50": # change the args to load gpt2 embedding pickle
+        args.emb_type = 'gpt2-xl'
+        args.align_with = 'gpt2-xl'
+        args.layer_idx = 48
+        stra = 'cnxt_' + str(args.context_length)
+        args.emb_file = '_'.join([
+            str(args.sid), args.pkl_identifier, args.emb_type, stra,
+            f'layer_{args.layer_idx:02d}', 'embeddings.pkl'
+        ])
+        args.load_emb_file = args.emb_file.replace('__', '_')
+        datum_gpt2 = read_datum(args)[['adjusted_onset','top1_pred']]
 
-            # merge gpt2 prediction columns to datum
-            datum = datum[datum.adjusted_onset.notna()]
-            datum_gpt2 = datum_gpt2[datum_gpt2.adjusted_onset.notna()]
-            datum = datum_gpt2.merge(datum, how='inner',on='adjusted_onset')
+        # merge gpt2 prediction columns to datum
+        datum = datum[datum.adjusted_onset.notna()]
+        datum_gpt2 = datum_gpt2[datum_gpt2.adjusted_onset.notna()]
+        datum = datum_gpt2.merge(datum, how='inner',on='adjusted_onset')
 
         # modify datum
         if args.datum_mod == "correct": # select words predicted by gpt2 correctly (top 1 pred)
@@ -305,7 +304,7 @@ def main():
     
     # Read command line arguments
     args = parse_arguments()
-
+    
     # Setup paths to data
     args = setup_environ(args)
 
@@ -317,6 +316,7 @@ def main():
 
     # modify datum if needed (args.datum_mod)
     datum = mod_datum(args, datum)
+
 
     if args.pca_to:
         print(f'PCAing to {args.pca_to}')

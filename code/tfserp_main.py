@@ -11,9 +11,9 @@ import pandas as pd
 from scipy.io import loadmat
 from tfsenc_parser import parse_arguments
 from tfsenc_read_datum import read_datum
-from tfsenc_utils import (append_jobid_to_string, setup_environ)
+from tfsenc_utils import setup_environ
 from utils import load_pickle, main_timer, write_config
-from tfsenc_main import write_output
+from tfsenc_main import write_output, mod_datum
 
 def erp(args, datum, elec_signal, name):
     datum = datum[datum.adjusted_onset.notna()]
@@ -166,27 +166,12 @@ def process_sig_electrodes(args, datum):
 
     return
 
-def mod_datum(args, datum):
-    if args.datum_mod == "correct":
-        datum = datum[datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()] # correct
-        print(f'Selected {len(datum.index)} correct words')
-    elif args.datum_mod == "incorrect":
-        datum = datum[datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()] # incorrect
-        print(f'Selected {len(datum.index)} incorrect words')
-    elif args.datum_mod == "all":
-        pass
-    else:
-        raise Exception('Invalid Datum Modification')
-
-    return datum
-
 
 @main_timer
 def main():
 
     # Read command line arguments
     args = parse_arguments()
-    assert 'gpt2' in args.emb_type, 'Need gpt2 embedding' # use GPT2 embedding pickle
 
     # Setup paths to data
     args = setup_environ(args)
