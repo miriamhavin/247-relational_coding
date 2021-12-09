@@ -367,11 +367,7 @@ def setup_environ(args):
         [str(args.sid), args.pkl_identifier, 'stitch_index.pkl'])
 
     args.output_dir = os.path.join(os.getcwd(), 'results')
-    args.full_output_dir = create_output_directory(args,args.output_parent_dir)
-
-    args.best_lag = -1
-    if args.model_mod:
-        args.full_output_dir2 = create_output_directory(args,'-'.join([args.output_parent_dir, args.model_mod]))
+    args.full_output_dir = create_output_directory(args)
 
     vars(args).update(path_dict)
     return args
