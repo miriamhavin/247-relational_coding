@@ -14,8 +14,6 @@ parser.add_argument("--keys", nargs="+",  required=True)
 parser.add_argument("--sid", type=int, default=625)
 parser.add_argument("--sig-elec-file", nargs="+", default=[])
 parser.add_argument("--outfile", default='results/figures/tmp.pdf')
-parser.add_argument("--erp", nargs='?', type=str, default=None)
-parser.add_argument('--window-size', type=int, default=4000)
 args = parser.parse_args()
 
 assert len(args.labels) == len(args.formats)
@@ -42,6 +40,7 @@ def get_elecbrain(electrode):
     imname = elecdir + f'thumb_{name}.png'  # + f'{args.sid}_{name}.png'
     return imname
 
+
 # Read significant electrode file(s)
 sigelecs = {}
 if len(args.sig_elec_file) == 1 and len(args.keys) > 1:
@@ -65,6 +64,7 @@ for fmt, label in zip(args.formats, args.labels):
             elec = os.path.basename(resultfn).replace('.csv', '')[:-5]
             # Skip electrodes if they're not part of the sig list
             if len(sigelecs) and elec not in sigelecs[key]:
+                # print('Skipping', elec)
                 continue
             df = pd.read_csv(resultfn, header=None)
             df.insert(0, 'mode', key)
@@ -78,12 +78,6 @@ if not len(data):
 df = pd.concat(data)
 df.set_index(['label', 'electrode', 'mode'], inplace=True)
 # lags = list(range(len(df.columns)))
-
-if args.erp:
-    half_window = round((args.window_size / 1000) * 512 / 2)
-    window_values = [*range(-half_window, half_window + 1)]
-    args.values = [value * 1000 / 512 for value in window_values]
-
 lags = args.values
 n_av, n_df = len(args.values), len(df.columns)
 assert n_av == n_df, \
@@ -94,40 +88,57 @@ print('Plotting')
 pdf = PdfPages(args.outfile)
 
 # Plot results for each key (i.e. average)
-x_name = 'Lag (s)'
-y_name = 'Correlation (r)'
-if args.erp:
-    y_name = 'Power'
-
-fig, ax = plt.subplots()
-for mode, subdf in df.groupby(['label', 'mode'], axis=0):
-    vals = subdf.mean(axis=0)
-    err = subdf.sem(axis=0)
-    ax.fill_between(lags, vals - err, vals + err, alpha=0.2, color=cmap[mode])
-    label = '-'.join(mode)
-    ax.plot(lags, vals, label=f'{label} ({len(subdf)})', color=cmap[mode], ls=smap[mode])
-ax.legend(loc='upper right', frameon=False)
-ax.set(xlabel=x_name, ylabel=y_name, title='Global average')
+# plot each key/mode in its own subplot
+fig, axes = plt.subplots(1, len(args.keys), figsize=(12, 6))
+for ax, (mode, subdf) in zip(axes, df.groupby('mode', axis=0)):
+    for label, subsubdf in subdf.groupby('label', axis=0):
+        vals = subsubdf.mean(axis=0)
+        err = subsubdf.sem(axis=0)
+        key = (label, mode)
+        ax.fill_between(lags, vals - err, vals + err, alpha=0.2, color=cmap[key])
+        ax.plot(lags, vals, label=f'{label} ({len(subsubdf)})', color=cmap[key], ls=smap[key])
+    ax.set_title(mode + ' global average')
+    ax.legend(loc='upper right', frameon=False)
+    ax.set(xlabel='Lag (s)', ylabel='Correlation (r)')
 pdf.savefig(fig)
 plt.close()
+
+# # plot all keys together
+# fig, ax = plt.subplots()
+# for mode, subdf in df.groupby(['label', 'mode'], axis=0):
+#     # if mode in [('bbot_dec', 'comp'), ('bbot_enc', 'prod')]:
+#     #     continue
+#     vals = subdf.mean(axis=0)
+#     err = subdf.sem(axis=0)
+#     ax.fill_between(lags, vals - err, vals + err, alpha=0.2, color=cmap[mode])
+#     label = '-'.join(mode)
+#     ax.plot(lags, vals, label=f'{label} ({len(subdf)})', color=cmap[mode], ls=smap[mode])
+# ax.legend(loc='upper right', frameon=False)
+# ax.set(xlabel='Lag (s)', ylabel='Correlation (r)', title='Global average')
+# pdf.savefig(fig)
+# plt.close()
 
 # Plot each electrode separately
 vmax, vmin = df.max().max(), df.min().min()
 for electrode, subdf in df.groupby('electrode', axis=0):
-    fig, ax = plt.subplots()
-    for (label, _, mode), values in subdf.iterrows():
-        mode = (label, mode)
-        label = '-'.join(mode)
-        ax.plot(lags, values, label=label, color=cmap[mode], ls=smap[mode])
-    ax.legend(loc='upper left', frameon=False)
-    ax.set_ylim(vmin - 0.05, vmax + .05)  # .35
-    ax.set(xlabel=x_name, ylabel=y_name, title=f'{electrode}')
-    imname = get_elecbrain(electrode)
-    if os.path.isfile(imname):
-        arr_image = plt.imread(imname, format='png')
-        fig.figimage(arr_image,
-                     fig.bbox.xmax - arr_image.shape[1],
-                     fig.bbox.ymax - arr_image.shape[0], zorder=5)
+    fig, axes = plt.subplots(1, len(args.keys), figsize=(12, 6))
+    for ax, (mode, subsubdf) in zip(axes, subdf.groupby('mode')):
+        for row, values in subsubdf.iterrows():
+            # print(mode, label, type(values))
+            # print(subsubdf)
+            label = row[0]
+            key = (label, mode)
+            ax.plot(lags, values, label=label, color=cmap[key], ls=smap[key])
+        ax.legend(loc='upper left', frameon=False)
+        ax.set_ylim(vmin - 0.05, vmax + .05)  # .35
+        ax.set(xlabel='Lag (s)', ylabel='Correlation (r)',
+               title=f'{electrode} {mode}')
+    # imname = get_elecbrain(electrode)
+    # if os.path.isfile(imname):
+    #     arr_image = plt.imread(imname, format='png')
+    #     fig.figimage(arr_image,
+    #                  fig.bbox.xmax - arr_image.shape[1],
+    #                  fig.bbox.ymax - arr_image.shape[0], zorder=5)
     pdf.savefig(fig)
     plt.close()
 
