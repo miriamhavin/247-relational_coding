@@ -352,10 +352,11 @@ def run_save_permutation_prod_comp(args, Xtra, Ytra, Xtes, Ytes, filename):
             perm_prod = []
             for i in range(args.npermutations):
                 perm_prod.append(encoding_mp_prod_comp(args, Xtra, Ytra, Xtes, Ytes))
-        with open(filename, 'w') as csvfile:
-            print('writing file prod comp')
-            csvwriter = csv.writer(csvfile)
-            csvwriter.writerows(perm_prod)
+        if ('best-lag' not in args.model_mod) or (args.best_lag != -1):
+            with open(filename, 'w') as csvfile:
+                print('writing file prod comp')
+                csvwriter = csv.writer(csvfile)
+                csvwriter.writerows(perm_prod)
         
         if args.model_mod: # do best-lag models
             if args.best_lag == -1:
@@ -421,7 +422,7 @@ def load_header(conversation_dir, subject_id):
     return labels
 
 
-def create_output_directory(args, parent_dir):
+def create_output_directory(args):
     # output_prefix_add = '-'.join(args.emb_file.split('_')[:-1])
 
     # folder_name = folder_name + '-pca_' + str(args.reduce_to) + 'd'
@@ -429,8 +430,12 @@ def create_output_directory(args, parent_dir):
 
     folder_name = '-'.join([args.output_prefix, str(args.sid)])
     folder_name = folder_name.strip('-')
+    if args.model_mod:
+        parent_folder_name = '-'.join([args.output_parent_dir, args.model_mod])
+    else:
+        parent_folder_name = args.output_parent_dir
     full_output_dir = os.path.join(os.getcwd(), 'results', args.project_id,
-                                   parent_dir, folder_name)
+                                parent_folder_name, folder_name)
 
     os.makedirs(full_output_dir, exist_ok=True)
 
@@ -484,22 +489,26 @@ def encoding_regression(args, datum, elec_signal, name):
     run_save_permutation(args, prod_X, prod_Y, filename)
     print(args.best_lag)
     if args.model_mod: # model modification activated
-        filename = os.path.join(args.full_output_dir2, name + trial_str + '.csv')
+        filename = os.path.join(output_dir, name + trial_str + '.csv')
         if args.model_mod == 'best-lag': # Run permutation based on best-lag model
             run_save_permutation(args, prod_X, prod_Y, filename)
         if 'prod-comp' in args.model_mod: # Run permutation based on best-lag model and test on prod
             run_save_permutation_prod_comp(args, comp_X, comp_Y, prod_X, prod_Y, filename)
+            if 'best-lag' in args.model_mod:
+                run_save_permutation_prod_comp(args, comp_X, comp_Y, prod_X, prod_Y, filename)
     
     trial_str = append_jobid_to_string(args, 'comp')
     filename = os.path.join(output_dir, name + trial_str + '.csv')
     run_save_permutation(args, comp_X, comp_Y, filename)
     print(args.best_lag)
     if args.model_mod:
-        filename = os.path.join(args.full_output_dir2, name + trial_str + '.csv')
+        filename = os.path.join(output_dir, name + trial_str + '.csv')
         if args.model_mod == 'best-lag': # Run permutation based on best-lag model
             run_save_permutation(args, comp_X, comp_Y, filename)
         if 'prod-comp' in args.model_mod: # Run permutation based on best-lag model and test on comp
             run_save_permutation_prod_comp(args, prod_X, prod_Y, comp_X, comp_Y, filename)
+            if 'best-lag' in args.model_mod:
+                run_save_permutation_prod_comp(args, prod_X, prod_Y, comp_X, comp_Y, filename)
 
     return
 
@@ -530,11 +539,9 @@ def setup_environ(args):
         [str(args.sid), args.pkl_identifier, 'stitch_index.pkl'])
 
     args.output_dir = os.path.join(os.getcwd(), 'results')
-    args.full_output_dir = create_output_directory(args,args.output_parent_dir)
+    args.full_output_dir = create_output_directory(args)
 
     args.best_lag = -1
-    if args.model_mod:
-        args.full_output_dir2 = create_output_directory(args,'-'.join([args.output_parent_dir, args.model_mod]))
 
     vars(args).update(path_dict)
     return args

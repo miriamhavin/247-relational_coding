@@ -2,6 +2,7 @@ import glob
 import argparse
 import os
 import pandas as pd
+from scipy.stats import pearsonr
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
@@ -31,7 +32,7 @@ cmap = {}  # color map
 smap = {}  # style map
 for key, color in zip(args.keys, colors):
     for label, style in zip(args.labels, styles):
-        if label != 'erp':
+        if label == 'prod_comp':
             key = "test on " + key
         cmap[(label, key)] = color
         smap[(label, key)] = style
@@ -71,10 +72,10 @@ for fmt, label in zip(args.formats, args.labels):
                 # print('Skipping', elec)
                 continue
             df = pd.read_csv(resultfn, header=None)
-            if 'erp' in fmt: # if it is erp data
-                df.insert(0, 'mode', key)
-            else:
+            if 'prod-comp' in fmt: # if it is erp data
                 df.insert(0, 'mode', "test on " + key)
+            else:
+                df.insert(0, 'mode', key)
             df.insert(0, 'electrode', elec)
             df.insert(0, 'label', label)
             if 'erp' in fmt: # if it is erp data
@@ -123,9 +124,9 @@ for ax, (label, subdf) in zip(axes, df.groupby('label', axis=0)):
     ax.set_title(label + ' global average')
     ax.legend(loc='upper right', frameon=False)
     if label == 'erp':
-        ax.set(xlabel='Lag (s)', ylabel='Power')
+        ax.set(xlabel='Lag (s)', ylabel='')
     else:
-        ax.set(xlabel='Lag (s)', ylabel='Correlation (r)')
+        ax.set(xlabel='Lag (s)', ylabel='')
 pdf.savefig(fig)
 plt.close()
 # # plot all keys together
@@ -147,8 +148,18 @@ plt.close()
 vmax, vmin = df1.max().max(), df1.min().min()
 erpmax, erpmin = df_erp.max().max(), df.min().min()
 for electrode, subdf in df.groupby('electrode', axis=0):
-    fig, axes = plt.subplots(1, len(args.keys), figsize=(12, 6))
+    fig, axes = plt.subplots(1, len(args.labels), figsize=(12, 6))
     for ax, (label, subsubdf) in zip(axes, subdf.groupby('label')):
+        if label != 'erp':
+            subsubdf = subsubdf.iloc[:,0:n_av]
+        elif label == 'erp' and subsubdf.shape[0] == 2: # if both prod and comp significant
+            end_point = len(subsubdf.columns)
+            mid_point = int(end_point / 2)
+            corr_all, _ = pearsonr(subsubdf.iloc[0], subsubdf.iloc[1])
+            corr_bonset, _ = pearsonr(subsubdf.iloc[0,0:mid_point+1], subsubdf.iloc[1,0:mid_point+1])
+            corr_aonset, _ = pearsonr(subsubdf.iloc[0,mid_point:end_point], subsubdf.iloc[1,mid_point:end_point])
+            corrs = "cor: " + str(round(corr_all,3)) + "\ncorr -onset: " + str(round(corr_bonset,3)) + "\ncorr +onset: " + str(round(corr_aonset,3))
+            ax.text(0.05,0.82,corrs,fontsize = 10,ha='left',va='center',transform=ax.transAxes)
         for row, values in subsubdf.iterrows():
             # print(mode, label, type(values))
             # print(subsubdf)
@@ -157,17 +168,15 @@ for electrode, subdf in df.groupby('electrode', axis=0):
             if label == 'erp':
                 ax.plot(lags_erp, values, label=mode, color=cmap[key], ls=smap[key])
             else:
-                values = values[0:n_av]
                 ax.plot(lags, values, label=mode, color=cmap[key], ls=smap[key])
-            
         ax.legend(loc='upper left', frameon=False)
         if label == 'erp':
             ax.set_ylim(erpmin - 5, erpmax + 5)  # .35
-            ax.set(xlabel='Lag (s)', ylabel='Power',
+            ax.set(xlabel='Lag (s)', ylabel = '',
                 title=f'{electrode} {mode}')
         else:
             ax.set_ylim(vmin - 0.05, vmax + .05)  # .35
-            ax.set(xlabel='Lag (s)', ylabel='Correlation (r)',
+            ax.set(xlabel='Lag (s)', ylabel = '',
                 title=f'{electrode} {label}')
     imname = get_elecbrain(electrode)
     if os.path.isfile(imname):
