@@ -21,7 +21,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
 # SIG_FN := --sig-elec-file colton625.csv colton625.csv
 # SIG_FN := --sig-elec-file 676-50-mariano-prod.csv 676-65-mariano-comp.csv
-# SIG_FN := --sig-elec-file 625-61-mariano-prod.csv 625-58-mariano-comp.csv
+SIG_FN := --sig-elec-file 625-61-mariano-prod.csv 625-58-mariano-comp.csv
 
 # 676 Electrode IDs
 # SID := 676
@@ -74,7 +74,7 @@ CNXT_LEN := 1024
 
 # Choose the window size to average for each point
 # For ERP, choose the window size (after onset - before onset)
-WS := 4000
+WS := 200
 
 # Choose which set of embeddings to align with
 ALIGN_WITH := gpt2-xl blenderbot-small
@@ -309,13 +309,13 @@ plot-encoding1:
 plot-new:
 	python code/plot.py \
 		--formats \
-			'results/tfs/kw-tfs-full-625-plot-prod-de/kw-4000ms-all-625/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-plot-comp-de/kw-4000ms-all-625/*_%s.csv' \
-		--labels prod comp \
+			'results/tfs/kw-tfs-full-625-gpt2-xl/kw-200ms-all-625/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-glove50/kw-200ms-all-625/*_%s.csv' \
+		--labels gpt2 glove \
 		--values $(LAGS) \
-		--keys erp encoding \
+		--keys prod comp \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-625-erp-encoding-de-all.pdf
+		--outfile results/figures/tfs-625-gg-encoding-mariano.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
