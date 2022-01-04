@@ -21,7 +21,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
 # SIG_FN := --sig-elec-file colton625.csv colton625.csv
 # SIG_FN := --sig-elec-file 676-50-mariano-prod.csv 676-65-mariano-comp.csv
-SIG_FN := --sig-elec-file 625-61-mariano-prod.csv 625-58-mariano-comp.csv
+# SIG_FN := --sig-elec-file 625-61-mariano-prod.csv 625-58-mariano-comp.csv
 
 # 676 Electrode IDs
 # SID := 676
@@ -60,16 +60,16 @@ PKL_IDENTIFIER := full
 NPERM := 1000
 
 # Choose the lags to run for.
-LAGS := {-2000..2000..25}
+LAGS := -15000 -12000 -9000 -6000 -3000 {-2000..2000..25} 3000 6000 9000 12000 15000
 
 CONVERSATION_IDX := 0
 
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
-EMB := glove50
-EMB := blenderbot-small
 EMB := gpt2-xl
+EMB := blenderbot-small
+EMB := glove50
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
@@ -78,16 +78,16 @@ WS := 200
 
 # Choose which set of embeddings to align with
 ALIGN_WITH := gpt2-xl blenderbot-small
-ALIGN_WITH := glove50
-ALIGN_WITH := blenderbot-small
 ALIGN_WITH := gpt2-xl
+ALIGN_WITH := blenderbot-small
+ALIGN_WITH := glove50
 
 # Choose layer
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 48
+LAYER_IDX := 1
 
 # Choose whether to PCA
-PCA_TO := 50
+# PCA_TO := 50
 
 # Specify the minimum word frequency
 MWF := 0
@@ -106,8 +106,8 @@ WV := all
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
-CMD := sbatch submit1.sh
 CMD := python
+CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -121,12 +121,11 @@ DM := correct
 DM := all
 
 # model modification (best-lag model, prod-comp reverse model)
-MM := best-lag
-MM := prod-comp-cv
 MM := prod-comp-best-lag
 MM := prod-comp
+MM := best-lag
+MM := prod-comp-best-lag-150
 MM := 
-
 
 #TODO: move paths to makefile
 
@@ -309,13 +308,14 @@ plot-encoding1:
 plot-new:
 	python code/plot.py \
 		--formats \
-			'results/tfs/kw-tfs-full-625-gpt2-xl/kw-200ms-all-625/*_%s.csv' \
 			'results/tfs/kw-tfs-full-625-glove50/kw-200ms-all-625/*_%s.csv' \
-		--labels gpt2 glove \
+			'results/tfs/kw-tfs-full-625-blenderbot-small-de-150/kw-200ms-all-625/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-blenderbot-small-en-150/kw-200ms-all-625/*_%s.csv' \
+		--labels glove decoder encoder\
 		--values $(LAGS) \
 		--keys prod comp \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-625-gg-encoding-mariano.pdf
+		--outfile results/figures/tfs-625-glovebbot-150-all.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
