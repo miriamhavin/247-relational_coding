@@ -67,9 +67,9 @@ CONVERSATION_IDX := 0
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
-EMB := glove50
 EMB := blenderbot-small
 EMB := gpt2-xl
+EMB := glove50
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
@@ -78,16 +78,16 @@ WS := 200
 
 # Choose which set of embeddings to align with
 ALIGN_WITH := gpt2-xl blenderbot-small
-ALIGN_WITH := glove50
 ALIGN_WITH := blenderbot-small
 ALIGN_WITH := gpt2-xl
+ALIGN_WITH := glove50
 
 # Choose layer
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 48
+LAYER_IDX := 1
 
 # Choose whether to PCA
-PCA_TO := 50
+# PCA_TO := 50
 
 # Specify the minimum word frequency
 MWF := 0
@@ -106,8 +106,8 @@ WV := all
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
-CMD := sbatch submit1.sh
 CMD := python
+CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -171,7 +171,7 @@ run-encoding:
 		$(SH) \
 		$(PSH) \
 		--normalize $(NM)\
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB) \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-test \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 # Recommended naming convention for output_folder
@@ -310,12 +310,11 @@ plot-encoding1:
 plot-new:
 	python code/plot.py \
 		--formats \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-de/kw-200ms-all-625/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-de-best-lag/kw-200ms-all-625/*_%s.csv' \
-		--labels decoder decoder-best-lag\
+			'results/tfs/kw-tfs-full-625-glove50-test/kw-200ms-all-625/*_%s.csv' \
+		--labels glove\
 		--values $(LAGS) \
 		--keys prod comp \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-625-blenderbot-de-best-lag.pdf
+		--outfile results/figures/tfs-625-glove-test.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 

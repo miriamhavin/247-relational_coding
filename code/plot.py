@@ -97,6 +97,7 @@ for ax, (mode, subdf) in zip(axes, df.groupby('mode', axis=0)):
         key = (label, mode)
         ax.fill_between(lags, vals - err, vals + err, alpha=0.2, color=cmap[key])
         ax.plot(lags, vals, label=f'{label} ({len(subsubdf)})', color=cmap[key], ls=smap[key])
+    ax.plot([-2000,2000],[0,0],'k--')
     ax.set_title(mode + ' global average')
     ax.legend(loc='upper right', frameon=False)
     ax.set(xlabel='Lag (s)', ylabel='Correlation (r)')
@@ -129,6 +130,7 @@ for electrode, subdf in df.groupby('electrode', axis=0):
             label = row[0]
             key = (label, mode)
             ax.plot(lags, values, label=label, color=cmap[key], ls=smap[key])
+        ax.plot([-2000,2000],[0,0],'k--')
         ax.legend(loc='upper left', frameon=False)
         ax.set_ylim(vmin - 0.05, vmax + .05)  # .35
         ax.set(xlabel='Lag (s)', ylabel='Correlation (r)',
