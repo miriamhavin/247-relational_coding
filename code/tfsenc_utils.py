@@ -418,21 +418,15 @@ def encoding_regression(args, datum, elec_signal, name):
     # Run permutation and save results
     trial_str = append_jobid_to_string(args, 'prod')
     filename = os.path.join(output_dir, name + trial_str + '.csv')
-    if args.model_mod:
-        if 'prod-comp' in args.model_mod: # Run permutation based on best-lag model and test on prod
-            run_save_permutation_prod_comp(args, prod_X, prod_Y, fold_cat_prod, comp_X, comp_Y, fold_cat_comp, fold_num, filename)
-        else:
-            run_save_permutation(args, prod_X, prod_Y, fold_cat_prod, fold_num, filename)
+    if args.model_mod and 'prod-comp' in args.model_mod: # Run permutation based on best-lag model and test on prod
+        run_save_permutation_prod_comp(args, prod_X, prod_Y, fold_cat_prod, comp_X, comp_Y, fold_cat_comp, fold_num, filename)
     else:
         run_save_permutation(args, prod_X, prod_Y, fold_cat_prod, fold_num, filename)
     
     trial_str = append_jobid_to_string(args, 'comp')
     filename = os.path.join(output_dir, name + trial_str + '.csv')
-    if args.model_mod:
-        if 'prod-comp' in args.model_mod: # Run permutation based on best-lag model and test on comp
-            run_save_permutation_prod_comp(args, comp_X, comp_Y, fold_cat_comp, prod_X, prod_Y, fold_cat_prod, fold_num, filename)
-        else:
-            run_save_permutation(args, comp_X, comp_Y, fold_cat_comp, fold_num, filename)
+    if args.model_mod and 'prod-comp' in args.model_mod: # prod-comp
+        run_save_permutation_prod_comp(args, comp_X, comp_Y, fold_cat_comp, prod_X, prod_Y, fold_cat_prod, fold_num, filename)
     else:
         run_save_permutation(args, comp_X, comp_Y, fold_cat_comp, fold_num, filename)
 

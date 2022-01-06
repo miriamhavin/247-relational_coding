@@ -67,9 +67,9 @@ CONVERSATION_IDX := 0
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
-EMB := gpt2-xl
 EMB := blenderbot-small
 EMB := glove50
+EMB := gpt2-xl
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
@@ -78,16 +78,16 @@ WS := 200
 
 # Choose which set of embeddings to align with
 ALIGN_WITH := gpt2-xl blenderbot-small
-ALIGN_WITH := gpt2-xl
 ALIGN_WITH := blenderbot-small
 ALIGN_WITH := glove50
+ALIGN_WITH := gpt2-xl
 
 # Choose layer
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 1
+LAYER_IDX := 48
 
 # Choose whether to PCA
-# PCA_TO := 50
+PCA_TO := 50
 
 # Specify the minimum word frequency
 MWF := 0
@@ -308,14 +308,13 @@ plot-encoding1:
 plot-new:
 	python code/plot.py \
 		--formats \
-			'results/tfs/kw-tfs-full-625-glove50/kw-200ms-all-625/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-de-150/kw-200ms-all-625/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-en-150/kw-200ms-all-625/*_%s.csv' \
-		--labels glove decoder encoder\
+			'results/tfs/kw-tfs-full-625-gpt2-xl/kw-200ms-all-625/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-gpt2-xl-prod-comp-best-lag-150/kw-200ms-all-625/*_%s.csv' \
+		--labels gpt2 gpt2-train-on-key\
 		--values $(LAGS) \
 		--keys prod comp \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-625-glovebbot-150-all.pdf
+		--outfile results/figures/tfs-625-gpt2-150-all.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
