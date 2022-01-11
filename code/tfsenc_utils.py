@@ -167,6 +167,8 @@ def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
             np.maximum(convo_onsets + half_window + 1,
                        np.round_(onsets, 0, onsets) + lag_amount))
 
+        # index_onsets = np.round_(onsets, 0, onsets) + lag_amount
+
         # subtracting 1 from starts to account for 0-indexing
         starts = (index_onsets - half_window - 1)
         stops = (index_onsets + half_window)

@@ -263,6 +263,14 @@ def get_vector(x, glove):
         return None
 
 def mod_datum(args, datum):
+
+    # half_window = round((args.window_size / 1000) * 512 / 2)
+    # lag = int(60000 / 1000 * 512)
+    # original_len = len(datum.index)
+    # datum = datum.loc[((datum['adjusted_onset'] - lag) >= (datum['convo_onset'] + half_window + 1)) & ((datum['adjusted_onset'] + lag) <= (datum['convo_offset'] - half_window - 1))]
+    # new_datum_len = len(datum.index)
+    # print(f'Selected {new_datum_len} ({round(new_datum_len/original_len*100,5)}%) words')
+
     if args.datum_mod == "all": # no need for modification
         pass
     elif args.emb_type == "glove50": # change the args to load gpt2 embedding pickle
@@ -316,7 +324,6 @@ def main():
 
     # modify datum if needed (args.datum_mod)
     datum = mod_datum(args, datum)
-
 
     if args.pca_to:
         print(f'PCAing to {args.pca_to}')
