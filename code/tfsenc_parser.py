@@ -48,6 +48,8 @@ def parse_arguments():
     parser.add_argument('--datum-mod',type=str,default='all')
     parser.add_argument('--model-mod',nargs='?',type=str,default=None)
 
+    parser.add_argument('--bad-convos', nargs='+', type=int)
+
     args = parser.parse_args()
 
     if not args.sid and args.electrodes:
