@@ -82,11 +82,6 @@ def cv_lm_003(X, Y, folds, fold_num, lag):
 
         # Fit model
         B = np.linalg.pinv(Xtra) @ Ytra
-
-        if lag != -1:
-            assert lag < B.shape[1], f'Lag index out of range'
-            B1 = B[:,lag] # take the model for a specific lag
-            B = np.repeat(B1[:,np.newaxis],B.shape[1],1)
         
         # Predict
         foldYhat = Xtes @ B
@@ -156,6 +151,7 @@ def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
         [type]: [description]
     """
     half_window = round((window_size / 1000) * 512 / 2)
+
     Y1 = np.zeros((len(onsets), len(lags), 2 * half_window + 1))
 
     for lag in prange(len(lags)):
@@ -170,8 +166,8 @@ def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
         # index_onsets = np.round_(onsets, 0, onsets) + lag_amount
 
         # subtracting 1 from starts to account for 0-indexing
-        starts = (index_onsets - half_window - 1)
-        stops = (index_onsets + half_window)
+        starts = index_onsets - half_window - 1
+        stops = index_onsets + half_window
 
         # vec = brain_signal[np.array(
         #     [np.arange(*item) for item in zip(starts, stops)])]
@@ -181,6 +177,7 @@ def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
             Y1[i, lag, :] = brain_signal[start:stop].reshape(-1)
 
     return Y1
+
 
 def build_XY(args, datum, brain_signal):
     """[summary]
@@ -194,6 +191,7 @@ def build_XY(args, datum, brain_signal):
         [type]: [description]
     """
     X = np.stack(datum.embeddings).astype('float64')
+
     word_onsets = datum.adjusted_onset.values
     convo_onsets = datum.convo_onset.values
     convo_offsets = datum.convo_offset.values
@@ -417,6 +415,7 @@ def encoding_regression(args, datum, elec_signal, name):
     
 
     print(f'{args.sid} {name} Prod: {len(prod_X)} Comp: {len(comp_X)}')
+    
     # Run permutation and save results
     trial_str = append_jobid_to_string(args, 'prod')
     filename = os.path.join(output_dir, name + trial_str + '.csv')

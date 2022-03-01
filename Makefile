@@ -319,9 +319,12 @@ plot-encoding1:
 	rsync -av --delete results/figures ~/tigress/247-encoding-results
 
 # 'results/tfs/zz1-tfs-full-625-blenderbot-small/625/*_%s.csv' 
+<<<<<<< HEAD
 
 
 # plot order: glove (blue), gpt2 (orange), decoder (green), encoder (red)
+=======
+>>>>>>> 39caab3bb6a18a40e0ed53240ee75523472bb32c
 
 plot-new:
 	rm results/figures/*
