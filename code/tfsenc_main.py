@@ -16,6 +16,7 @@ from tfsenc_utils import (append_jobid_to_string, create_output_directory,
                           load_header, setup_environ)
 from utils import load_pickle, main_timer, write_config
 import gensim.downloader as api
+import re
 
 
 def trim_signal(signal):
@@ -264,16 +265,54 @@ def get_vector(x, glove):
 
 def mod_datum(args, datum):
 
-    # half_window = round((args.window_size / 1000) * 512 / 2)
-    # lag = int(60000 / 1000 * 512)
-    # original_len = len(datum.index)
-    # datum = datum.loc[((datum['adjusted_onset'] - lag) >= (datum['convo_onset'] + half_window + 1)) & ((datum['adjusted_onset'] + lag) <= (datum['convo_offset'] - half_window - 1))]
-    # new_datum_len = len(datum.index)
-    # print(f'Selected {new_datum_len} ({round(new_datum_len/original_len*100,5)}%) words')
 
     if args.datum_mod == "all": # no need for modification
         pass
-    elif args.emb_type == "glove50": # change the args to load gpt2 embedding pickle
+    elif 'trim' in args.datum_mod: # trim the edges
+        half_window = round((args.window_size / 1000) * 512 / 2)
+        lag = int(10000 / 1000 * 512) # trim 10 seconds
+        original_len = len(datum.index)
+        datum = datum.loc[((datum['adjusted_onset'] - lag) >= (datum['convo_onset'] + half_window + 1)) & ((datum['adjusted_onset'] + lag) <= (datum['convo_offset'] - half_window - 1))]
+        new_datum_len = len(datum.index)
+        print(f'Selected {new_datum_len} ({round(new_datum_len/original_len*100,5)}%) words')
+
+    elif 'first' in args.datum_mod: # first n word/s in production utterance
+        # datum['word_index'] = datum.groupby(datum.production.ne(datum.production.shift()).cumsum()).cumcount().add(1)
+        
+        # get on/offsets of first word in each utterance
+        datum.loc[:,'pc_change'] = ~datum.production.eq(datum.production.shift()) # shift between prod/comp
+        datum.loc[:,'true_first_word'] = np.where((datum.pc_change) & (datum.word == datum.sentence.str.split(' ').str[0]), 1, -1)
+        datum.loc[datum.pc_change == 0,['onset','offset','adjusted_onset','adjusted_offset','true_first_word']] = np.nan
+        datum = datum.fillna(method="ffill")
+
+        # truncate datum to start with comprehension
+        first_comp = datum[datum.production == 0].index[0] # first comp word index
+        datum = datum.loc[first_comp:,:] # get datum after first comprehension
+
+        # get datum in production and only utterances with true first word
+        datum = datum.loc[(datum.true_first_word == 1) & (datum.production == 1)]
+        word_idx = int(re.findall(r'\b\d+\b',args.datum_mod)[0])
+
+        # get first n word/words in production utterance
+        first_indices = datum.loc[datum.pc_change == True].index # first words
+        if 'union' in args.datum_mod: # first 1-n words
+            first_n_indices = first_indices
+            for i in range(1,word_idx):
+                first_n_indices = first_n_indices.union(first_indices + i)
+            datum = datum.loc[datum.index.intersection(first_n_indices)]
+            # datum = datum[datum.word_index <= word_idx]
+            print(f'Selected {len(datum.index)} first 1 to {word_idx} words of utterances')
+        elif 'inters' not in args.datum_mod: # first n words
+            datum = datum[datum.word_index == word_idx]
+            print(f'Selected {len(datum.index)} first {word_idx} words of utterances')
+        else: # first n words but intersection (only for idx 1 and 2)
+            first_word_datum = datum.loc[(datum.word_index_new == 1) & (datum.word == datum.sentence.str.split(' ').str[0]),:]
+            datum = datum.loc[datum.index.intersection(first_word_datum.index + 1)]
+            if word_idx == 1:
+                datum = first_word_datum.loc[first_word_datum.index.intersection(datum.index - 1)]
+            print(f'Selected {len(datum.index)} first {word_idx} words of utterances (intersection)')
+
+    elif args.emb_type == "glove50": # change the args to load gpt2 embedding pickle (only for podcast)
         args.emb_type = 'gpt2-xl'
         args.align_with = 'gpt2-xl'
         args.layer_idx = 48
@@ -299,7 +338,7 @@ def mod_datum(args, datum):
             print(f'Selected {len(datum.index)} incorrect words')
         elif args.datum_mod == "gpt2-pred": # for incorrectly predicted words, replace with gpt2 top 1 pred
             glove = api.load('glove-wiki-gigaword-50')
-            datum['embeddings'] = datum['top1_pred'].str.strip().apply(lambda x: get_vector(x.lower(), glove))
+            datum['embeddings'] = datum.top1_pred.str.strip().apply(lambda x: get_vector(x.lower(), glove))
             datum = datum[datum.embeddings.notna()]
             print(f'Changed words into gpt2 top predictions')
         else: # exception

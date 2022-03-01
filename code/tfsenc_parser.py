@@ -48,7 +48,7 @@ def parse_arguments():
     parser.add_argument('--datum-mod',type=str,default='all')
     parser.add_argument('--model-mod',nargs='?',type=str,default=None)
 
-    parser.add_argument('--bad-convos', nargs='+', type=int)
+    parser.add_argument('--bad-convos', nargs='*', type=int, default=None)
 
     args = parser.parse_args()
 
@@ -60,5 +60,8 @@ def parse_arguments():
 
     if args.sig_elec_file and args.sid not in [625, 676]:  # NOTE hardcoded
         args.sid = 777
+
+    if not args.bad_convos:
+        args.bad_convos = []
 
     return args

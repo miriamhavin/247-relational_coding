@@ -14,6 +14,12 @@ PRJCT_ID := tfs
 # 625 Electrode IDs
 SID := 625
 E_LIST := $(shell seq 1 105)
+BC := 
+
+# 676 Electrode IDs
+SID := 676
+E_LIST := $(shell seq 1 125)
+BC := --bad-convos 38 39
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
@@ -21,11 +27,12 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
 # SIG_FN := --sig-elec-file colton625.csv colton625.csv
 # SIG_FN := --sig-elec-file 676-50-mariano-prod.csv 676-65-mariano-comp.csv
-SIG_FN := --sig-elec-file 625-61-mariano-prod.csv 625-58-mariano-comp.csv
-
-# 676 Electrode IDs
-# SID := 676
-# E_LIST := $(shell seq 1 125)
+# SIG_FN := --sig-elec-file 625-61-mariano-prod.csv 625-58-mariano-comp.csv
+# SIG_FN := --sig-elec-file 625-75-mariano-prod.csv 625-67-mariano-comp.csv 
+# SIG_FN := --sig-elec-file 625-sig-comp.csv 625-sig-prod.csv
+# SIG_FN := --sig-elec-file 676-sig-comp.csv 676-sig-prod.csv
+# SIG_FN := --sig-elec-file 676-sig-prod.csv
+# SIG_FN := --sig-elec-file 625-sig-prod.csv
 
 PKL_IDENTIFIER := full
 # {full | trimmed}
@@ -60,7 +67,12 @@ PKL_IDENTIFIER := full
 NPERM := 1000
 
 # Choose the lags to run for.
-LAGS := -150000 -120000 -90000 -60000 -30000 {-2000..2000..25} 30000 60000 90000 120000 150000
+# LAGS := -150000 -120000 -90000 -60000 -30000 {-2000..2000..25} 30000 60000 90000 120000 150000
+# LAGS := -150000 {-5000..5000..25} 150000
+# LAGS := -150000 {-30000..30000..150} 150000
+# LAGS := -150000 {-30000..30000..500} 150000
+LAGS := {-10000..10000..25}
+# LAGS := {-4000..4000..50}
 
 CONVERSATION_IDX := 0
 
@@ -68,8 +80,8 @@ CONVERSATION_IDX := 0
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
 EMB := gpt2-xl
-EMB := glove50
 EMB := blenderbot-small
+EMB := glove50
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
@@ -79,15 +91,15 @@ WS := 200
 # Choose which set of embeddings to align with
 ALIGN_WITH := gpt2-xl blenderbot-small
 ALIGN_WITH := gpt2-xl
-ALIGN_WITH := glove50
 ALIGN_WITH := blenderbot-small
+ALIGN_WITH := glove50
 
 # Choose layer
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 8
+LAYER_IDX := 1
 
 # Choose whether to PCA
-PCA_TO := 50
+# PCA_TO := 50
 
 # Specify the minimum word frequency
 MWF := 0
@@ -119,13 +131,15 @@ DM := gpt2-pred
 DM := incorrect
 DM := correct
 DM := all
+DM := first-5-union
+DM := trim10
 
 # model modification (best-lag model, prod-comp reverse model)
-MM := prod-comp-best-lag
 MM := prod-comp
 MM := best-lag
-MM := 
 MM := prod-comp-best-lag-150
+MM := prod-comp-best-lag
+MM := 
 
 #TODO: move paths to makefile
 
@@ -165,11 +179,12 @@ run-encoding:
 		--layer-idx $(LAYER_IDX) \
 		--datum-mod $(DM) \
 		--model-mod $(MM) \
+		$(BC) \
 		$(SIG_FN) \
 		$(SH) \
 		$(PSH) \
 		--normalize $(NM)\
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-en \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM) \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 # Recommended naming convention for output_folder
@@ -305,16 +320,38 @@ plot-encoding1:
 
 # 'results/tfs/zz1-tfs-full-625-blenderbot-small/625/*_%s.csv' 
 
+
+# plot order: glove (blue), gpt2 (orange), decoder (green), encoder (red)
+
 plot-new:
+	rm results/figures/*
 	python code/plot.py \
 		--formats \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-en-150/kw-200ms-all-625/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-en-prod-comp-best-lag-150/kw-200ms-all-625/*_%s.csv' \
-		--labels encoder encoder-train-on-key\
+			'results/tfs/kw-tfs-full-676-glove50-inters/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-inters/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-blenderbot-small-de-inters/kw-200ms-all-676/*_%s.csv' \
+		--labels glove gpt2 bbot-de \
 		--values $(LAGS) \
 		--keys prod comp \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-625-bbot-encoder-prod-comp-best-lag-150-mariano.pdf
+		--outfile results/figures/tfs-676-ggb-inters-sig.pdf
+	rsync -av results/figures/ ~/tigress/247-encoding-results/
+
+
+plot-old:
+	rm results/figures/*
+	python code/plot_old.py \
+		--formats \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-first-1-union/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-first-2-union/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-first-3-union/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-first-4-union/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-first-5-union/kw-200ms-all-676/*_%s.csv' \
+		--labels 1-7432 2-12309 3-16204 4-20124 5-23826 \
+		--values $(LAGS) \
+		--keys prod \
+		$(SIG_FN) \
+		--outfile results/figures/tfs-676-gpt2-union-1-5-sig.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
@@ -332,3 +369,6 @@ plot-erp:
 		--outfile results/figures/tfs-625-encoder-three-plots-mariano.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
+
+run-euler:
+	$(CMD) code/euler.py \
