@@ -17,9 +17,9 @@ E_LIST := $(shell seq 1 105)
 BC := 
 
 # 676 Electrode IDs
-SID := 676
-E_LIST := $(shell seq 1 125)
-BC := --bad-convos 38 39
+# SID := 676
+# E_LIST := $(shell seq 1 125)
+# BC := --bad-convos 38 39
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
@@ -69,7 +69,7 @@ NPERM := 1000
 # Choose the lags to run for.
 # LAGS := -150000 -120000 -90000 -60000 -30000 {-2000..2000..25} 30000 60000 90000 120000 150000
 # LAGS := -150000 {-5000..5000..25} 150000
-# LAGS := -150000 {-30000..30000..150} 150000
+# LAGS := -150000 {-30000..30000..500} 150000
 # LAGS := -150000 {-30000..30000..500} 150000
 LAGS := {-10000..10000..25}
 # LAGS := {-4000..4000..50}
@@ -118,8 +118,8 @@ WV := all
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
-CMD := python
 CMD := sbatch submit1.sh
+CMD := python
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -132,7 +132,7 @@ DM := incorrect
 DM := correct
 DM := all
 DM := first-5-union
-DM := trim10
+DM := trim10-lag10-test
 
 # model modification (best-lag model, prod-comp reverse model)
 MM := prod-comp
@@ -319,25 +319,18 @@ plot-encoding1:
 	rsync -av --delete results/figures ~/tigress/247-encoding-results
 
 # 'results/tfs/zz1-tfs-full-625-blenderbot-small/625/*_%s.csv' 
-<<<<<<< HEAD
 
 
 # plot order: glove (blue), gpt2 (orange), decoder (green), encoder (red)
-=======
->>>>>>> 39caab3bb6a18a40e0ed53240ee75523472bb32c
-
 plot-new:
-	rm results/figures/*
 	python code/plot.py \
 		--formats \
-			'results/tfs/kw-tfs-full-676-glove50-inters/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-inters/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-blenderbot-small-de-inters/kw-200ms-all-676/*_%s.csv' \
-		--labels glove gpt2 bbot-de \
+			'results/tfs/kw-tfs-full-676-glove50-30/kw-200ms-all-676/*_%s.csv' \
+		--labels glove \
 		--values $(LAGS) \
 		--keys prod comp \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-676-ggb-inters-sig.pdf
+		--outfile results/figures/tfs-676-g-30.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 

@@ -86,18 +86,18 @@ assert n_av == n_df, \
 
 print('Plotting')
 pdf = PdfPages(args.outfile)
-lag_ticks = range(-2000,2025,25)
+lag_ticks = range(-30000,30500,500)
 lag_ticks = [lag / 1000 for lag in lag_ticks]
 # lag_ticks_out = [3.0, 3.5, 4.0, 4.5, 5.0]
 # lag_ticks_out = [3.0, 4.0]
-# lag_ticks_out = [36.0]
-lag_ticks_out = []
+lag_ticks_out = [36.0]
+# lag_ticks_out = []
 for lag in lag_ticks_out:
     lag_ticks.insert(0,lag*-1)
     lag_ticks.append(lag)
 
-# lag_tick_locations = [-36,-30,-24,-18,-12,-6,0,6,12,18,24,30,36]
-# lag_ticklabels = [-150,-30,-24,-18,-12,-6,0,6,12,18,24,30,150]
+lag_tick_locations = [-36,-30,-24,-18,-12,-6,0,6,12,18,24,30,36]
+lag_ticklabels = [-150,-30,-24,-18,-12,-6,0,6,12,18,24,30,150]
 
 # lag_tick_locations = [-5,-4,-3,-2,-1,0,1,2,3,4,5]
 # lag_ticklabels = [-150,-90,-30,-2,-1,0,1,2,30,90,150]
@@ -113,8 +113,8 @@ for ax, (mode, subdf) in zip(axes, df.groupby('mode', axis=0)):
         key = (label, mode)
         ax.fill_between(lag_ticks, vals - err, vals + err, alpha=0.2, color=cmap[key])
         ax.plot(lag_ticks, vals, label=f'{label} ({len(subsubdf)})', color=cmap[key], ls=smap[key])
-        # ax.set_xticks(lag_tick_locations)
-        # ax.set_xticklabels(lag_ticklabels)
+        ax.set_xticks(lag_tick_locations)
+        ax.set_xticklabels(lag_ticklabels)
     ax.axhline(0,ls='dashed',alpha=0.3,c='k')
     ax.axvline(0,ls='dashed',alpha=0.3,c='k')
     ax.set_title(mode + ' global average')
@@ -149,8 +149,8 @@ for electrode, subdf in df.groupby('electrode', axis=0):
             label = row[0]
             key = (label, mode)
             ax.plot(lag_ticks, values, label=label, color=cmap[key], ls=smap[key])
-            # ax.set_xticks(lag_tick_locations)
-            # ax.set_xticklabels(lag_ticklabels)
+            ax.set_xticks(lag_tick_locations)
+            ax.set_xticklabels(lag_ticklabels)
         ax.axhline(0,ls='dashed',alpha=0.3,c='k')
         ax.axvline(0,ls='dashed',alpha=0.3,c='k')
         ax.legend(loc='upper left', frameon=False)

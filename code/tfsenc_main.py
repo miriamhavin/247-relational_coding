@@ -270,13 +270,13 @@ def mod_datum(args, datum):
         pass
     elif 'trim' in args.datum_mod: # trim the edges
         half_window = round((args.window_size / 1000) * 512 / 2)
-        lag = int(10000 / 1000 * 512) # trim 10 seconds
+        lag = int(args.lags[-1] / 1000 * 512) # trim 10 seconds
         original_len = len(datum.index)
         datum = datum.loc[((datum['adjusted_onset'] - lag) >= (datum['convo_onset'] + half_window + 1)) & ((datum['adjusted_onset'] + lag) <= (datum['convo_offset'] - half_window - 1))]
         new_datum_len = len(datum.index)
         print(f'Selected {new_datum_len} ({round(new_datum_len/original_len*100,5)}%) words')
 
-    elif 'first' in args.datum_mod: # first n word/s in production utterance
+    elif args.project_id == "tfs" and 'first' in args.datum_mod: # first n word/s in production utterance
         # datum['word_index'] = datum.groupby(datum.production.ne(datum.production.shift()).cumsum()).cumcount().add(1)
         
         # get on/offsets of first word in each utterance
@@ -312,7 +312,7 @@ def mod_datum(args, datum):
                 datum = first_word_datum.loc[first_word_datum.index.intersection(datum.index - 1)]
             print(f'Selected {len(datum.index)} first {word_idx} words of utterances (intersection)')
 
-    elif args.emb_type == "glove50": # change the args to load gpt2 embedding pickle (only for podcast)
+    elif args.project_id == "podcast" and args.emb_type == "glove50": # change the args to load gpt2 embedding pickle (only for podcast)
         args.emb_type = 'gpt2-xl'
         args.align_with = 'gpt2-xl'
         args.layer_idx = 48
