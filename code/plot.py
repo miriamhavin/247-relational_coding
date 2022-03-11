@@ -88,15 +88,18 @@ assert n_av == n_df, \
 
 print('Plotting')
 pdf = PdfPages(args.outfile)
+lag_ticks = lags
+
+# Specify lags manually
 lag_ticks = range(-30000,30025,25)
 lag_ticks = [lag / 1000 for lag in lag_ticks]
 # lag_ticks_out = [3.0, 3.5, 4.0, 4.5, 5.0]
 # lag_ticks_out = [3.0, 4.0]
 # lag_ticks_out = [36.0]
-lag_ticks_out = []
-for lag in lag_ticks_out:
-    lag_ticks.insert(0,lag*-1)
-    lag_ticks.append(lag)
+# lag_ticks_out = []
+# for lag in lag_ticks_out:
+#     lag_ticks.insert(0,lag*-1)
+#     lag_ticks.append(lag)
 
 # lag_tick_locations = [-36,-30,-24,-18,-12,-6,0,6,12,18,24,30,36]
 # lag_ticklabels = [-150,-30,-24,-18,-12,-6,0,6,12,18,24,30,150]
@@ -105,6 +108,8 @@ for lag in lag_ticks_out:
 # lag_ticklabels = [-150,-90,-30,-2,-1,0,1,2,30,90,150]
 
 # lag_ticks = ['-6','','-2','','-1','','0','','1','','2','','6']
+
+
 # Plot results for each key (i.e. average)
 # plot each key/mode in its own subplot
 fig, axes = plt.subplots(1, len(args.keys), figsize=(12, 6))

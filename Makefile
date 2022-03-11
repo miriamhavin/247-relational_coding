@@ -71,7 +71,7 @@ NPERM := 1000
 # Choose the lags to run for.
 # LAGS := -150000 -120000 -90000 -60000 -30000 {-2000..2000..25} 30000 60000 90000 120000 150000
 # LAGS := -150000 {-5000..5000..25} 150000
-# LAGS := -150000 {-30000..30000..150} 150000
+# LAGS := -150000 {-30000..30000..500} 150000
 # LAGS := -150000 {-30000..30000..500} 150000
 LAGS := {-10000..10000..25}
 # LAGS := {-4000..4000..50}
@@ -120,8 +120,8 @@ WV := all
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
-CMD := python
 CMD := sbatch submit1.sh
+CMD := python
 # {echo | python | sbatch submit1.sh}
 
 # datum
