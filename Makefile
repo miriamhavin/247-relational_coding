@@ -17,9 +17,9 @@ E_LIST := $(shell seq 1 105)
 BC := 
 
 # 676 Electrode IDs
-SID := 676
-E_LIST := $(shell seq 1 125)
-BC := --bad-convos 38 39
+# SID := 676
+# E_LIST := $(shell seq 1 125)
+# BC := --bad-convos 38 39
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
@@ -29,10 +29,12 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 676-50-mariano-prod.csv 676-65-mariano-comp.csv
 # SIG_FN := --sig-elec-file 625-61-mariano-prod.csv 625-58-mariano-comp.csv
 # SIG_FN := --sig-elec-file 625-75-mariano-prod.csv 625-67-mariano-comp.csv 
-# SIG_FN := --sig-elec-file 625-sig-comp.csv 625-sig-prod.csv
-# SIG_FN := --sig-elec-file 676-sig-comp.csv 676-sig-prod.csv
+# SIG_FN := --sig-elec-file 625-sig-prod.csv 625-sig-comp.csv
+# SIG_FN := --sig-elec-file 676-sig-prod.csv 676-sig-comp.csv
 # SIG_FN := --sig-elec-file 676-sig-prod.csv
 # SIG_FN := --sig-elec-file 625-sig-prod.csv
+# SIG_FN := --sig-elec-file tfs-676-sig-test-prod.csv tfs-676-sig-test-comp.csv
+# SIG_FN := --sig-elec-file tfs-676-sig-test-prod.csv
 
 PKL_IDENTIFIER := full
 # {full | trimmed}
@@ -79,8 +81,8 @@ CONVERSATION_IDX := 0
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
-EMB := gpt2-xl
 EMB := blenderbot-small
+EMB := gpt2-xl
 EMB := glove50
 CNXT_LEN := 1024
 
@@ -89,10 +91,10 @@ CNXT_LEN := 1024
 WS := 200
 
 # Choose which set of embeddings to align with
-ALIGN_WITH := gpt2-xl blenderbot-small
 ALIGN_WITH := gpt2-xl
 ALIGN_WITH := blenderbot-small
 ALIGN_WITH := glove50
+ALIGN_WITH := gpt2-xl blenderbot-small
 
 # Choose layer
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
@@ -132,7 +134,7 @@ DM := incorrect
 DM := correct
 DM := all
 DM := first-5-union
-DM := trim10
+DM := lag10-25-inters
 
 # model modification (best-lag model, prod-comp reverse model)
 MM := prod-comp
@@ -319,42 +321,35 @@ plot-encoding1:
 	rsync -av --delete results/figures ~/tigress/247-encoding-results
 
 # 'results/tfs/zz1-tfs-full-625-blenderbot-small/625/*_%s.csv' 
-<<<<<<< HEAD
-
 
 # plot order: glove (blue), gpt2 (orange), decoder (green), encoder (red)
-=======
->>>>>>> 39caab3bb6a18a40e0ed53240ee75523472bb32c
 
 plot-new:
-	rm results/figures/*
+	rm -f results/figures/*
 	python code/plot.py \
 		--formats \
-			'results/tfs/kw-tfs-full-676-glove50-inters/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-inters/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-blenderbot-small-de-inters/kw-200ms-all-676/*_%s.csv' \
-		--labels glove gpt2 bbot-de \
+			'results/tfs/kw-tfs-full-676-glove50-trim30-lag30-25-single-conv/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-glove50-trim30-lag30-25-single-conv-2/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-glove50-trim30-lag30-25-single-conv-3/kw-200ms-all-676/*_%s.csv' \
+		--labels conv1 conv2 conv3 \
 		--values $(LAGS) \
 		--keys prod comp \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-676-ggb-inters-sig.pdf
+		--outfile results/figures/tfs-676-test-plot.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
 plot-old:
-	rm results/figures/*
+	rm -f results/figures/*
 	python code/plot_old.py \
 		--formats \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-first-1-union/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-first-2-union/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-first-3-union/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-first-4-union/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-gpt2-xl-first-5-union/kw-200ms-all-676/*_%s.csv' \
-		--labels 1-7432 2-12309 3-16204 4-20124 5-23826 \
+			'results/tfs/kw-tfs-full-676-glove50-trim30-lag30-25/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-glove50-trim30-lag30-25-single-conv/kw-200ms-all-676/*_%s.csv' \
+		--labels allconv conv1 \
 		--values $(LAGS) \
 		--keys prod \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-676-gpt2-union-1-5-sig.pdf
+		--outfile results/figures/tfs-676-test-plot.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
@@ -373,5 +368,20 @@ plot-erp:
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
-run-euler:
-	$(CMD) code/euler.py \
+SP := 0.3 0.5 0.7
+
+sig-test:
+	rm -f results/figures/*
+	python code/sig_test.py \
+		--sid $(SID) \
+		--formats \
+			'results/tfs/kw-tfs-full-676-glove50-trim30-lag30-25/kw-200ms-all-676/*_%s.csv' \
+		--data \
+			'results/tfs/kw-tfs-full-676-glove50-trim30-lag30-25/kw-200ms-all-676/*_%s.csv' \
+		--labels 676 \
+		--values $(LAGS) \
+		--keys prod comp \
+		$(SIG_FN) \
+		--sig-percents $(SP) \
+		--outfile results/figures/tfs-
+	rsync -av results/figures/ ~/tigress/247-encoding-results/new-sig-test/

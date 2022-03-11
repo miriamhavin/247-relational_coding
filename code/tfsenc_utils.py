@@ -135,7 +135,6 @@ def fit_model(X, y):
     beta = np.linalg.solve(X.T.dot(X), X.T.dot(y))
     return beta
 
-
 @jit(nopython=True)
 def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
             window_size):
@@ -152,7 +151,8 @@ def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
     """
     half_window = round((window_size / 1000) * 512 / 2)
 
-    Y1 = np.zeros((len(onsets), len(lags), 2 * half_window + 1))
+    # Y1 = np.zeros((len(onsets), len(lags), 2 * half_window + 1))
+    Y1 = np.zeros((len(onsets), len(lags)))
 
     for lag in prange(len(lags)):
 
@@ -173,8 +173,7 @@ def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
         #     [np.arange(*item) for item in zip(starts, stops)])]
 
         for i, (start, stop) in enumerate(zip(starts, stops)):
-
-            Y1[i, lag, :] = brain_signal[start:stop].reshape(-1)
+            Y1[i, lag] = np.mean(brain_signal[start:stop].reshape(-1))
 
     return Y1
 
@@ -216,7 +215,7 @@ def encode_lags_numba(args, X, Y, folds, fold_num, lag):
     if args.shuffle:
         np.random.shuffle(Y)
 
-    Y = np.mean(Y, axis=-1)
+    # Y = np.mean(Y, axis=-1)
 
     PY_hat = cv_lm_003(X, Y, folds, fold_num, lag)
     rp, _, _ = encColCorr(Y, PY_hat)
@@ -228,8 +227,8 @@ def encoding_mp_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, fold
         np.random.shuffle(Ytra)
         np.random.shuffle(Ytes)
 
-    Ytra = np.mean(Ytra, axis = -1)
-    Ytes = np.mean(Ytes, axis = -1)
+    # Ytra = np.mean(Ytra, axis = -1)
+    # Ytes = np.mean(Ytes, axis = -1)
 
     PY_hat = cv_lm_003_prod_comp(Xtra,Ytra,fold_tra,Xtes,fold_tes,fold_num,lag)
     rp, _, _ = encColCorr(Ytes, PY_hat)
@@ -403,17 +402,19 @@ def encoding_regression(args, datum, elec_signal, name):
 
     fold_num = 5
     if args.project_id == 'tfs':
-        grpkfold = GroupKFold(n_splits = fold_num)
-        folds = [t[1] for t in grpkfold.split(X, Y, datum['conversation_id'])]
+        if 'single-conv' in args.datum_mod: # single conversation (kfolds)
+            skf = KFold(n_splits = fold_num, shuffle = False)
+            folds = [t[1] for t in skf.split(np.arange(X.shape[0]))]
+        else: # multiple conversations (groupkfolds)
+            grpkfold = GroupKFold(n_splits = fold_num)
+            folds = [t[1] for t in grpkfold.split(X, Y, datum['conversation_id'])]
         fold_cat = np.zeros(datum.shape[0])
         for i in range(0,len(folds)):
-
             for row in folds[i]:
                 fold_cat[row] = i # turns into fold category
         fold_cat_prod = fold_cat[datum.speaker == 'Speaker1']
         fold_cat_comp = fold_cat[datum.speaker != 'Speaker1']
     
-
     print(f'{args.sid} {name} Prod: {len(prod_X)} Comp: {len(comp_X)}')
     
     # Run permutation and save results

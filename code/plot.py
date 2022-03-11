@@ -44,6 +44,7 @@ def get_elecbrain(electrode):
 
 # Read significant electrode file(s)
 sigelecs = {}
+# sigelecs_sorted = []
 if len(args.sig_elec_file) == 1 and len(args.keys) > 1:
     for fname, mode in zip(args.sig_elec_file, args.keys):
         elecs = pd.read_csv('data/' + fname % mode)['electrode'].tolist()
@@ -51,6 +52,7 @@ if len(args.sig_elec_file) == 1 and len(args.keys) > 1:
 if len(args.sig_elec_file) == len(args.keys):
     for fname, mode in zip(args.sig_elec_file, args.keys):
         elecs = pd.read_csv('data/' + fname)['electrode'].tolist()
+        # sigelecs_sorted.append(elecs)
         sigelecs[mode] = set(elecs)
 
 print('Aggregating data')
@@ -86,7 +88,7 @@ assert n_av == n_df, \
 
 print('Plotting')
 pdf = PdfPages(args.outfile)
-lag_ticks = range(-2000,2025,25)
+lag_ticks = range(-30000,30025,25)
 lag_ticks = [lag / 1000 for lag in lag_ticks]
 # lag_ticks_out = [3.0, 3.5, 4.0, 4.5, 5.0]
 # lag_ticks_out = [3.0, 4.0]
@@ -137,7 +139,7 @@ plt.close()
 # ax.set(xlabel='Lag (s)', ylabel='Correlation (r)', title='Global average')
 # pdf.savefig(fig)
 # plt.close()
-
+breakpoint()
 # Plot each electrode separately
 vmax, vmin = df.max().max(), df.min().min()
 for electrode, subdf in df.groupby('electrode', axis=0):

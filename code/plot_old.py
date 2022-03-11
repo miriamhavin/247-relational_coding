@@ -43,6 +43,7 @@ def get_elecbrain(electrode):
 
 # Read significant electrode file(s)
 sigelecs = {}
+sigelecs_sorted = []
 if len(args.sig_elec_file) == 1 and len(args.keys) > 1:
     for fname, mode in zip(args.sig_elec_file, args.keys):
         elecs = pd.read_csv('data/' + fname % mode)['electrode'].tolist()
@@ -50,6 +51,7 @@ if len(args.sig_elec_file) == 1 and len(args.keys) > 1:
 if len(args.sig_elec_file) == len(args.keys):
     for fname, mode in zip(args.sig_elec_file, args.keys):
         elecs = pd.read_csv('data/' + fname)['electrode'].tolist()
+        sigelecs_sorted.append(elecs)
         sigelecs[mode] = set(elecs)
 
 print('Aggregating data')
@@ -76,12 +78,10 @@ if not len(data):
     exit(1)
 df = pd.concat(data)
 df.set_index(['label', 'electrode', 'mode'], inplace=True)
-# lags = list(range(len(df.columns)))
 lags = args.values
 n_av, n_df = len(args.values), len(df.columns)
 assert n_av == n_df, \
     'args.values length ({n_av}) must be same size as results ({n_df})'
-
 
 print('Plotting')
 pdf = PdfPages(args.outfile)
@@ -94,21 +94,47 @@ for mode, subdf in df.groupby(['label', 'mode'], axis=0):
     ax.fill_between(lags, vals - err, vals + err, alpha=0.2, color=cmap[mode])
     label = '-'.join(mode)
     ax.plot(lags, vals, label=f'{label} ({len(subdf)})', color=cmap[mode], ls=smap[mode])
+ax.axhline(0,ls='dashed',alpha=0.3,c='k')
+ax.axvline(0,ls='dashed',alpha=0.3,c='k')
 ax.legend(loc='upper right', frameon=False)
 ax.set(xlabel='Lag (s)', ylabel='Correlation (r)', title='Global average')
 pdf.savefig(fig)
 plt.close()
 
 # Plot each electrode separately
+# vmax, vmin = df.max().max(), df.min().min()
+# for electrode, subdf in df.groupby('electrode', axis=0):
+#     fig, ax = plt.subplots()
+#     for (label, _, mode), values in subdf.iterrows():
+#         mode = (label, mode)
+#         label = '-'.join(mode)
+#         ax.plot(lags, values, label=label, color=cmap[mode], ls=smap[mode])
+#     ax.legend(loc='upper left', frameon=False)
+#     ax.set_ylim(vmin - 0.05, vmax + .05)  # .35
+#     ax.set(xlabel='Lag (s)', ylabel='Correlation (r)', title=f'{electrode}')
+#     imname = get_elecbrain(electrode)
+#     if os.path.isfile(imname):
+#         arr_image = plt.imread(imname, format='png')
+#         fig.figimage(arr_image,
+#                      fig.bbox.xmax - arr_image.shape[1],
+#                      fig.bbox.ymax - arr_image.shape[0], zorder=5)
+#     pdf.savefig(fig)
+#     plt.close()
+
+# Plot each electrode separately (in the sigfile order)
 vmax, vmin = df.max().max(), df.min().min()
-for electrode, subdf in df.groupby('electrode', axis=0):
+for single_elecs in sigelecs_sorted[0]:
+    subdf = df.xs(single_elecs,level='electrode',drop_level=False)
     fig, ax = plt.subplots()
     for (label, _, mode), values in subdf.iterrows():
         mode = (label, mode)
         label = '-'.join(mode)
         ax.plot(lags, values, label=label, color=cmap[mode], ls=smap[mode])
     ax.legend(loc='upper left', frameon=False)
+    ax.axhline(0,ls='dashed',alpha=0.3,c='k')
+    ax.axvline(0,ls='dashed',alpha=0.3,c='k')
     ax.set_ylim(vmin - 0.05, vmax + .05)  # .35
+    electrode = values.name[1]
     ax.set(xlabel='Lag (s)', ylabel='Correlation (r)', title=f'{electrode}')
     imname = get_elecbrain(electrode)
     if os.path.isfile(imname):
@@ -118,5 +144,6 @@ for electrode, subdf in df.groupby('electrode', axis=0):
                      fig.bbox.ymax - arr_image.shape[0], zorder=5)
     pdf.savefig(fig)
     plt.close()
+
 
 pdf.close()

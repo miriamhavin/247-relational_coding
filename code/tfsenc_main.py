@@ -3,6 +3,7 @@ import glob
 import os
 from functools import partial
 from multiprocessing import Pool
+from urllib.parse import _NetlocResultMixinBytes
 
 import numpy as np
 import pandas as pd
@@ -222,38 +223,52 @@ def write_output(args, output_mat, name, output_str):
             csvwriter.writerows(output_mat)
 
 
-def this_is_where_you_perform_regression(args, electrode_info, datum):
+def this_is_where_you_perform_regression(electrode, args, datum):
 
-    # Loop over each electrode
-    for elec_id, elec_name in electrode_info.items():
+    elec_id, elec_name = electrode # get electrode info
 
-        if elec_name is None:
-            print(f'Electrode ID {elec_id} does not exist')
-            continue
+    if elec_name is None:
+        print(f'Electrode ID {elec_id} does not exist')
+        return None
 
-        elec_signal = load_electrode_data(args, elec_id)
+    elec_signal = load_electrode_data(args, elec_id)
 
-        # Perform encoding/regression
-        if args.phase_shuffle:
-            if args.project_id == 'podcast':
-                with Pool() as pool:
-                    corr = pool.map(
-                        partial(dumdum1,
-                                args=args,
-                                datum=datum,
-                                signal=elec_signal,
-                                name=elec_name), range(args.npermutations))
-            else:
-                corr = []
-                for i in range(args.npermutations):
-                    corr.append(dumdum1(i, args, datum, elec_signal,
-                                        elec_name))
-
-            prod_corr, comp_corr = map(list, zip(*corr))
-            write_output(args, prod_corr, elec_name, 'prod')
-            write_output(args, comp_corr, elec_name, 'comp')
+    # Perform encoding/regression
+    if args.phase_shuffle:
+        if args.project_id == 'podcast':
+            with Pool() as pool:
+                corr = pool.map(
+                    partial(dumdum1,
+                            args=args,
+                            datum=datum,
+                            signal=elec_signal,
+                            name=elec_name), range(args.npermutations))
         else:
-            encoding_regression(args, datum, elec_signal, elec_name)
+            corr = []
+            for i in range(args.npermutations):
+                corr.append(dumdum1(i, args, datum, elec_signal,
+                                    elec_name))
+
+        prod_corr, comp_corr = map(list, zip(*corr))
+        write_output(args, prod_corr, elec_name, 'prod')
+        write_output(args, comp_corr, elec_name, 'comp')
+    else:
+        encoding_regression(args, datum, elec_signal, elec_name)
+
+    return None
+
+def parallel_regression(args, electrode_info, datum):
+    with Pool(4) as p:
+        p.map(
+            partial(this_is_where_you_perform_regression,
+                args = args,
+                datum = datum
+            ), electrode_info.items())
+
+    return None
+
+def test_parallel(iter_idx, args, datum):
+    print(iter_idx)
 
     return None
 
@@ -268,15 +283,23 @@ def mod_datum(args, datum):
 
     if args.datum_mod == "all": # no need for modification
         pass
-    elif 'trim' in args.datum_mod: # trim the edges
+    elif 'lag' in args.datum_mod: # trim the edges
         half_window = round((args.window_size / 1000) * 512 / 2)
-        lag = int(10000 / 1000 * 512) # trim 10 seconds
+        lag = int(args.lags[-1] / 1000 * 512) # trim edges
         original_len = len(datum.index)
         datum = datum.loc[((datum['adjusted_onset'] - lag) >= (datum['convo_onset'] + half_window + 1)) & ((datum['adjusted_onset'] + lag) <= (datum['convo_offset'] - half_window - 1))]
         new_datum_len = len(datum.index)
         print(f'Selected {new_datum_len} ({round(new_datum_len/original_len*100,5)}%) words')
 
-    elif 'first' in args.datum_mod: # first n word/s in production utterance
+        if 'single-conv' in args.datum_mod:
+            conv_name = "NY676_617_Part2_conversation2" # single-conv
+            conv_name = "NY676_618_Part5-one_conversation1" # single-conv-2
+            conv_name = "NY676_620_Part6_conversation3" # single-conv-3
+            datum = datum.loc[datum.conversation_name == conv_name]
+            new_datum_len = len(datum.index)
+            print(f'Selected {conv_name} with {new_datum_len} words')
+
+    elif args.project_id == "tfs" and 'first' in args.datum_mod: # first n word/s in production utterance
         # datum['word_index'] = datum.groupby(datum.production.ne(datum.production.shift()).cumsum()).cumcount().add(1)
         
         # get on/offsets of first word in each utterance
@@ -312,7 +335,7 @@ def mod_datum(args, datum):
                 datum = first_word_datum.loc[first_word_datum.index.intersection(datum.index - 1)]
             print(f'Selected {len(datum.index)} first {word_idx} words of utterances (intersection)')
 
-    elif args.emb_type == "glove50": # change the args to load gpt2 embedding pickle (only for podcast)
+    elif args.project_id == 'podcast' and args.emb_type == "glove50": # change the args to load gpt2 embedding pickle (only for podcast)
         args.emb_type = 'gpt2-xl'
         args.align_with = 'gpt2-xl'
         args.layer_idx = 48
@@ -344,6 +367,7 @@ def mod_datum(args, datum):
         else: # exception
             raise Exception('Invalid Datum Modification')
 
+    assert len(datum.index) > 0, "Empty Datum"
     return datum
 
 @main_timer
@@ -373,7 +397,8 @@ def main():
         process_sig_electrodes(args, datum)
     else:
         electrode_info = process_subjects(args)
-        this_is_where_you_perform_regression(args, electrode_info, datum)
+        parallel_regression(args, electrode_info, datum)
+        # this_is_where_you_perform_regression(args, electrode_info, datum)
 
     return
 
