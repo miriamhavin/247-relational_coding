@@ -33,8 +33,9 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 676-sig-prod.csv 676-sig-comp.csv
 # SIG_FN := --sig-elec-file 676-sig-prod.csv
 # SIG_FN := --sig-elec-file 625-sig-prod.csv
-# SIG_FN := --sig-elec-file tfs-676-sig-test-prod.csv tfs-676-sig-test-comp.csv
-# SIG_FN := --sig-elec-file tfs-676-sig-test-prod.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-0.3-prod.csv tfs-sig-file-625-sig-0.3-comp.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-676-sig-0.3-comp.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-0.3-prod.csv
 
 PKL_IDENTIFIER := full
 # {full | trimmed}
@@ -328,14 +329,12 @@ plot-new:
 	rm -f results/figures/*
 	python code/plot.py \
 		--formats \
-			'results/tfs/kw-tfs-full-676-glove50-trim30-lag30-25-single-conv/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-trim30-lag30-25-single-conv-2/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-trim30-lag30-25-single-conv-3/kw-200ms-all-676/*_%s.csv' \
-		--labels conv1 conv2 conv3 \
+			'results/tfs/kw-tfs-full-625-glove50-lag10-25-inters/kw-200ms-all-625/*_%s.csv' \
+		--labels glove \
 		--values $(LAGS) \
 		--keys prod comp \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-676-test-plot.pdf
+		--outfile results/figures/tfs-625-g-inters-sig0.3.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
@@ -343,13 +342,13 @@ plot-old:
 	rm -f results/figures/*
 	python code/plot_old.py \
 		--formats \
-			'results/tfs/kw-tfs-full-676-glove50-trim30-lag30-25/kw-200ms-all-676/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-trim30-lag30-25-single-conv/kw-200ms-all-676/*_%s.csv' \
-		--labels allconv conv1 \
+			'results/tfs/kw-tfs-full-625-glove50-lag10-25-inters/kw-200ms-all-625/*_%s.csv' \
+			'results/tfs/kw-tfs-full-625-glove50-lag10-25-inters-prod-comp-best-lag-prod-comp-best-lag/kw-200ms-all-625/*_%s.csv' \
+		--labels glove \
 		--values $(LAGS) \
 		--keys prod \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-676-test-plot.pdf
+		--outfile results/figures/tfs-625-g-inters-flip-sig0.3-prod.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
@@ -368,20 +367,16 @@ plot-erp:
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
-SP := 0.3 0.5 0.7
+SP := 0.3
 
 sig-test:
 	rm -f results/figures/*
 	python code/sig_test.py \
 		--sid $(SID) \
 		--formats \
-			'results/tfs/kw-tfs-full-676-glove50-trim30-lag30-25/kw-200ms-all-676/*_%s.csv' \
-		--data \
-			'results/tfs/kw-tfs-full-676-glove50-trim30-lag30-25/kw-200ms-all-676/*_%s.csv' \
-		--labels 676 \
+			'results/tfs/kw-tfs-full-676-glove50-lag10-25-inters/kw-200ms-all-676/*_%s.csv' \
+		--labels glove \
 		--values $(LAGS) \
 		--keys prod comp \
-		$(SIG_FN) \
-		--sig-percents $(SP) \
-		--outfile results/figures/tfs-
+		--sig-percents $(SP)
 	rsync -av results/figures/ ~/tigress/247-encoding-results/new-sig-test/

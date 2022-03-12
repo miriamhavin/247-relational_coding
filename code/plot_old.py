@@ -79,6 +79,7 @@ if not len(data):
 df = pd.concat(data)
 df.set_index(['label', 'electrode', 'mode'], inplace=True)
 lags = args.values
+lags = [lag / 1000 for lag in lags]
 n_av, n_df = len(args.values), len(df.columns)
 assert n_av == n_df, \
     'args.values length ({n_av}) must be same size as results ({n_df})'
@@ -87,7 +88,7 @@ print('Plotting')
 pdf = PdfPages(args.outfile)
 
 # Plot results for each key (i.e. average)
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=(15,6))
 for mode, subdf in df.groupby(['label', 'mode'], axis=0):
     vals = subdf.mean(axis=0)
     err = subdf.sem(axis=0)
@@ -125,7 +126,7 @@ plt.close()
 vmax, vmin = df.max().max(), df.min().min()
 for single_elecs in sigelecs_sorted[0]:
     subdf = df.xs(single_elecs,level='electrode',drop_level=False)
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(15,6))
     for (label, _, mode), values in subdf.iterrows():
         mode = (label, mode)
         label = '-'.join(mode)

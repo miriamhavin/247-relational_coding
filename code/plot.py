@@ -91,7 +91,7 @@ pdf = PdfPages(args.outfile)
 lag_ticks = lags
 
 # Specify lags manually
-lag_ticks = range(-30000,30025,25)
+# lag_ticks = range(-30000,30025,25)
 lag_ticks = [lag / 1000 for lag in lag_ticks]
 # lag_ticks_out = [3.0, 3.5, 4.0, 4.5, 5.0]
 # lag_ticks_out = [3.0, 4.0]
@@ -144,7 +144,7 @@ plt.close()
 # ax.set(xlabel='Lag (s)', ylabel='Correlation (r)', title='Global average')
 # pdf.savefig(fig)
 # plt.close()
-breakpoint()
+
 # Plot each electrode separately
 vmax, vmin = df.max().max(), df.min().min()
 for electrode, subdf in df.groupby('electrode', axis=0):
