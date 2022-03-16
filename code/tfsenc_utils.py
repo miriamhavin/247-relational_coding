@@ -1,4 +1,5 @@
 import csv
+from imp import C_EXTENSION
 import os
 from functools import partial
 from multiprocessing import Pool
@@ -8,6 +9,10 @@ import numpy as np
 from numba import jit, prange
 from scipy import stats
 from sklearn.model_selection import KFold, GroupKFold
+from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import make_pipeline
+from sklearn.decomposition import PCA
+
 
 
 def encColCorr(CA, CB):
@@ -57,12 +62,13 @@ def cv_lm_003(X, Y, folds, fold_num, lag):
         print("running normal encoding")
     else:
         print("running best-lag")
+    
     # Data size
     nSamps = X.shape[0]
     nChans = Y.shape[1] if Y.shape[1:] else 1
 
     YHAT = np.zeros((nSamps, nChans))
-    print(X.shape, Y.shape, fold_num, lag)
+
     # Go through each fold, and split
     for i in range(0, fold_num):
         # Shift the number of folds for this iteration
@@ -74,19 +80,26 @@ def cv_lm_003(X, Y, folds, fold_num, lag):
         # Extract each set out of the big matricies
         Xtra, Xtes = X[folds == i], X[folds != i]
         Ytra, Ytes = Y[folds == i], Y[folds != i]
-        print(Xtra.shape, Ytra.shape, Xtes.shape, Ytes.shape)
+
         # Mean-center
         Xtra -= np.mean(Xtra, axis=0)
         Xtes -= np.mean(Xtes, axis=0)
         Ytra -= np.mean(Ytra, axis=0)
         Ytes -= np.mean(Ytes, axis=0)
-        print(np.linalg.pinv(Xtra))
+
         # Fit model
-        B = np.linalg.pinv(Xtra) @ Ytra
-        print('finished fit')
+        model = make_pipeline(PCA(50, whiten=True), LinearRegression())
+        model.fit(Xtra, Ytra)
+
+        if lag != -1: # best-lag model
+            B = model.named_steps['linearregression'].coef_
+            assert lag < B.shape[0], f'Lag index out of range'
+            B = np.repeat(B[lag,:][np.newaxis,:], B.shape[0],0)
+            model.named_steps['linearregression'].coef_ = B
+
         # Predict
-        foldYhat = Xtes @ B
-        print('finished predict')
+        foldYhat = model.predict(Xtes)
+
         # Add to data matrices
         YHAT[folds != i, :] = foldYhat.reshape(-1, nChans)
 
@@ -113,15 +126,25 @@ def cv_lm_003_prod_comp(Xtra,Ytra,fold_tra,Xtes,fold_tes,fold_num,lag):
         Ytraf -= np.mean(Ytra, axis=0)
 
         # Fit model
-        B = np.linalg.pinv(Xtraf) @ Ytraf
+        model = make_pipeline(PCA(50, whiten=True), LinearRegression())
+        model.fit(Xtraf, Ytraf)
+        # B = np.linalg.pinv(Xtraf) @ Ytraf
 
         if lag != -1:
-            assert lag < B.shape[1], f'Lag index out of range'
-            B1 = B[:,lag] # take the model for a specific lag
-            B = np.repeat(B1[:,np.newaxis],B.shape[1],1)
+            B = model.named_steps['linearregression'].coef_
+            assert lag < B.shape[0], f'Lag index out of range'
+            B = np.repeat(B[lag,:][np.newaxis,:], B.shape[0],0) # best-lag model
+            model.named_steps['linearregression'].coef_ = B
+
+            # old best-lag model
+            # assert lag < B.shape[1], f'Lag index out of range'
+            # B1 = B[:,lag]
+            # B = np.repeat(B1[:,np.newaxis],B.shape[1],1)
 
         # Predict
-        foldYhat = Xtesf @ B
+        foldYhat = model.predict(Xtesf)
+        # foldYhat = Xtesf @ B
+
         YHAT[fold_tes != i, :] = foldYhat.reshape(-1, nChans)
 
     return YHAT
@@ -216,10 +239,7 @@ def encode_lags_numba(args, X, Y, folds, fold_num, lag):
     if args.shuffle:
         np.random.shuffle(Y)
 
-    # Y = np.mean(Y, axis=-1)
-
     PY_hat = cv_lm_003(X, Y, folds, fold_num, lag)
-    print('going to correlation')
     rp, _, _ = encColCorr(Y, PY_hat)
 
     return rp
@@ -228,9 +248,6 @@ def encoding_mp_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, fold
     if args.shuffle:
         np.random.shuffle(Ytra)
         np.random.shuffle(Ytes)
-
-    # Ytra = np.mean(Ytra, axis = -1)
-    # Ytes = np.mean(Ytes, axis = -1)
 
     PY_hat = cv_lm_003_prod_comp(Xtra,Ytra,fold_tra,Xtes,fold_tes,fold_num,lag)
     rp, _, _ = encColCorr(Ytes, PY_hat)
@@ -307,7 +324,6 @@ def run_save_permutation(args, prod_X, prod_Y, folds, fold_num, filename):
         else:
             perm_prod = []
             for i in range(args.npermutations):
-                print(args.npermutations)
                 result = encode_lags_numba(args, prod_X, prod_Y, folds, fold_num, -1)
                 if args.model_mod:
                     assert 'best-lag' in args.model_mod, f'Model modification Error'
@@ -316,7 +332,6 @@ def run_save_permutation(args, prod_X, prod_Y, folds, fold_num, filename):
                     perm_prod.append(encode_lags_numba(args, prod_X, prod_Y, folds, fold_num, best_lag))
                 else:
                     perm_prod.append(result)
-
         with open(filename, 'w') as csvfile:
             print('writing file')
             csvwriter = csv.writer(csvfile)
@@ -422,14 +437,14 @@ def encoding_regression(args, datum, elec_signal, name):
     # Run permutation and save results
     trial_str = append_jobid_to_string(args, 'prod')
     filename = os.path.join(output_dir, name + trial_str + '.csv')
-    if args.model_mod and 'prod-comp' in args.model_mod: # Run permutation based on best-lag model and test on prod
+    if args.model_mod and 'pc-flip' in args.model_mod: # prod-comp flip
         run_save_permutation_prod_comp(args, prod_X, prod_Y, fold_cat_prod, comp_X, comp_Y, fold_cat_comp, fold_num, filename)
     else:
         run_save_permutation(args, prod_X, prod_Y, fold_cat_prod, fold_num, filename)
     
     trial_str = append_jobid_to_string(args, 'comp')
     filename = os.path.join(output_dir, name + trial_str + '.csv')
-    if args.model_mod and 'prod-comp' in args.model_mod: # prod-comp
+    if args.model_mod and 'pc-flip' in args.model_mod: # prod-comp flip
         run_save_permutation_prod_comp(args, comp_X, comp_Y, fold_cat_comp, prod_X, prod_Y, fold_cat_prod, fold_num, filename)
     else:
         run_save_permutation(args, comp_X, comp_Y, fold_cat_comp, fold_num, filename)

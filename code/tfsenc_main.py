@@ -258,17 +258,19 @@ def this_is_where_you_perform_regression(electrode, args, datum):
     return None
 
 def parallel_regression(args, electrode_info, datum):
-    with Pool(4) as p:
-        p.map(
-            partial(this_is_where_you_perform_regression,
-                args = args,
-                datum = datum
-            ), electrode_info.items())
-
-    return None
-
-def test_parallel(iter_idx, args, datum):
-    print(iter_idx)
+    parallel = True
+    if parallel:
+        print('Running all electrodes parallel')
+        with Pool(4) as p:
+            p.map(
+                partial(this_is_where_you_perform_regression,
+                    args = args,
+                    datum = datum
+                ), electrode_info.items())
+    else:
+        print('Running all electrodes')
+        for electrode in electrode_info.items():
+            this_is_where_you_perform_regression(electrode, args, datum)
 
     return None
 
@@ -293,15 +295,16 @@ def mod_datum(args, datum):
 
         if 'single-conv' in args.datum_mod:
             conv_name = "NY676_617_Part2_conversation2" # single-conv
-            conv_name = "NY676_618_Part5-one_conversation1" # single-conv-2
-            conv_name = "NY676_620_Part6_conversation3" # single-conv-3
+            # conv_name = "NY676_618_Part5-one_conversation1" # single-conv-2
+            # conv_name = "NY676_620_Part6_conversation3" # single-conv-3
             datum = datum.loc[datum.conversation_name == conv_name]
             new_datum_len = len(datum.index)
             print(f'Selected {conv_name} with {new_datum_len} words')
 
     elif args.project_id == "tfs" and 'first' in args.datum_mod: # first n word/s in production utterance
         # datum['word_index'] = datum.groupby(datum.production.ne(datum.production.shift()).cumsum()).cumcount().add(1)
-        
+        breakpoint()
+        datum2 = datum.sort_values(by='adjusted_onset')
         # get on/offsets of first word in each utterance
         datum.loc[:,'pc_change'] = ~datum.production.eq(datum.production.shift()) # shift between prod/comp
         datum.loc[:,'true_first_word'] = np.where((datum.pc_change) & (datum.word == datum.sentence.str.split(' ').str[0]), 1, -1)

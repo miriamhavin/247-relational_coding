@@ -34,8 +34,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 676-sig-prod.csv
 # SIG_FN := --sig-elec-file 625-sig-prod.csv
 # SIG_FN := --sig-elec-file tfs-sig-file-625-sig-0.3-prod.csv tfs-sig-file-625-sig-0.3-comp.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-676-sig-0.3-comp.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-0.3-prod.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-676-sig-0.3-prod.csv
 
 PKL_IDENTIFIER := full
 # {full | trimmed}
@@ -75,6 +74,7 @@ NPERM := 1000
 # LAGS := -150000 {-30000..30000..500} 150000
 # LAGS := -150000 {-30000..30000..500} 150000
 LAGS := {-10000..10000..25}
+LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000
 # LAGS := {-4000..4000..50}
 
 CONVERSATION_IDX := 0
@@ -83,8 +83,8 @@ CONVERSATION_IDX := 0
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
 EMB := blenderbot-small
-EMB := gpt2-xl
 EMB := glove50
+EMB := gpt2-xl
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
@@ -99,7 +99,7 @@ ALIGN_WITH := gpt2-xl blenderbot-small
 
 # Choose layer
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 1
+LAYER_IDX := 48
 
 # Choose whether to PCA
 # PCA_TO := 50
@@ -121,8 +121,8 @@ WV := all
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
-CMD := sbatch submit1.sh
 CMD := python
+CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -134,14 +134,14 @@ DM := gpt2-pred
 DM := incorrect
 DM := correct
 DM := all
-DM := first-5-union
-DM := lag10-25-inters
+DM := first-1-inters
+DM := lag60-10k-interss
 
 # model modification (best-lag model, prod-comp reverse model)
 MM := prod-comp
 MM := best-lag
-MM := prod-comp-best-lag-150
-MM := prod-comp-best-lag
+MM := pc-flip-best-lag-150
+MM := pc-flip-best-lag
 MM := 
 
 #TODO: move paths to makefile
@@ -342,13 +342,17 @@ plot-old:
 	rm -f results/figures/*
 	python code/plot_old.py \
 		--formats \
-			'results/tfs/kw-tfs-full-625-glove50-lag10-25-inters/kw-200ms-all-625/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-glove50-lag10-25-inters-prod-comp-best-lag-prod-comp-best-lag/kw-200ms-all-625/*_%s.csv' \
-		--labels glove \
+			'results/tfs/kw-tfs-full-676-glove50-lag10-25-inters/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10-25-inters/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-blenderbot-small-lag10-25-inters/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-glove50-lag10-25-interss/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10-25-interss/kw-200ms-all-676/*_%s.csv' \
+			'results/tfs/kw-tfs-full-676-blenderbot-small-lag10-25-interss/kw-200ms-all-676/*_%s.csv' \
+		--labels glove1 gpt21 bbot1 glove2 gpt22 bbot2 \
 		--values $(LAGS) \
 		--keys prod \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-625-g-inters-flip-sig0.3-prod.pdf
+		--outfile results/figures/tfs-676-ggb-inters12-sig0.3-prod.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
