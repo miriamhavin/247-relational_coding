@@ -8,6 +8,7 @@ from urllib.parse import _NetlocResultMixinBytes
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
+from scipy import stats
 from tfsenc_parser import parse_arguments
 from tfsenc_pca import run_pca
 from tfsenc_phase_shuffle import phase_randomize_1d
@@ -53,8 +54,16 @@ def detrend_signal(mat_signal): # Detrending
 
     return mat_signal
 
+def fake_signal(stitch, convo_id):
 
-def load_electrode_data(args, elec_id, stitch):
+    mat_len = stitch[convo_id]-stitch[convo_id-1] # mat file length
+    mat_signal = np.empty((mat_len, 1))
+    mat_signal.fill(np.nan)
+
+    return mat_signal
+
+
+def load_electrode_data(args, elec_id, stitch, z_score):
     '''Loads specific electrodes mat files
     '''
     if args.project_id == 'tfs':
@@ -75,25 +84,25 @@ def load_electrode_data(args, elec_id, stitch):
             continue
 
         file = glob.glob(os.path.join(convo, process_flag, '*_' + str(elec_id) + '.mat'))
+
         if len(file) == 1: # conversation file exists
             file = file[0]
 
             mat_signal = loadmat(file)['p1st']
             mat_signal = mat_signal.reshape(-1, 1)
-            # mat_signal = trim_signal(mat_signal)
 
             if mat_signal is None:
                 continue
 
             mat_signal = detrend_signal(mat_signal) # detrend conversation signal
+            if z_score: # doing erp
+                mat_signal = stats.zscore(mat_signal)
 
         elif len(file) == 0: # conversation file does not exist
             if args.sid != 7170:
                 raise SystemExit(f'Error: Conversation file does not exist for electrode {elec_id} at {convo}')
             missing_convos.append(os.path.basename(convo)) # append missing convo name
-            mat_len = stitch[convo_id]-stitch[convo_id-1] # mat file length
-            mat_signal = np.empty((mat_len, 1))
-            mat_signal.fill(np.nan)
+            mat_signal = fake_signal(stitch, convo_id)
 
         else: # more than 1 conversation files
             raise SystemExit(f'Error: More than 1 signal file exists for electrode {elec_id} at {convo}')
@@ -264,7 +273,7 @@ def this_is_where_you_perform_regression(electrode, args, datum, stitch_index):
         print(f'Electrode ID {elec_id} does not exist')
         return None
 
-    elec_signal, missing_convos = load_electrode_data(args, elec_id, stitch_index)
+    elec_signal, missing_convos = load_electrode_data(args, elec_id, stitch_index, False)
 
     if len(missing_convos) > 0: # signal missing convos
         elec_datum = datum.loc[~datum['conversation_name'].isin(missing_convos)] # filter missing convos

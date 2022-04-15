@@ -7,16 +7,12 @@ from multiprocessing import Pool
 import mat73
 import numpy as np
 import pandas as pd
-from numba import jit
-from scipy import stats
-from scipy.io import loadmat
 from tfsenc_parser import parse_arguments
 from tfsenc_read_datum import read_datum
 from tfsenc_utils import setup_environ
 from utils import main_timer, write_config
-from tfsenc_main import write_output, mod_datum, process_subjects
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import PolynomialFeatures
+from tfsenc_main import write_output, mod_datum, process_subjects, load_electrode_data
+from tfsenc_read_datum import return_stitch_index
 
 
 def erp(args, datum, elec_signal, name):
@@ -60,72 +56,35 @@ def calc_average(lags, datum, brain_signal):
     return erp
 
 
-def load_and_erp(electrode, args, datum):
-    """
-    """
-    if args.project_id == 'tfs':
-        DATA_DIR = '/projects/HASSON/247/data/conversations-car'
-        process_flag = 'preprocessed'
-    elif args.project_id == 'podcast':
-        DATA_DIR = '/projects/HASSON/247/data/podcast-data'
-        process_flag = 'preprocessed_all'
-    else:
-        raise Exception('Invalid Project ID')
+def load_and_erp(electrode, args, datum, stitch_index):
     
     elec_id, elec_name = electrode # get electrode info
 
-    if elec_name is None:
-        print(f'Electrode ID {elec_id} does not exist')
-        return
-    convos = sorted(glob.glob(os.path.join(DATA_DIR, str(args.sid), '*')))
-        
-    all_signal = []
-    for convo_id, convo in enumerate(convos, 1):
-        if args.conversation_id != 0 and convo_id != args.conversation_id:
-            continue
-
-        file = glob.glob(
-            os.path.join(convo, process_flag, '*_' + str(elec_id) + '.mat'))[0]
-
-        mat_signal = loadmat(file)['p1st']
-        mat_signal = mat_signal.reshape(-1, 1)
-
-        if mat_signal is None:
-            continue
-
-        # Detrending
-        detrend = True
-        if detrend:
-            y = mat_signal
-            X = np.arange(len(y)).reshape(-1,1)
-            pf = PolynomialFeatures(degree=2)
-            Xp = pf.fit_transform(X)
-
-            model = LinearRegression()
-            model.fit(Xp, y)
-            trend = model.predict(Xp)
-            mat_signal = y - trend
-        
-        # z-score
-        z_score = True
-        if z_score:
-            mat_signal = stats.zscore(mat_signal)
-
-        all_signal.append(mat_signal)
-
-    if args.project_id == 'tfs':
-        elec_signal = np.vstack(all_signal)
-    else:
-        elec_signal = np.array(all_signal)
-    
+    # load electrode signal (with z_score)
+    elec_signal, missing_convos = load_electrode_data(args, elec_id, stitch_index, True)
     elec_signal = elec_signal.reshape(-1, 1)
 
-    erp(args, datum, elec_signal, elec_name)
+    # trim datum based on signal
+    if len(missing_convos) > 0: # signal missing convos
+        elec_datum = datum.loc[~datum['conversation_name'].isin(missing_convos)] # filter missing convos
+    else:
+        elec_datum = datum
+    
+    # special cases for missing signal
+    if len(elec_datum) == 0: # no signal
+        print(f'{args.sid} {elec_name} No Signal')
+        return None
+    elif elec_datum.conversation_id.nunique() < 5: # less than 5 convos
+        print(f'{args.sid} {elec_name} has less than 5 conversations')
+        return None
+
+    # do and save erp
+    erp(args, elec_datum, elec_signal, elec_name)
 
     return
 
 
-def load_and_erp_parallel(args, electrode_info, datum):
+def load_and_erp_parallel(args, electrode_info, datum, stitch_index):
     parallel = True
     if parallel:
         print('Running all electrodes in parallel')
@@ -133,11 +92,12 @@ def load_and_erp_parallel(args, electrode_info, datum):
             p.map(
                 partial(load_and_erp,
                     args = args,
-                    datum = datum
+                    datum = datum,
+                    stitch_index = stitch_index,
                 ), electrode_info.items())
     else:
         for index, subject, elec_name in electrode_info.itertuples(index=True):
-            load_and_erp(index, subject, elec_name, args, datum)
+            load_and_erp(index, subject, elec_name, args, datum, stitch_index)
 
 
 @main_timer
@@ -161,7 +121,9 @@ def main():
 
     assert args.sig_elec_file == None, "Do not input significant electrode list"
     electrode_info = process_subjects(args)
-    load_and_erp_parallel(args, electrode_info, datum)
+    stitch_index = return_stitch_index(args) # load stitch index
+    stitch_index = [0] + stitch_index
+    load_and_erp_parallel(args, electrode_info, datum, stitch_index)
 
     return
 
