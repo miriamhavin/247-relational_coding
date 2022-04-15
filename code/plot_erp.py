@@ -15,7 +15,6 @@ parser.add_argument("--keys", nargs="+",  required=True)
 parser.add_argument("--sid", type=int, default=625)
 parser.add_argument("--sig-elec-file", nargs="+", default=[])
 parser.add_argument("--outfile", default='results/figures/tmp.pdf')
-parser.add_argument("--window-size", type=int, default=4000)
 args = parser.parse_args()
 
 assert len(args.labels) == len(args.formats)
@@ -37,13 +36,11 @@ for key, color in zip(args.keys, colors):
         cmap[(label, key)] = color
         smap[(label, key)] = style
 
-
 def get_elecbrain(electrode):
     name = electrode.replace('EEG', '').replace('REF', '').replace('\\', '')
     name = name.replace('_', '').replace('GR', 'G')
     imname = elecdir + f'thumb_{name}.png'  # + f'{args.sid}_{name}.png'
     return imname
-
 
 # Read significant electrode file(s)
 sigelecs = {}
@@ -84,51 +81,75 @@ for fmt, label in zip(args.formats, args.labels):
                 data.append(df)
 
 if not len(data) or not len(erp_data):
+# if not len(erp_data):
     print('No data found')
     exit(1)
+
 df1 = pd.concat(data)
 df_erp = pd.concat(erp_data)
 df1.set_index(['label', 'electrode', 'mode'], inplace=True)
 df_erp.set_index(['label', 'electrode', 'mode'], inplace=True)
 # lags = list(range(len(df.columns)))
-lags = args.values
-erp_lag_ws = int(args.window_size / 2 / 1000 * 512)
-lags_erp = list(range(erp_lag_ws*(-1),erp_lag_ws+1))
-lags_erp = [lag / 512 * 1000 for lag in lags_erp]
-n_av, n_av2, n_df, n_df2 = len(args.values), len(lags_erp), len(df1.columns), len(df_erp.columns)
-assert n_av == n_df, \
-    'args.values length ({n_av}) munst be same size as results ({n_df})'
-assert n_av2 == n_df2, \
-    'erp values length ({n_av2}) must be same size as results ({n_df2})'
+lags = [value / 1000 for value in args.values]
+# erp_lag_ws = int(args.window_size / 2 / 1000 * 512)
+# lags_erp = list(range(erp_lag_ws*(-1),erp_lag_ws+1))
+# lags_erp = [lag / 512 for lag in lags_erp]
+# n_av, n_av2, n_df, n_df2 = len(args.values), len(lags_erp), len(df1.columns), len(df_erp.columns)
+# n_av, n_df = len(args.values), len(df1.columns)
+# assert n_av == n_df, \
+#     'args.values length ({n_av}) munst be same size as results ({n_df})'
+# assert n_av2 == n_df2, \
+#     'erp values length ({n_av2}) must be same size as results ({n_df2})'
 df = pd.concat([df_erp,df1],axis=0)
+# df = df_erp
 
 print('Plotting')
 pdf = PdfPages(args.outfile)
 
+quardra = True # are we plotting quardra
+
+lag_ticks = lags
+lag_ticks_out = []
+if quardra:
+    lag_ticks_out = [12,13,14,15,16,18,20,22,24,26,28] # quardra
+    lag_tick_locations = [-28,-26,-24,-22,-20,-18,-16,-14,-12,-10,-8,-6,-4,-2,0,2,4,6,8,10,12,14,16,18,20,22,24,26,28]
+    lag_ticklabels = [-300,-250,-200,-150,-120,-90,-60,-40,-20,-10,-8,-6,-4,-2,0,2,4,6,8,10,20,40,60,90,120,150,200,250,300]
+# lag_ticks_out = [12,13,14,15,16,18,20,22] # triple
+for lag in lag_ticks_out:
+    lag_ticks.insert(0,lag*-1)
+    lag_ticks.append(lag)
+
+
 # Plot results for each key (i.e. average)
 # plot each key/mode in its own subplot
-fig, axes = plt.subplots(1, len(args.labels), figsize=(12, 6))
+fig, axes = plt.subplots(len(args.labels),1, figsize=(18,5))
 for ax, (label, subdf) in zip(axes, df.groupby('label', axis=0)):
     for mode, subsubdf in subdf.groupby('mode', axis=0):
-        if label != 'erp':
-            subsubdf = subsubdf.iloc[:,0:n_av]
+        # if label != 'erp':
+        #     subsubdf = subsubdf.iloc[:,0:n_av]
         vals = subsubdf.mean(axis=0)
         err = subsubdf.sem(axis=0)
         key = (label,mode)
-        if label == 'erp':
-            ax.fill_between(lags_erp, vals - err, vals + err, alpha=0.2, color=cmap[key])
-            ax.plot(lags_erp, vals, label=f'{mode} ({len(subsubdf)})', color=cmap[key], ls=smap[key])
-        else:
-            ax.fill_between(lags, vals - err, vals + err, alpha=0.2, color=cmap[key])
-            ax.plot(lags, vals, label=f'{mode} ({len(subsubdf)})', color=cmap[key], ls=smap[key])
-    ax.set_title(label + ' global average')
+        # if label == 'erp':
+        #     ax.fill_between(lags_erp, vals - err, vals + err, alpha=0.2, color=cmap[key])
+        #     ax.plot(lags_erp, vals, label=f'{mode} ({len(subsubdf)})', color=cmap[key], ls=smap[key])
+        # else:
+        if quardra:
+            ax.set_xticks(lag_tick_locations)
+            ax.set_xticklabels(lag_ticklabels)
+        ax.fill_between(lag_ticks, vals - err, vals + err, alpha=0.2, color=cmap[key])
+        ax.plot(lag_ticks, vals, label=f'{mode} ({len(subsubdf)})', color=cmap[key], ls='solid')
     ax.legend(loc='upper right', frameon=False)
-    if label == 'erp':
-        ax.set(xlabel='Lag (s)', ylabel='')
+    ax.axhline(0,ls='dashed',alpha=0.3,c='k')
+    ax.axvline(0,ls='dashed',alpha=0.3,c='k')
+    if label == 'gpt2':
+        ax.set(xlabel='Lag (s)', ylabel = '')
     else:
-        ax.set(xlabel='Lag (s)', ylabel='')
+        ax.axes.xaxis.set_visible(False)
+    ax.set(title=f'{label} global average')
 pdf.savefig(fig)
 plt.close()
+
 # # plot all keys together
 # fig, ax = plt.subplots()
 # for mode, subdf in df.groupby(['label', 'mode'], axis=0):
@@ -146,38 +167,44 @@ plt.close()
 
 # Plot each electrode separately
 vmax, vmin = df1.max().max(), df1.min().min()
-erpmax, erpmin = df_erp.max().max(), df.min().min()
+erpmax, erpmin = df_erp.max().max(), df_erp.min().min()
 for electrode, subdf in df.groupby('electrode', axis=0):
-    fig, axes = plt.subplots(1, len(args.labels), figsize=(12, 6))
+    fig, axes = plt.subplots(len(args.labels),1, figsize=(18,5))
     for ax, (label, subsubdf) in zip(axes, subdf.groupby('label')):
         if label != 'erp':
-            subsubdf = subsubdf.iloc[:,0:n_av]
+            subsubdf = subsubdf
         elif label == 'erp' and subsubdf.shape[0] == 2: # if both prod and comp significant
             end_point = len(subsubdf.columns)
             mid_point = int(end_point / 2)
-            corr_all, _ = pearsonr(subsubdf.iloc[0], subsubdf.iloc[1])
-            corr_bonset, _ = pearsonr(subsubdf.iloc[0,0:mid_point+1], subsubdf.iloc[1,0:mid_point+1])
-            corr_aonset, _ = pearsonr(subsubdf.iloc[0,mid_point:end_point], subsubdf.iloc[1,mid_point:end_point])
-            corrs = "cor: " + str(round(corr_all,3)) + "\ncorr -onset: " + str(round(corr_bonset,3)) + "\ncorr +onset: " + str(round(corr_aonset,3))
-            ax.text(0.05,0.82,corrs,fontsize = 10,ha='left',va='center',transform=ax.transAxes)
+            # corr_all, _ = pearsonr(subsubdf.iloc[0], subsubdf.iloc[1])
+            # corr_bonset, _ = pearsonr(subsubdf.iloc[0,0:mid_point+1], subsubdf.iloc[1,0:mid_point+1])
+            # corr_aonset, _ = pearsonr(subsubdf.iloc[0,mid_point:end_point], subsubdf.iloc[1,mid_point:end_point])
+            # corrs = "cor: " + str(round(corr_all,3)) + "\ncorr -onset: " + str(round(corr_bonset,3)) + "\ncorr +onset: " + str(round(corr_aonset,3))
+            # ax.text(0.05,0.82,corrs,fontsize = 10,ha='left',va='center',transform=ax.transAxes)
         for row, values in subsubdf.iterrows():
             # print(mode, label, type(values))
             # print(subsubdf)
             mode = row[2]
             key = (label, mode)
-            if label == 'erp':
-                ax.plot(lags_erp, values, label=mode, color=cmap[key], ls=smap[key])
-            else:
-                ax.plot(lags, values, label=mode, color=cmap[key], ls=smap[key])
+            # if label == 'erp':
+            #     ax.plot(lags_erp, values, label=mode, color=cmap[key], ls=smap[key])
+            # else:
+            if quardra:
+                ax.set_xticks(lag_tick_locations)
+                ax.set_xticklabels(lag_ticklabels)
+            ax.plot(lag_ticks, values, label=mode, color=cmap[key], ls='solid')
         ax.legend(loc='upper left', frameon=False)
         if label == 'erp':
-            ax.set_ylim(erpmin - 5, erpmax + 5)  # .35
-            ax.set(xlabel='Lag (s)', ylabel = '',
-                title=f'{electrode} {mode}')
+            ax.set_ylim(erpmin - 0.05, erpmax + 0.05)  # erp limit
         else:
-            ax.set_ylim(vmin - 0.05, vmax + .05)  # .35
-            ax.set(xlabel='Lag (s)', ylabel = '',
-                title=f'{electrode} {label}')
+            ax.set_ylim(vmin - 0.05, vmax + .05)  # cor limit
+        ax.axhline(0,ls='dashed',alpha=0.3,c='k')
+        ax.axvline(0,ls='dashed',alpha=0.3,c='k')
+        if label == 'gpt2':
+            ax.set(xlabel='Lag (s)', ylabel = '')
+        else:
+            ax.axes.xaxis.set_visible(False)
+        ax.set(title=f'{electrode} {label}')
     imname = get_elecbrain(electrode)
     if os.path.isfile(imname):
         arr_image = plt.imread(imname, format='png')

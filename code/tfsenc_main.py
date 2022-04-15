@@ -15,9 +15,13 @@ from tfsenc_read_datum import read_datum
 from tfsenc_utils import (append_jobid_to_string, create_output_directory,
                           encoding_regression, encoding_regression_pr,
                           load_header, setup_environ)
+from tfsenc_read_datum import return_stitch_index
 from utils import load_pickle, main_timer, write_config
 import gensim.downloader as api
 import re
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+
 
 
 def trim_signal(signal):
@@ -35,7 +39,22 @@ def trim_signal(signal):
     return signal
 
 
-def load_electrode_data(args, elec_id):
+def detrend_signal(mat_signal): # Detrending
+
+    y = mat_signal
+    X = np.arange(len(y)).reshape(-1,1)
+    pf = PolynomialFeatures(degree=2)
+    Xp = pf.fit_transform(X)
+
+    model = LinearRegression()
+    model.fit(Xp, y)
+    trend = model.predict(Xp)
+    mat_signal = y - trend
+
+    return mat_signal
+
+
+def load_electrode_data(args, elec_id, stitch):
     '''Loads specific electrodes mat files
     '''
     if args.project_id == 'tfs':
@@ -47,32 +66,46 @@ def load_electrode_data(args, elec_id):
     else:
         raise Exception('Invalid Project ID')
 
-    convos = sorted(glob.glob(os.path.join(DATA_DIR, str(args.sid), '*')))
+    convos = sorted(glob.glob(os.path.join(DATA_DIR, str(args.sid), 'NY*Part*conversation*')))
 
     all_signal = []
+    missing_convos = []
     for convo_id, convo in enumerate(convos, 1):
-
         if args.conversation_id != 0 and convo_id != args.conversation_id:
             continue
 
-        file = glob.glob(
-            os.path.join(convo, process_flag, '*_' + str(elec_id) + '.mat'))[0]
+        file = glob.glob(os.path.join(convo, process_flag, '*_' + str(elec_id) + '.mat'))
+        if len(file) == 1: # conversation file exists
+            file = file[0]
 
-        mat_signal = loadmat(file)['p1st']
-        mat_signal = mat_signal.reshape(-1, 1)
+            mat_signal = loadmat(file)['p1st']
+            mat_signal = mat_signal.reshape(-1, 1)
+            # mat_signal = trim_signal(mat_signal)
 
-        # mat_signal = trim_signal(mat_signal)
+            if mat_signal is None:
+                continue
 
-        if mat_signal is None:
-            continue
-        all_signal.append(mat_signal)
+            mat_signal = detrend_signal(mat_signal) # detrend conversation signal
+
+        elif len(file) == 0: # conversation file does not exist
+            if args.sid != 7170:
+                raise SystemExit(f'Error: Conversation file does not exist for electrode {elec_id} at {convo}')
+            missing_convos.append(os.path.basename(convo)) # append missing convo name
+            mat_len = stitch[convo_id]-stitch[convo_id-1] # mat file length
+            mat_signal = np.empty((mat_len, 1))
+            mat_signal.fill(np.nan)
+
+        else: # more than 1 conversation files
+            raise SystemExit(f'Error: More than 1 signal file exists for electrode {elec_id} at {convo}')
+
+        all_signal.append(mat_signal) # append conversation signal
 
     if args.project_id == 'tfs':
         elec_signal = np.vstack(all_signal)
     else:
         elec_signal = np.array(all_signal)
 
-    return elec_signal
+    return elec_signal, missing_convos
 
 
 def process_datum(args, df):
@@ -213,7 +246,7 @@ def dumdum1(iter_idx, args, datum, signal, name):
 
 def write_output(args, output_mat, name, output_str):
 
-    output_dir = create_output_directory(args,args.output_parent_dir)
+    output_dir = create_output_directory(args)
 
     if all(output_mat):
         trial_str = append_jobid_to_string(args, output_str)
@@ -223,7 +256,7 @@ def write_output(args, output_mat, name, output_str):
             csvwriter.writerows(output_mat)
 
 
-def this_is_where_you_perform_regression(electrode, args, datum):
+def this_is_where_you_perform_regression(electrode, args, datum, stitch_index):
 
     elec_id, elec_name = electrode # get electrode info
 
@@ -231,7 +264,19 @@ def this_is_where_you_perform_regression(electrode, args, datum):
         print(f'Electrode ID {elec_id} does not exist')
         return None
 
-    elec_signal = load_electrode_data(args, elec_id)
+    elec_signal, missing_convos = load_electrode_data(args, elec_id, stitch_index)
+
+    if len(missing_convos) > 0: # signal missing convos
+        elec_datum = datum.loc[~datum['conversation_name'].isin(missing_convos)] # filter missing convos
+    else:
+        elec_datum = datum
+
+    if len(elec_datum) == 0: # no signal
+        print(f'{args.sid} {elec_name} No Signal')
+        return None
+    elif elec_datum.conversation_id.nunique() < 5: # less than 5 convos
+        print(f'{args.sid} {elec_name} has less than 5 conversations')
+        return None
 
     # Perform encoding/regression
     if args.phase_shuffle:
@@ -240,37 +285,40 @@ def this_is_where_you_perform_regression(electrode, args, datum):
                 corr = pool.map(
                     partial(dumdum1,
                             args=args,
-                            datum=datum,
+                            datum=elec_datum,
                             signal=elec_signal,
                             name=elec_name), range(args.npermutations))
         else:
             corr = []
             for i in range(args.npermutations):
-                corr.append(dumdum1(i, args, datum, elec_signal,
+                corr.append(dumdum1(i, args, elec_datum, elec_signal,
                                     elec_name))
 
         prod_corr, comp_corr = map(list, zip(*corr))
         write_output(args, prod_corr, elec_name, 'prod')
         write_output(args, comp_corr, elec_name, 'comp')
     else:
-        encoding_regression(args, datum, elec_signal, elec_name)
+        encoding_regression(args, elec_datum, elec_signal, elec_name)
 
     return None
 
-def parallel_regression(args, electrode_info, datum):
+def parallel_regression(args, electrode_info, datum, stitch_index):
     parallel = True
+    if args.emb_type == 'gpt2-xl' and args.sid == 676:
+        parallel = False
     if parallel:
-        print('Running all electrodes parallel')
+        print('Running all electrodes in parallel')
         with Pool(4) as p:
             p.map(
                 partial(this_is_where_you_perform_regression,
                     args = args,
-                    datum = datum
+                    datum = datum,
+                    stitch_index = stitch_index,
                 ), electrode_info.items())
     else:
         print('Running all electrodes')
         for electrode in electrode_info.items():
-            this_is_where_you_perform_regression(electrode, args, datum)
+            this_is_where_you_perform_regression(electrode, args, datum, stitch_index)
 
     return None
 
@@ -287,23 +335,25 @@ def mod_datum(args, datum):
         pass
     elif 'lag' in args.datum_mod: # trim the edges
         half_window = round((args.window_size / 1000) * 512 / 2)
-        lag = int(args.lags[-1] / 1000 * 512) # trim edges
+        lag = int(60000 / 1000 * 512) # trim edges with set length
+        lag = int(args.lags[-1] / 1000 * 512) # trim edges based on lag
         original_len = len(datum.index)
         datum = datum.loc[((datum['adjusted_onset'] - lag) >= (datum['convo_onset'] + half_window + 1)) & ((datum['adjusted_onset'] + lag) <= (datum['convo_offset'] - half_window - 1))]
         new_datum_len = len(datum.index)
-        print(f'Selected {new_datum_len} ({round(new_datum_len/original_len*100,5)}%) words')
+        print(f'Trimming resulted in {new_datum_len} ({round(new_datum_len/original_len*100,5)}%) words')
 
-        if 'single-conv' in args.datum_mod:
-            conv_name = "NY676_617_Part2_conversation2" # single-conv
-            # conv_name = "NY676_618_Part5-one_conversation1" # single-conv-2
-            # conv_name = "NY676_620_Part6_conversation3" # single-conv-3
-            datum = datum.loc[datum.conversation_name == conv_name]
-            new_datum_len = len(datum.index)
-            print(f'Selected {conv_name} with {new_datum_len} words')
+        # if 'single-conv' in args.datum_mod:
+        #     conv_name = "NY676_617_Part2_conversation2" # single-conv
+        #     conv_name = "NY676_618_Part5-one_conversation1" # single-conv-2 # 2 hours
+        #     conv_name = "NY676_618_Part6_conversation1" # single-conv-3 # 33 min
+        #     conv_name = "NY676_617_Part2_conversation3" # single-conv-3 # 10 min
+        #     datum = datum.loc[datum.conversation_name == conv_name]
+        #     new_datum_len = len(datum.index)
+        #     print(f'Selected {conv_name} with {new_datum_len} words')
 
     elif args.project_id == "tfs" and 'first' in args.datum_mod: # first n word/s in production utterance
         # datum['word_index'] = datum.groupby(datum.production.ne(datum.production.shift()).cumsum()).cumcount().add(1)
-        breakpoint()
+
         datum2 = datum.sort_values(by='adjusted_onset')
         # get on/offsets of first word in each utterance
         datum.loc[:,'pc_change'] = ~datum.production.eq(datum.production.shift()) # shift between prod/comp
@@ -400,7 +450,9 @@ def main():
         process_sig_electrodes(args, datum)
     else:
         electrode_info = process_subjects(args)
-        parallel_regression(args, electrode_info, datum)
+        stitch_index = return_stitch_index(args) # load stitch index
+        stitch_index = [0] + stitch_index
+        parallel_regression(args, electrode_info, datum, stitch_index)
         # this_is_where_you_perform_regression(args, electrode_info, datum)
 
     return

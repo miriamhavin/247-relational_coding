@@ -165,7 +165,9 @@ for electrode, subdf in df.groupby('electrode', axis=0):
         ax.set(xlabel='Lag (s)', ylabel='Correlation (r)',
                title=f'{electrode} {mode}')
     imname = get_elecbrain(electrode)
+    print(imname)
     if os.path.isfile(imname):
+        print('exist')
         arr_image = plt.imread(imname, format='png')
         fig.figimage(arr_image,
                      fig.bbox.xmax - arr_image.shape[1],

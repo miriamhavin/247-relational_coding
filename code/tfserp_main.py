@@ -3,34 +3,40 @@ import glob
 import os
 from functools import partial
 from multiprocessing import Pool
-import argparse
 
 import mat73
 import numpy as np
 import pandas as pd
+from numba import jit
+from scipy import stats
 from scipy.io import loadmat
 from tfsenc_parser import parse_arguments
 from tfsenc_read_datum import read_datum
 from tfsenc_utils import setup_environ
-from utils import load_pickle, main_timer, write_config
-from tfsenc_main import write_output, mod_datum
+from utils import main_timer, write_config
+from tfsenc_main import write_output, mod_datum, process_subjects
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+
 
 def erp(args, datum, elec_signal, name):
     datum = datum[datum.adjusted_onset.notna()]
 
     datum_comp = datum[datum.speaker != 'Speaker1'] # comprehension data
     datum_prod = datum[datum.speaker == 'Speaker1'] # production data
+    print(f'{args.sid} {name} Prod: {len(datum_comp.index)} Comp: {len(datum_prod.index)}')
 
-    erp_comp = calc_average(args, datum_comp, elec_signal) # calculate average erp
-    erp_prod = calc_average(args, datum_prod, elec_signal) # calculate average erp
+    erp_comp = calc_average(args.lags, datum_comp, elec_signal) # calculate average erp
+    erp_prod = calc_average(args.lags, datum_prod, elec_signal) # calculate average erp
 
+    print(f'writing output for electrode {name}')
     write_output(args, erp_comp, name, 'comp')
     write_output(args, erp_prod, name, 'prod')
     
     return
 
 
-def calc_average(args, datum, brain_signal):
+def calc_average(lags, datum, brain_signal):
     """[summary]
     Args:
         args ([type]): [description]
@@ -40,45 +46,21 @@ def calc_average(args, datum, brain_signal):
     Returns:
         [type]: [description]
     """
-    word_onsets = datum.adjusted_onset.values
-    convo_onsets = datum.convo_onset.values
-    convo_offsets = datum.convo_offset.values
-    half_window = round((args.window_size / 1000) * 512 / 2)
-    brain_signal = brain_signal.reshape(-1, 1)
+    onsets = datum.adjusted_onset.values
+    erp = np.zeros((len(onsets), len(lags)))
 
-    erp = np.zeros((len(word_onsets), half_window * 2 + 1))
+    for lag_idx, lag in enumerate(lags): # loop through each lag
+        lag_amount = int(lag / 1000 * 512)
+        index_onsets = np.round_(onsets, 0, onsets) + lag_amount # take correct idx for all words
+        index_onsets = index_onsets.astype(int) # uncomment this if not running jit
+        erp[:,lag_idx] = brain_signal[index_onsets].reshape(-1) # take the signal for that lag
 
-    index_onsets = np.minimum(
-        convo_offsets - half_window - 1,
-        np.maximum(convo_onsets + half_window + 1,
-                    np.round_(word_onsets, 0, word_onsets))).astype(int)
-    starts = index_onsets - half_window - 1
-    stops = index_onsets + half_window
-
-    for i, (start, stop) in enumerate(zip(starts, stops)):
-        erp[i, :] = brain_signal[start:stop].reshape(-1) # take brain signal inside window
-    
     erp = [np.mean(erp,axis=(0),dtype=np.float64).tolist()] # average by words
 
     return erp
 
 
-def elec_name_to_id(convo_dir, elec_name):
-    misc_dir = os.path.join(convo_dir, 'misc')
-    header_file = os.path.join(misc_dir, os.path.basename(convo_dir) + '_header.mat')
-    if not os.path.exists(header_file):
-        print(f'[WARN] no header found in {misc_dir}')
-        return
-    header = mat73.loadmat(header_file)
-    labels = header.header.label
-
-    assert labels is not None, 'Missing header'
-
-    elec_id = labels.index(elec_name) + 1
-    return elec_id
-
-
-def load_and_erp(args, elec_list, datum):
+def load_and_erp(electrode, args, datum):
     """
     """
     if args.project_id == 'tfs':
@@ -90,81 +72,72 @@ def load_and_erp(args, elec_list, datum):
     else:
         raise Exception('Invalid Project ID')
     
-    for index, subject, elec_name in elec_list.itertuples(index=True):
+    elec_id, elec_name = electrode # get electrode info
 
-        assert isinstance(subject, int) 
-
-        elec_id = index + 1 # get electrode id
-
-        if elec_name is None:
-            print(f'Electrode ID {elec_id} does not exist')
-            continue
-        convos = sorted(glob.glob(os.path.join(DATA_DIR, str(subject), '*')))
+    if elec_name is None:
+        print(f'Electrode ID {elec_id} does not exist')
+        return
+    convos = sorted(glob.glob(os.path.join(DATA_DIR, str(args.sid), '*')))
         
-        all_signal = []
-        for convo_id, convo in enumerate(convos, 1):
-            if args.conversation_id != 0 and convo_id != args.conversation_id:
-                continue
+    all_signal = []
+    for convo_id, convo in enumerate(convos, 1):
+        if args.conversation_id != 0 and convo_id != args.conversation_id:
+            continue
 
-            if args.sig_elec_file: # get electrode id from electrode name
-                elec_id = elec_name_to_id(convo, elec_name)
+        file = glob.glob(
+            os.path.join(convo, process_flag, '*_' + str(elec_id) + '.mat'))[0]
 
-            file = glob.glob(
-                os.path.join(convo, process_flag, '*_' + str(elec_id) + '.mat'))[0]
+        mat_signal = loadmat(file)['p1st']
+        mat_signal = mat_signal.reshape(-1, 1)
 
-            mat_signal = loadmat(file)['p1st']
-            mat_signal = mat_signal.reshape(-1, 1)
+        if mat_signal is None:
+            continue
 
-            if mat_signal is None:
-                continue
-            all_signal.append(mat_signal)
+        # Detrending
+        detrend = True
+        if detrend:
+            y = mat_signal
+            X = np.arange(len(y)).reshape(-1,1)
+            pf = PolynomialFeatures(degree=2)
+            Xp = pf.fit_transform(X)
 
-        if args.project_id == 'tfs':
-            elec_signal = np.vstack(all_signal)
-        else:
-            elec_signal = np.array(all_signal)
+            model = LinearRegression()
+            model.fit(Xp, y)
+            trend = model.predict(Xp)
+            mat_signal = y - trend
+        
+        # z-score
+        z_score = True
+        if z_score:
+            mat_signal = stats.zscore(mat_signal)
 
-        erp(args, datum, elec_signal, elec_name)
+        all_signal.append(mat_signal)
 
-    return
-
-def process_electrodes(args, datum):
-    """Run encoding on elctrodes specified by the subject id and electrode list
-    """
-    ds = load_pickle(os.path.join(args.PICKLE_DIR, args.electrode_file))
-    df = pd.DataFrame(ds)
-
-    if args.electrodes:
-        electrode_info = {
-            key: next(
-                iter(df.loc[(df.subject == str(args.sid)) &
-                            (df.electrode_id == key), 'electrode_name']), None)
-            for key in args.electrodes
-        } # electrode info is a dict with electrode_id : electrode_name
+    if args.project_id == 'tfs':
+        elec_signal = np.vstack(all_signal)
+    else:
+        elec_signal = np.array(all_signal)
     
-    assert args.sid != 777, 'Please provide sig_elec_file'
+    elec_signal = elec_signal.reshape(-1, 1)
 
-    elec_list = pd.DataFrame({'subject': [args.sid] * len(electrode_info.values()),
-                'electrode': electrode_info.values()
-                }) # organize into a pd dataframe
-    
-    load_and_erp(args, elec_list, datum)
+    erp(args, datum, elec_signal, elec_name)
 
     return
 
 
-def process_sig_electrodes(args, datum):
-    """Run encoding on select significant elctrodes specified by a file
-    """
-    # Read in the significant electrodes
-
-    sig_elec_file = os.path.join(
-        os.path.join(os.getcwd(), 'data', args.sig_elec_file))
-    sig_elec_list = pd.read_csv(sig_elec_file)
-
-    load_and_erp(args, sig_elec_list, datum)
-
-    return
+def load_and_erp_parallel(args, electrode_info, datum):
+    parallel = True
+    if parallel:
+        print('Running all electrodes in parallel')
+        with Pool(4) as p:
+            p.map(
+                partial(load_and_erp,
+                    args = args,
+                    datum = datum
+                ), electrode_info.items())
+    else:
+        for index, subject, elec_name in electrode_info.itertuples(index=True):
+            load_and_erp(index, subject, elec_name, args, datum)
 
 
 @main_timer
@@ -184,12 +157,11 @@ def main():
 
     # modify datum if needed (args.datum_mod)
     datum = mod_datum(args, datum)
+    datum = datum.drop('embeddings', 1) # trim datum to smaller size
 
-    # Processing significant electrodes or individual subjects
-    if args.sig_elec_file:
-        process_sig_electrodes(args, datum)
-    else:
-        process_electrodes(args, datum)
+    assert args.sig_elec_file == None, "Do not input significant electrode list"
+    electrode_info = process_subjects(args)
+    load_and_erp_parallel(args, electrode_info, datum)
 
     return
 
