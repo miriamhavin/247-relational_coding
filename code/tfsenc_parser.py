@@ -7,7 +7,6 @@ def parse_arguments():
         Namespace: input as well as default arguments
     """
     parser = argparse.ArgumentParser()
-
     parser.add_argument('--project-id', type=str, default=None)
 
     # group = parser.add_mutually_exclusive_group()
@@ -46,6 +45,11 @@ def parse_arguments():
     parser.add_argument('--output-parent-dir', type=str, default='test')
     parser.add_argument('--pkl-identifier', type=str, default=None)
 
+    parser.add_argument('--datum-mod',type=str,default='all')
+    parser.add_argument('--model-mod',nargs='?',type=str,default=None)
+
+    parser.add_argument('--bad-convos', nargs='*', type=int, default=None)
+
     args = parser.parse_args()
 
     if not args.sid and args.electrodes:
@@ -56,5 +60,8 @@ def parse_arguments():
 
     if args.sig_elec_file and args.sid not in [625, 676]:  # NOTE hardcoded
         args.sid = 777
+
+    if not args.bad_convos:
+        args.bad_convos = []
 
     return args
