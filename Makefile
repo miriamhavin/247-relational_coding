@@ -17,14 +17,14 @@ E_LIST := $(shell seq 1 105)
 BC := 
 
 # 676 Electrode IDs
-# SID := 676
-# E_LIST := $(shell seq 1 125)
-# BC := --bad-convos 38 39
+SID := 676
+E_LIST := $(shell seq 1 125)
+BC := --bad-convos 38 39
 
 # 717 Electrode IDs
-SID := 7170
-E_LIST := $(shell seq 1 256)
-BC :=
+# SID := 7170
+# E_LIST := $(shell seq 1 256)
+# BC :=
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
@@ -34,7 +34,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file tfs-sig-file-625-top-0.3-prod.csv tfs-sig-file-625-sig-0.3-comp.csv
 # SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
-# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-prod.csv tfs-sig-file-676-sig-1.0-prod.csv # for plotting
+# SIG_FN := --sig-elec-file tfs-sig-file-676-sig-1.0-prod.csv # for plotting
 # SIG_FN := --sig-elec-file 7170-38.csv
 
 PKL_IDENTIFIER := full
@@ -345,15 +345,13 @@ plot-old:
 	rm -f results/figures/*
 	python code/plot_old.py \
 		--formats \
-			'results/tfs/kw-tfs-full-7170-glove50-quardra/kw-200ms-all-7170/*_%s.csv' \
-			'results/tfs/kw-tfs-full-7170-gpt2-xl-quardra/kw-200ms-all-7170/*_%s.csv' \
-			'results/tfs/kw-tfs-full-7170-blenderbot-small-quardra/kw-200ms-all-7170/*_%s.csv' \
-			'results/tfs/kw-tfs-full-7170-gpt2-xl-ctx-128-quardra/kw-200ms-all-7170/*_%s.csv' \
-		--labels glove gpt2-xl-1024 bbot gpt2-xl-128 \
+			'results/tfs/kw-tfs-full-7170-glove50-final/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/kw-tfs-full-7170-blenderbot-small-final/kw-200ms-all-7170/*_%s.csv' \
+		--labels glove bbot \
 		--values $(LAGS) \
-		--keys comp \
+		--keys prod \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-7170-ggb-quardra-comp.pdf
+		--outfile results/figures/tfs-7170-gb-final-prod.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 plot-all:

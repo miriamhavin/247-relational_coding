@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --time=6:00:00
-#SBATCH --mem=64GB
+#SBATCH --time=4:00:00
+#SBATCH --mem=128GB
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
 #SBATCH -o 'logs/%A.log'

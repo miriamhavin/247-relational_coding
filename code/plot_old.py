@@ -11,7 +11,7 @@ parser.add_argument("--formats", nargs="+", required=True)
 parser.add_argument("--labels", nargs="+",  required=True)
 parser.add_argument("--values", nargs="+", type=float, required=True)
 parser.add_argument("--keys", nargs="+",  required=True)
-parser.add_argument("--sid", type=int, default=625)
+parser.add_argument("--sid", type=int, default=717)
 parser.add_argument("--sig-elec-file", nargs="+", default=[])
 parser.add_argument("--outfile", default='results/figures/tmp.pdf')
 args = parser.parse_args()
@@ -81,20 +81,51 @@ df.set_index(['label', 'electrode', 'mode'], inplace=True)
 lags = args.values
 lags = [lag / 1000 for lag in lags]
 n_av, n_df = len(args.values), len(df.columns)
-assert n_av == n_df, \
-    'args.values length ({n_av}) must be same size as results ({n_df})'
+# assert n_av == n_df, \
+    # 'args.values length ({n_av}) must be same size as results ({n_df})'
 
 print('Plotting')
 pdf = PdfPages(args.outfile)
 
+plot_mode = 'none'
+plot_mode = 'quardra'
+plot_mode = 'final'
+print(f'plotting {plot_mode}')
+
+lag_ticks = lags
+if plot_mode == 'none':
+    lag_ticks_out = []
+elif plot_mode == 'quardra':
+    lag_ticks_out = [12,13,14,15,16,18,20,22,24,26,28] # quardra
+    lag_tick_locations = [-28,-26,-24,-22,-20,-18,-16,-14,-12,-10,-8,-6,-4,-2,0,2,4,6,8,10,12,14,16,18,20,22,24,26,28]
+    lag_ticklabels = [-300,-250,-200,-150,-120,-90,-60,-40,-20,-10,-8,-6,-4,-2,0,2,4,6,8,10,20,40,60,90,120,150,200,250,300]
+elif plot_mode == 'final':
+    lag_ticks_out = [12,14,16] # final
+    lag_tick_locations = [-16,-14,-12,-10,-8,-6,-4,-2,0,2,4,6,8,10,12,14,16]
+    lag_ticklabels = [-300,-60,-30,-10,-8,-6,-4,-2,0,2,4,6,8,10,30,60,300]
+# lag_ticks_out = [12,13,14,15,16,18,20,22] # triple
+for lag in lag_ticks_out:
+    lag_ticks.insert(0,lag*-1)
+    lag_ticks.append(lag)
+
+# plot_mode = 'none'
+# lag_idx = [i for i,lag in enumerate(lag_ticks) if (lag >= -2 and lag <= 2)] # only -2 to 2 s
+# df = df[lag_idx]
+# lag_ticks = [lag for lag in lag_ticks if (lag >= -2 and lag <= 2)]
+
+
+# breakpoint()
 # Plot results for each key (i.e. average)
 fig, ax = plt.subplots(figsize=(15,6))
 for mode, subdf in df.groupby(['label', 'mode'], axis=0):
     vals = subdf.mean(axis=0)
     err = subdf.sem(axis=0)
-    ax.fill_between(lags, vals - err, vals + err, alpha=0.2, color=cmap[mode])
+    ax.fill_between(lag_ticks, vals - err, vals + err, alpha=0.2, color=cmap[mode])
     label = '-'.join(mode)
-    ax.plot(lags, vals, label=f'{label} ({len(subdf)})', color=cmap[mode], ls=smap[mode])
+    if plot_mode != 'none':
+        ax.set_xticks(lag_tick_locations)
+        ax.set_xticklabels(lag_ticklabels)
+    ax.plot(lag_ticks, vals, label=f'{label} ({len(subdf)})', color=cmap[mode], ls=smap[mode])
 ax.axhline(0,ls='dashed',alpha=0.3,c='k')
 ax.axvline(0,ls='dashed',alpha=0.3,c='k')
 ax.legend(loc='upper right', frameon=False)
@@ -124,16 +155,20 @@ plt.close()
 
 # Plot each electrode separately (in the sigfile order)
 vmax, vmin = df.max().max(), df.min().min()
-for single_elecs in sigelecs_sorted[0]:
-    subdf = df.xs(single_elecs,level='electrode',drop_level=False)
+for electrode, subdf in df.groupby('electrode', axis=0):
+# for single_elecs in sigelecs_sorted[0]: # order by single sig list
+    # subdf = df.xs(single_elecs,level='electrode',drop_level=False)
     fig, ax = plt.subplots(figsize=(15,6))
     for (label, _, mode), values in subdf.iterrows():
         mode = (label, mode)
         label = '-'.join(mode)
-        ax.plot(lags, values, label=label, color=cmap[mode], ls=smap[mode])
+        ax.plot(lag_ticks, values, label=label, color=cmap[mode], ls=smap[mode])
     ax.legend(loc='upper left', frameon=False)
     ax.axhline(0,ls='dashed',alpha=0.3,c='k')
     ax.axvline(0,ls='dashed',alpha=0.3,c='k')
+    if plot_mode != 'none':
+        ax.set_xticks(lag_tick_locations)
+        ax.set_xticklabels(lag_ticklabels)
     ax.set_ylim(vmin - 0.05, vmax + .05)  # .35
     electrode = values.name[1]
     ax.set(xlabel='Lag (s)', ylabel='Correlation (r)', title=f'{electrode}')
