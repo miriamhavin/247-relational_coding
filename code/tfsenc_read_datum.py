@@ -47,15 +47,15 @@ def adjust_onset_offset(args, df):
         [type]: [description]
     """
     stitch_index = return_stitch_index(args)
-    assert len(stitch_index) == df.conversation_id.nunique()
+    assert len(stitch_index) - len(args.bad_convos) == df.conversation_id.nunique()
 
     stitch_index = [0] + stitch_index[:-1]
 
     df['adjusted_onset'], df['onset'] = df['onset'], np.nan
     df['adjusted_offset'], df['offset'] = df['offset'], np.nan
 
-    for idx, conv in enumerate(df.conversation_id.unique()):
-        shift = stitch_index[idx]
+    for _, conv in enumerate(df.conversation_id.unique()):
+        shift = stitch_index[conv-1]
         df.loc[df.conversation_id == conv,
                'onset'] = df.loc[df.conversation_id == conv,
                                  'adjusted_onset'] - shift
@@ -93,15 +93,15 @@ def add_convo_onset_offset(args, df):
         [type]: [description]
     """
     stitch_index = return_stitch_index(args)
-    assert len(stitch_index) == df.conversation_id.nunique()
+    assert len(stitch_index) - len(args.bad_convos) == df.conversation_id.nunique()
 
     stitch_index = [0] + stitch_index
     windows = make_input_from_tokens(stitch_index)
 
     df['convo_onset'], df['convo_offset'] = np.nan, np.nan
 
-    for idx, conv in enumerate(df.conversation_id.unique()):
-        edges = windows[idx]
+    for _, conv in enumerate(df.conversation_id.unique()):
+        edges = windows[conv-1]
 
         df.loc[df.conversation_id == conv, 'convo_onset'] = edges[0]
         df.loc[df.conversation_id == conv, 'convo_offset'] = edges[1]
@@ -172,6 +172,8 @@ def read_datum(args):
     df = pd.DataFrame.from_dict(datum)
     df = add_signal_length(args, df)
     start_n = len(df)
+
+    df = df.loc[~df['conversation_id'].isin(args.bad_convos)] # filter bad convos
 
     if args.project_id == 'tfs' and not all(
         [item in df.columns
