@@ -16,13 +16,22 @@ from tfsenc_read_datum import read_datum
 from tfsenc_utils import (append_jobid_to_string, create_output_directory,
                           encoding_regression, encoding_regression_pr,
                           load_header, setup_environ)
-from tfsenc_read_datum import return_stitch_index
 from utils import load_pickle, main_timer, write_config
-import gensim.downloader as api
-import re
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 
+
+def return_stitch_index(args):
+    """[summary]
+    Args:
+        args ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    stitch_file = os.path.join(args.PICKLE_DIR, args.stitch_file)
+    stitch_index = [0] + load_pickle(stitch_file)
+    return stitch_index
 
 
 def trim_signal(signal):
@@ -311,6 +320,7 @@ def this_is_where_you_perform_regression(electrode, args, datum, stitch_index):
 
     return None
 
+
 def parallel_regression(args, electrode_info, datum, stitch_index):
     parallel = True
     if args.emb_type == 'gpt2-xl' and args.sid == 676:
@@ -337,100 +347,6 @@ def get_vector(x, glove):
     except KeyError:
         return None
 
-def mod_datum(args, datum):
-
-
-    if args.datum_mod == "all": # no need for modification
-        pass
-    elif 'lag' in args.datum_mod: # trim the edges
-        half_window = round((args.window_size / 1000) * 512 / 2)
-        lag = int(60000 / 1000 * 512) # trim edges with set length
-        lag = int(args.lags[-1] / 1000 * 512) # trim edges based on lag
-        original_len = len(datum.index)
-        datum = datum.loc[((datum['adjusted_onset'] - lag) >= (datum['convo_onset'] + half_window + 1)) & ((datum['adjusted_onset'] + lag) <= (datum['convo_offset'] - half_window - 1))]
-        new_datum_len = len(datum.index)
-        print(f'Trimming resulted in {new_datum_len} ({round(new_datum_len/original_len*100,5)}%) words')
-
-        # if 'single-conv' in args.datum_mod:
-        #     conv_name = "NY676_617_Part2_conversation2" # single-conv
-        #     conv_name = "NY676_618_Part5-one_conversation1" # single-conv-2 # 2 hours
-        #     conv_name = "NY676_618_Part6_conversation1" # single-conv-3 # 33 min
-        #     conv_name = "NY676_617_Part2_conversation3" # single-conv-3 # 10 min
-        #     datum = datum.loc[datum.conversation_name == conv_name]
-        #     new_datum_len = len(datum.index)
-        #     print(f'Selected {conv_name} with {new_datum_len} words')
-
-    elif args.project_id == "tfs" and 'first' in args.datum_mod: # first n word/s in production utterance
-        # datum['word_index'] = datum.groupby(datum.production.ne(datum.production.shift()).cumsum()).cumcount().add(1)
-
-        datum2 = datum.sort_values(by='adjusted_onset')
-        # get on/offsets of first word in each utterance
-        datum.loc[:,'pc_change'] = ~datum.production.eq(datum.production.shift()) # shift between prod/comp
-        datum.loc[:,'true_first_word'] = np.where((datum.pc_change) & (datum.word == datum.sentence.str.split(' ').str[0]), 1, -1)
-        datum.loc[datum.pc_change == 0,['onset','offset','adjusted_onset','adjusted_offset','true_first_word']] = np.nan
-        datum = datum.fillna(method="ffill")
-
-        # truncate datum to start with comprehension
-        first_comp = datum[datum.production == 0].index[0] # first comp word index
-        datum = datum.loc[first_comp:,:] # get datum after first comprehension
-
-        # get datum in production and only utterances with true first word
-        datum = datum.loc[(datum.true_first_word == 1) & (datum.production == 1)]
-        word_idx = int(re.findall(r'\b\d+\b',args.datum_mod)[0])
-
-        # get first n word/words in production utterance
-        first_indices = datum.loc[datum.pc_change == True].index # first words
-        if 'union' in args.datum_mod: # first 1-n words
-            first_n_indices = first_indices
-            for i in range(1,word_idx):
-                first_n_indices = first_n_indices.union(first_indices + i)
-            datum = datum.loc[datum.index.intersection(first_n_indices)]
-            # datum = datum[datum.word_index <= word_idx]
-            print(f'Selected {len(datum.index)} first 1 to {word_idx} words of utterances')
-        elif 'inters' not in args.datum_mod: # first n words
-            datum = datum[datum.word_index == word_idx]
-            print(f'Selected {len(datum.index)} first {word_idx} words of utterances')
-        else: # first n words but intersection (only for idx 1 and 2)
-            first_word_datum = datum.loc[(datum.word_index_new == 1) & (datum.word == datum.sentence.str.split(' ').str[0]),:]
-            datum = datum.loc[datum.index.intersection(first_word_datum.index + 1)]
-            if word_idx == 1:
-                datum = first_word_datum.loc[first_word_datum.index.intersection(datum.index - 1)]
-            print(f'Selected {len(datum.index)} first {word_idx} words of utterances (intersection)')
-
-    elif args.project_id == 'podcast' and args.emb_type == "glove50": # change the args to load gpt2 embedding pickle (only for podcast)
-        args.emb_type = 'gpt2-xl'
-        args.align_with = 'gpt2-xl'
-        args.layer_idx = 48
-        stra = 'cnxt_' + str(args.context_length)
-        args.emb_file = '_'.join([
-            str(args.sid), args.pkl_identifier, args.emb_type, stra,
-            f'layer_{args.layer_idx:02d}', 'embeddings.pkl'
-        ])
-        args.load_emb_file = args.emb_file.replace('__', '_')
-        datum_gpt2 = read_datum(args)[['adjusted_onset','top1_pred']]
-
-        # merge gpt2 prediction columns to datum
-        datum = datum[datum.adjusted_onset.notna()]
-        datum_gpt2 = datum_gpt2[datum_gpt2.adjusted_onset.notna()]
-        datum = datum_gpt2.merge(datum, how='inner',on='adjusted_onset')
-
-        # modify datum
-        if args.datum_mod == "correct": # select words predicted by gpt2 correctly (top 1 pred)
-            datum = datum[datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()] # correct
-            print(f'Selected {len(datum.index)} correct words')
-        elif args.datum_mod == "incorrect": # select words predicted by gpt2 incorrectly (top 1 pred)
-            datum = datum[datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()] # incorrect
-            print(f'Selected {len(datum.index)} incorrect words')
-        elif args.datum_mod == "gpt2-pred": # for incorrectly predicted words, replace with gpt2 top 1 pred
-            glove = api.load('glove-wiki-gigaword-50')
-            datum['embeddings'] = datum.top1_pred.str.strip().apply(lambda x: get_vector(x.lower(), glove))
-            datum = datum[datum.embeddings.notna()]
-            print(f'Changed words into gpt2 top predictions')
-        else: # exception
-            raise Exception('Invalid Datum Modification')
-
-    assert len(datum.index) > 0, "Empty Datum"
-    return datum
 
 @main_timer
 def main():
@@ -445,24 +361,15 @@ def main():
     write_config(vars(args))
 
     # Locate and read datum
-    datum = read_datum(args)
-
-    # modify datum if needed (args.datum_mod)
-    datum = mod_datum(args, datum)
-
-    if args.pca_to:
-        print(f'PCAing to {args.pca_to}')
-        datum = run_pca(args, datum)
+    stitch_index = return_stitch_index(args)
+    datum = read_datum(args, stitch_index)
 
     # Processing significant electrodes or individual subjects
     if args.sig_elec_file:
         process_sig_electrodes(args, datum)
     else:
         electrode_info = process_subjects(args)
-        stitch_index = return_stitch_index(args) # load stitch index
-        stitch_index = [0] + stitch_index
         parallel_regression(args, electrode_info, datum, stitch_index)
-        # this_is_where_you_perform_regression(args, electrode_info, datum)
 
     return
 

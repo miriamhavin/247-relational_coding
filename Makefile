@@ -22,9 +22,9 @@ BC :=
 # BC := --bad-convos 38 39
 
 # 717 Electrode IDs
-SID := 7170
-E_LIST := $(shell seq 1 256)
-BC :=
+# SID := 7170
+# E_LIST := $(shell seq 1 256)
+# BC :=
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
@@ -35,7 +35,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
 # SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-prod.csv tfs-sig-file-676-sig-1.0-prod.csv # for plotting
-# SIG_FN := --sig-elec-file 7170-38.csv
+SIG_FN := --sig-elec-file 717_21-conv-elec-189.csv
 
 PKL_IDENTIFIER := full
 # {full | trimmed}
@@ -84,13 +84,11 @@ CONVERSATION_IDX := 0
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
 EMB := glove50
-EMB := blenderbot-small
 EMB := gpt2-xl
+EMB := blenderbot-small
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
-# For ERP, choose the window size (after onset - before onset)
-# WS := 120000 # erp window (-60 to 60s)
 WS := 200
 
 # Choose which set of embeddings to align with
@@ -101,7 +99,7 @@ ALIGN_WITH := gpt2-xl blenderbot-small
 
 # Choose layer
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 48
+LAYER_IDX := 16
 
 # Choose whether to PCA
 # PCA_TO := 50
@@ -123,8 +121,8 @@ WV := all
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
-CMD := python
 CMD := sbatch submit1.sh
+CMD := python
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -138,7 +136,7 @@ DM := correct
 DM := all
 DM := first-1-inters
 DM := test-lag-ctx-128
-DM := lag300-50k
+DM := test
 
 # model modification (best-lag model, prod-comp reverse model)
 MM := prod-comp
@@ -351,9 +349,9 @@ plot-old:
 			'results/tfs/kw-tfs-full-7170-gpt2-xl-ctx-128-quardra/kw-200ms-all-7170/*_%s.csv' \
 		--labels glove gpt2-xl-1024 bbot gpt2-xl-128 \
 		--values $(LAGS) \
-		--keys comp \
+		--keys prod \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-7170-ggb-quardra-comp.pdf
+		--outfile results/figures/tfs-7170-ggb-quardra-prod-189.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 plot-all:

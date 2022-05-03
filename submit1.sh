@@ -1,11 +1,6 @@
 #!/bin/bash
-<<<<<<< HEAD
-#SBATCH --time=2:00:00
-#SBATCH --mem=80GB
-=======
 #SBATCH --time=6:00:00
 #SBATCH --mem=64GB
->>>>>>> b51619da881fbde4284b24a7562379ba6505219d
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
 #SBATCH -o 'logs/%A.log'
