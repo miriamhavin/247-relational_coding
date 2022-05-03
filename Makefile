@@ -35,7 +35,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
 # SIG_FN := --sig-elec-file tfs-sig-file-676-sig-1.0-prod.csv # for plotting
-# SIG_FN := --sig-elec-file 7170-38.csv
+SIG_FN := --sig-elec-file 717_21-conv-elec-67.csv  
 
 PKL_IDENTIFIER := full
 # {full | trimmed}
@@ -345,13 +345,15 @@ plot-old:
 	rm -f results/figures/*
 	python code/plot_old.py \
 		--formats \
-			'results/tfs/kw-tfs-full-7170-glove50-final/kw-200ms-all-7170/*_%s.csv' \
-			'results/tfs/kw-tfs-full-7170-blenderbot-small-final/kw-200ms-all-7170/*_%s.csv' \
-		--labels glove bbot \
+			'results/tfs/kw-tfs-full-7170-glove50-quardra/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/kw-tfs-full-7170-gpt2-xl-quardra/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/kw-tfs-full-7170-blenderbot-small-quardra/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/kw-tfs-full-7170-gpt2-xl-ctx-128-quardra/kw-200ms-all-7170/*_%s.csv' \
+		--labels glove gpt2-1024 bbot gpt2-128 \
 		--values $(LAGS) \
 		--keys prod \
 		$(SIG_FN) \
-		--outfile results/figures/tfs-7170-gb-final-prod.pdf
+		--outfile results/figures/tfs-7170-gggb-quardra-prod-67.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 plot-all:

@@ -88,8 +88,8 @@ print('Plotting')
 pdf = PdfPages(args.outfile)
 
 plot_mode = 'none'
-plot_mode = 'quardra'
 plot_mode = 'final'
+plot_mode = 'quardra'
 print(f'plotting {plot_mode}')
 
 lag_ticks = lags
