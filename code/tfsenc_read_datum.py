@@ -268,20 +268,20 @@ def mod_datum_by_top_pred(args, datum, emb_type):
         second_datum = second_datum[second_datum.adjusted_onset.notna()]
         datum = datum.merge(second_datum, how='inner', on='adjusted_onset')
 
-        # modify datum based on correct or incorrect predictions
-        if args.datum_mod == emb_type + "-correct": # select words predicted by gpt2 correctly (top 1 pred)
-            datum = datum[datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()] # correct
-            print(f'Selected {len(datum.index)} correct words based on {emb_type} predictions')
-        elif args.datum_mod == emb_type + "-incorrect": # select words predicted by gpt2 incorrectly (top 1 pred)
-            datum = datum[datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()] # incorrect
-            print(f'Selected {len(datum.index)} incorrect words based on {emb_type} predictions')
-        # elif args.datum_mod == emb_type + "-pred": # for incorrectly predicted words, replace with top 1 pred (only used for podcast glove)
-        #     glove = api.load('glove-wiki-gigaword-50')
-        #     datum['embeddings'] = datum.top1_pred.str.strip().apply(lambda x: get_vector(x.lower(), glove))
-        #     datum = datum[datum.embeddings.notna()]
-        #     print(f'Changed words into {emb_type} top predictions')
-        else: # exception
-            raise Exception('Invalid Datum Modification')        
+    # modify datum based on correct or incorrect predictions
+    if args.datum_mod == emb_type + "-correct": # select words predicted by gpt2 correctly (top 1 pred)
+        datum = datum[datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()] # correct
+        print(f'Selected {len(datum.index)} correct words based on {emb_type} predictions')
+    elif args.datum_mod == emb_type + "-incorrect": # select words predicted by gpt2 incorrectly (top 1 pred)
+        datum = datum[datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()] # incorrect
+        print(f'Selected {len(datum.index)} incorrect words based on {emb_type} predictions')
+    # elif args.datum_mod == emb_type + "-pred": # for incorrectly predicted words, replace with top 1 pred (only used for podcast glove)
+    #     glove = api.load('glove-wiki-gigaword-50')
+    #     datum['embeddings'] = datum.top1_pred.str.strip().apply(lambda x: get_vector(x.lower(), glove))
+    #     datum = datum[datum.embeddings.notna()]
+    #     print(f'Changed words into {emb_type} top predictions')
+    else: # exception
+        raise Exception('Invalid Datum Modification')        
 
     return datum
 
@@ -305,7 +305,7 @@ def mod_datum(args, datum):
         pass
     elif 'lag' in args.datum_mod: # trim the edges
         half_window = round((args.window_size / 1000) * 512 / 2)
-        lag = int(60000 / 1000 * 512) # trim edges with set length
+        # lag = int(60000 / 1000 * 512) # trim edges with set length
         lag = int(args.lags[-1] / 1000 * 512) # trim edges based on lag
         original_len = len(datum.index)
         datum = datum.loc[((datum['adjusted_onset'] - lag) >= (datum['convo_onset'] + half_window + 1)) & ((datum['adjusted_onset'] + lag) <= (datum['convo_offset'] - half_window - 1))]
@@ -334,7 +334,7 @@ def read_datum(args, stitch):
     df = filter_datum(args, df)
     end_n = len(df) # datum end length after processing and filtering
     print(f'Went from {start_n} words to {end_n} words')
-    breakpoint()
+
     df = mod_datum(args, df) # further filter datum based on datum_mod argument
 
     return df
