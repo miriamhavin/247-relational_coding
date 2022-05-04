@@ -178,6 +178,7 @@ def process_datum(args, df, stitch):
     #     df['adjusted_onset'], df['onset'] = df['onset'], np.nan
     #     df['adjusted_offset'], df['offset'] = df['offset'], np.nan
 
+    df = df[df.adjusted_onset.notna()]
     df = add_convo_onset_offset(args, df, stitch)
 
     if args.emb_type == 'glove50':

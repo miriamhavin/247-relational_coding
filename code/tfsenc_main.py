@@ -14,7 +14,8 @@ from tfsenc_read_datum import read_datum
 from tfsenc_load_signal import load_electrode_data
 from tfsenc_utils import (append_jobid_to_string, create_output_directory,
                           encoding_regression, encoding_regression_pr,
-                          load_header, setup_environ)
+                          load_header, setup_environ, build_XY, get_folds,
+                          run_regression, write_encoding_results)
 from utils import load_pickle, main_timer, write_config
 
 
@@ -179,70 +180,121 @@ def write_output(args, output_mat, name, output_str):
             csvwriter.writerows(output_mat)
 
 
-def this_is_where_you_perform_regression(electrode, args, datum, stitch_index):
+def single_electrode_encoding(electrode, args, datum, stitch_index):
 
-    elec_id, elec_name = electrode # get electrode info
+    # Get electrode info
+    elec_id, elec_name = electrode
 
     if elec_name is None:
         print(f'Electrode ID {elec_id} does not exist')
-        return None
+        return (args.sid, None, 0, 0)
 
+    # Load signal Data
     elec_signal, missing_convos = load_electrode_data(args, elec_id, stitch_index, False)
 
+    # Modify datum based on signal
     if len(missing_convos) > 0: # signal missing convos
         elec_datum = datum.loc[~datum['conversation_name'].isin(missing_convos)] # filter missing convos
     else:
         elec_datum = datum
 
-    if len(elec_datum) == 0: # no signal
+    if len(elec_datum) == 0: # datum has no words, meaning no signal
         print(f'{args.sid} {elec_name} No Signal')
-        return None
-    elif elec_datum.conversation_id.nunique() < 5: # less than 5 convos
+        return (args.sid, elec_name, 0, 0)
+    elif elec_datum.conversation_id.nunique() < 5: # datum has less than 5 convos
         print(f'{args.sid} {elec_name} has less than 5 conversations')
-        return None
+        return (args.sid, elec_name, 1, 1)
 
-    # Perform encoding/regression
-    if args.phase_shuffle:
-        if args.project_id == 'podcast':
-            with Pool() as pool:
-                corr = pool.map(
-                    partial(dumdum1,
-                            args=args,
-                            datum=elec_datum,
-                            signal=elec_signal,
-                            name=elec_name), range(args.npermutations))
-        else:
-            corr = []
-            for i in range(args.npermutations):
-                corr.append(dumdum1(i, args, elec_datum, elec_signal,
-                                    elec_name))
+    # Build design matrices
+    X, Y = build_XY(args, datum, elec_signal)
 
-        prod_corr, comp_corr = map(list, zip(*corr))
-        write_output(args, prod_corr, elec_name, 'prod')
-        write_output(args, comp_corr, elec_name, 'comp')
-    else:
-        encoding_regression(args, elec_datum, elec_signal, elec_name)
+    # Get folds
+    fold_num = 5
+    fold_cat_prod, fold_cat_comp = get_folds(args, datum, X, Y, fold_num)
 
-    return None
+    # Split into production and comprehension
+    prod_X = X[datum.speaker == 'Speaker1', :]
+    comp_X = X[datum.speaker != 'Speaker1', :]
+    prod_Y = Y[datum.speaker == 'Speaker1', :]
+    comp_Y = Y[datum.speaker != 'Speaker1', :]
+
+    print(f'{args.sid} {elec_name} Prod: {len(prod_X)} Comp: {len(comp_X)}')
+
+    # Run regression and correlation
+    if args.model_mod and 'pc-flip' in args.model_mod: # prod-comp flip
+        prod_results = run_regression(args, prod_X, prod_Y, fold_cat_prod, comp_X, comp_Y, fold_cat_comp, fold_num)
+        comp_results = run_regression(args, comp_X, comp_Y, fold_cat_comp, prod_X, prod_Y, fold_cat_prod, fold_num)
+    else: # normal encoding
+        prod_results = run_regression(args, prod_X, prod_Y, fold_cat_prod, prod_X, prod_Y, fold_cat_prod, fold_num)
+        comp_results = run_regression(args, comp_X, comp_Y, fold_cat_comp, comp_X, comp_Y, fold_cat_comp, fold_num)
+    
+    # Save encoding results
+    write_encoding_results(args, prod_results, elec_name, 'prod')
+    write_encoding_results(args, comp_results, elec_name, 'comp')
+    
+    # # Perform encoding/regression
+    # if args.phase_shuffle:
+    #     if args.project_id == 'podcast':
+    #         with Pool() as pool:
+    #             corr = pool.map(
+    #                 partial(dumdum1,
+    #                         args=args,
+    #                         datum=elec_datum,
+    #                         signal=elec_signal,
+    #                         name=elec_name), range(args.npermutations))
+    #     else:
+    #         corr = []
+    #         for i in range(args.npermutations):
+    #             corr.append(dumdum1(i, args, elec_datum, elec_signal,
+    #                                 elec_name))
+
+    #     prod_corr, comp_corr = map(list, zip(*corr))
+    #     write_output(args, prod_corr, elec_name, 'prod')
+    #     write_output(args, comp_corr, elec_name, 'comp')
+    # else:
+    #     encoding_regression(args, elec_datum, elec_signal, elec_name)
+
+    return (args.sid, elec_name, len(prod_X), len(comp_X))
 
 
-def parallel_regression(args, electrode_info, datum, stitch_index):
-    parallel = True
+def parallel_encoding(args, electrode_info, datum, stitch_index, parallel = True):
+    """Doing encoding for all electrodes in parallel
+
+    Args:
+        args (namespace): commandline arguments
+        electrode_info: dictionary of electrode id and electrode names
+        datum: datum of words
+        stitch_index: stitch_index
+        parallel: whether to encode for all electrodes in parallel or not
+
+    Returns:
+        None
+    """
     if args.emb_type == 'gpt2-xl' and args.sid == 676:
         parallel = False
     if parallel:
         print('Running all electrodes in parallel')
-        with Pool(4) as p:
-            p.map(
-                partial(this_is_where_you_perform_regression,
+        summary_file = os.path.join(args.full_output_dir,'summary.csv')
+        p = Pool(4)
+        with open(summary_file, 'w') as f:
+            for result in p.map(partial(single_electrode_encoding,
                     args = args,
                     datum = datum,
                     stitch_index = stitch_index,
-                ), electrode_info.items())
+                ), electrode_info.items()):
+                f.write(result)
+                print(result)
+        # with Pool(4) as p:
+        #     p.map(
+        #         partial(single_electrode_encoding,
+        #             args = args,
+        #             datum = datum,
+        #             stitch_index = stitch_index,
+        #         ), electrode_info.items())
     else:
         print('Running all electrodes')
         for electrode in electrode_info.items():
-            this_is_where_you_perform_regression(electrode, args, datum, stitch_index)
+            single_electrode_encoding(electrode, args, datum, stitch_index)
 
     return None
 
@@ -274,7 +326,7 @@ def main():
         process_sig_electrodes(args, datum)
     else:
         electrode_info = process_subjects(args)
-        parallel_regression(args, electrode_info, datum, stitch_index)
+        parallel_encoding(args, electrode_info, datum, stitch_index)
 
     return
 

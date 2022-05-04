@@ -24,7 +24,15 @@ def trim_signal(signal):
 
 
 def detrend_signal(mat_signal): # Detrending
+    """Detrends a signal
 
+    Args:
+        mat_signal: signal for a specific conversation
+
+    Returns:
+        mat_signal: detrended signal
+    """
+    
     y = mat_signal
     X = np.arange(len(y)).reshape(-1,1)
     pf = PolynomialFeatures(degree=2)
@@ -37,7 +45,17 @@ def detrend_signal(mat_signal): # Detrending
 
     return mat_signal
 
+
 def fake_signal(stitch, convo_id):
+    """Returns fake signal for a conversation
+
+    Args:
+        stitch: stitch_index
+        convo_id: conversation id
+
+    Returns:
+        mat_signal: nans of a specific conversation size
+    """
 
     mat_len = stitch[convo_id]-stitch[convo_id-1] # mat file length
     mat_signal = np.empty((mat_len, 1))
@@ -46,9 +64,20 @@ def fake_signal(stitch, convo_id):
     return mat_signal
 
 
-def load_electrode_data(args, elec_id, stitch, z_score):
-    '''Loads specific electrodes mat files
-    '''
+def load_electrode_data(args, elec_id, stitch, z_score = False):
+    """Loads specific electrodes mat files and modifies datum based on the signal
+
+    Args:
+        args (namespace): commandline arguments
+        elec_id: electrode id
+        stitch: stitch_index
+        z_score: whether we z-score the signal per conversation
+
+    Returns:
+        elec_signal: concatenated signal for a specific electrode
+        elec_datum: modified datum based on the electrode signal
+    """
+
     if args.project_id == 'tfs':
         DATA_DIR = '/projects/HASSON/247/data/conversations-car'
         process_flag = 'preprocessed'
