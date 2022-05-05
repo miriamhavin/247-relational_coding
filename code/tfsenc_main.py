@@ -206,17 +206,17 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
         return (args.sid, elec_name, 1, 1)
 
     # Build design matrices
-    X, Y = build_XY(args, datum, elec_signal)
+    X, Y = build_XY(args, elec_datum, elec_signal)
 
     # Get folds
     fold_num = 5
-    fold_cat_prod, fold_cat_comp = get_folds(args, datum, X, Y, fold_num)
+    fold_cat_prod, fold_cat_comp = get_folds(args, elec_datum, X, Y, fold_num)
 
     # Split into production and comprehension
-    prod_X = X[datum.speaker == 'Speaker1', :]
-    comp_X = X[datum.speaker != 'Speaker1', :]
-    prod_Y = Y[datum.speaker == 'Speaker1', :]
-    comp_Y = Y[datum.speaker != 'Speaker1', :]
+    prod_X = X[elec_datum.speaker == 'Speaker1', :]
+    comp_X = X[elec_datum.speaker != 'Speaker1', :]
+    prod_Y = Y[elec_datum.speaker == 'Speaker1', :]
+    comp_Y = Y[elec_datum.speaker != 'Speaker1', :]
 
     print(f'{args.sid} {elec_name} Prod: {len(prod_X)} Comp: {len(comp_X)}')
 
@@ -270,20 +270,22 @@ def parallel_encoding(args, electrode_info, datum, stitch_index, parallel = True
     Returns:
         None
     """
+
     if args.emb_type == 'gpt2-xl' and args.sid == 676:
         parallel = False
     if parallel:
         print('Running all electrodes in parallel')
-        summary_file = os.path.join(args.full_output_dir,'summary.csv')
-        p = Pool(4)
+        summary_file = os.path.join(args.full_output_dir,'summary.csv') # summary file
+        p = Pool(4) # multiprocessing
         with open(summary_file, 'w') as f:
+            writer=csv.writer(f, delimiter=",", lineterminator="\r\n") 
+            writer.writerow(('sid','electrode','prod','comp'))
             for result in p.map(partial(single_electrode_encoding,
                     args = args,
                     datum = datum,
                     stitch_index = stitch_index,
                 ), electrode_info.items()):
-                f.write(result)
-                print(result)
+                writer.writerow(result)
         # with Pool(4) as p:
         #     p.map(
         #         partial(single_electrode_encoding,

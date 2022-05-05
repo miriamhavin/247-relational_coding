@@ -22,9 +22,9 @@ BC :=
 # BC := --bad-convos 38 39
 
 # 717 Electrode IDs
-# SID := 7170
-# E_LIST := $(shell seq 1 256)
-# BC :=
+SID := 7170
+E_LIST := $(shell seq 1 256)
+BC :=
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
@@ -34,7 +34,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file tfs-sig-file-625-top-0.3-prod.csv tfs-sig-file-625-sig-0.3-comp.csv
 # SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
-SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-prod.csv # for plotting
+# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-prod.csv # for plotting
 # SIG_FN := --sig-elec-file 717_21-conv-elec-189.csv
 
 PKL_IDENTIFIER := full
@@ -72,9 +72,9 @@ NPERM := 1000
 # Choose the lags to run for.
 LAGS := {400000..500000..100} # lag400500-100
 LAGS := {-150000..150000..100} # lag60-1k
-LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150-30k
-LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60-10k
 LAGS := {-10000..10000..25} # lag10-25
+LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60-10k
+LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150-30k
 LAGS := -300000 -250000 -200000 200000 250000 300000 # lag300-50k
 
 # Conversation ID (Choose 0 to run for all conversations)
@@ -82,10 +82,10 @@ CONVERSATION_IDX := 0
 
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
-EMB := blenderbot
 EMB := gpt2-xl
-EMB := blenderbot-small
+EMB := blenderbot
 EMB := glove50
+EMB := blenderbot-small
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
@@ -99,7 +99,7 @@ ALIGN_WITH := gpt2-xl blenderbot-small
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 1
+LAYER_IDX := 16
 
 # Choose whether to PCA (not used any more)
 # PCA_TO := 50
@@ -134,7 +134,7 @@ DM := gpt2-pred
 DM := gpt2-incorrect
 DM := gpt2-correct
 DM := all
-DM := lag-300-50k-2
+DM := lag-300-50k
 
 # model modification (best-lag model, prod-comp reverse model, none)
 MM := best-lag
