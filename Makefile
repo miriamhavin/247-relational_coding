@@ -72,10 +72,10 @@ NPERM := 1000
 # Choose the lags to run for.
 LAGS := {400000..500000..100} # lag400500-100
 LAGS := {-150000..150000..100} # lag60-1k
-LAGS := {-10000..10000..25} # lag10-25
 LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60-10k
 LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150-30k
 LAGS := -300000 -250000 -200000 200000 250000 300000 # lag300-50k
+LAGS := {-2000..2000..25} # lag10-25
 
 # Conversation ID (Choose 0 to run for all conversations)
 CONVERSATION_IDX := 0
@@ -134,7 +134,7 @@ DM := gpt2-pred
 DM := gpt2-incorrect
 DM := gpt2-correct
 DM := all
-DM := lag-300-50k
+DM := lag
 
 # model modification (best-lag model, prod-comp reverse model, none)
 MM := best-lag
@@ -325,9 +325,11 @@ plot-encoding1:
 plot-new:
 	rm -f results/figures/*
 	python code/plot.py \
+		--sid $(SID) \
 		--formats \
 			'results/tfs/kw-tfs-full-676-glove50-lag10-25-interss/kw-200ms-all-676/*_%s.csv' \
-		--labels glove \
+			'results/tfs/kw-tfs-full-676-gpt2-xl-lag10-25-interss/kw-200ms-all-676/*_%s.csv' \
+		--labels glove gpt2-xl \
 		--values $(LAGS) \
 		--keys prod comp \
 		$(SIG_FN) \
@@ -404,23 +406,24 @@ LAGS1 := {-10000..10000..25}
 LAGS2 := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000
 LAGS3 := -150000 -120000 -90000 90000 120000 150000
 LAGS4 := -300000 -250000 -200000 200000 250000 300000
-LAGS_FINAL := -300000 -30000 -60000 {-10000..10000..25} 30000 60000 300000
-LAGS_FINAL := -99999999 # select all the lags that are concatenated
+LAGS_FINAL := -99999999 # select all the lags that are concatenated (quardra)
+LAGS_FINAL := -300000 -30000 -60000 {-10000..10000..25} 30000 60000 300000 # final
+
 
 concat-lags:
 	python code/concat_lags.py \
 		--formats \
-			'results/tfs/kw-tfs-full-676-glove50-lag-10-25/kw-200ms-all-676/' \
-			'results/tfs/kw-tfs-full-676-glove50-lag-60-10k/kw-200ms-all-676/' \
-			'results/tfs/kw-tfs-full-676-glove50-lag-150-30k/kw-200ms-all-676/' \
-			'results/tfs/kw-tfs-full-676-glove50-lag-300-50k/kw-200ms-all-676/' \
+			'results/tfs/kw-tfs-full-7170-glove50-lag10-25/kw-200ms-all-7170/' \
+			'results/tfs/kw-tfs-full-7170-glove50-lag60-10k/kw-200ms-all-7170/' \
+			'results/tfs/kw-tfs-full-7170-glove50-lag150-30k/kw-200ms-all-7170/' \
+			'results/tfs/kw-tfs-full-7170-glove50-lag300-50k/kw-200ms-all-7170/' \
 		--lags \
 			$(LAGS1) \
 			$(LAGS2) \
 			$(LAGS3) \
 			$(LAGS4) \
 		--lags-final $(LAGS_FINAL) \
-		--output-dir results/tfs/kw-tfs-full-676-glove50-quardra/kw-200ms-all-676/
+		--output-dir results/tfs/kw-tfs-full-7170-glove50-final/kw-200ms-all-7170/
 
 plot-autocor:
 	$(CMD) code/test.py
