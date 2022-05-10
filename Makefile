@@ -349,6 +349,7 @@ plot-old:
 		--outfile results/figures/tfs-625-new-test-prod.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
+
 plot-all:
 	rm -f results/figures/*
 	python code/plot_all.py \
@@ -424,6 +425,7 @@ concat-lags:
 			$(LAGS4) \
 		--lags-final $(LAGS_FINAL) \
 		--output-dir results/tfs/kw-tfs-full-7170-glove50-final/kw-200ms-all-7170/
+
 
 plot-autocor:
 	$(CMD) code/test.py
