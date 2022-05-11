@@ -347,6 +347,7 @@ def plot_electrodes_split_by_label(pdf, split_dir):
         plt.close()
     return pdf
 
+
 pdf = PdfPages(args.outfile)
 fig_size = (args.fig_size[0],args.fig_size[1])
 vmax, vmin = df.max().max(), df.min().min()
