@@ -201,7 +201,7 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     if len(elec_datum) == 0: # datum has no words, meaning no signal
         print(f'{args.sid} {elec_name} No Signal')
         return (args.sid, elec_name, 0, 0)
-    elif elec_datum.conversation_id.nunique() < 5: # datum has less than 5 convos
+    elif args.project_id == 'tfs' and elec_datum.conversation_id.nunique() < 5: # datum has less than 5 convos
         print(f'{args.sid} {elec_name} has less than 5 conversations')
         return (args.sid, elec_name, 1, 1)
 
