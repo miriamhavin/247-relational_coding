@@ -8,19 +8,19 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 
 
-def trim_signal(signal):
-    bin_size = 32  # 62.5 ms (62.5/1000 * 512)
-    signal_length = signal.shape[0]
+# def trim_signal(signal):
+#     bin_size = 32  # 62.5 ms (62.5/1000 * 512)
+#     signal_length = signal.shape[0]
 
-    if signal_length < bin_size:
-        print("Ignoring conversation: Small signal")
-        return None
+#     if signal_length < bin_size:
+#         print("Ignoring conversation: Small signal")
+#         return None
 
-    cutoff_portion = signal_length % bin_size
-    if cutoff_portion:
-        signal = signal[:-cutoff_portion, :]
+#     cutoff_portion = signal_length % bin_size
+#     if cutoff_portion:
+#         signal = signal[:-cutoff_portion, :]
 
-    return signal
+#     return signal
 
 
 def detrend_signal(mat_signal): # Detrending
@@ -46,7 +46,7 @@ def detrend_signal(mat_signal): # Detrending
     return mat_signal
 
 
-def create_empty_signal(stitch, convo_id):
+def create_nan_signal(stitch, convo_id):
     """Returns fake signal for a conversation
 
     Args:
@@ -114,7 +114,7 @@ def load_electrode_data(args, sid, elec_id, stitch, z_score = False):
             if args.sid != 7170:
                 raise SystemExit(f'Error: Conversation file does not exist for electrode {elec_id} at {convo}')
             missing_convos.append(os.path.basename(convo)) # append missing convo name
-            mat_signal = create_empty_signal(stitch, convo_id)
+            mat_signal = create_nan_signal(stitch, convo_id)
 
         else: # more than 1 conversation files
             raise SystemExit(f'Error: More than 1 signal file exists for electrode {elec_id} at {convo}')

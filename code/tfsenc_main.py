@@ -73,15 +73,13 @@ def return_stitch_index(args):
 
 def process_subjects(args):
     """Process electrodes for subjects (requires electrode list or sig elec file)
+    
+    Args:
+        args (namespace): commandline arguments
+
+    Returns:
+        electrode_info (dict): Dictionary in the format (sid, elec_id): elec_name
     """
-    # trimmed_signal = trimmed_signal_dict['trimmed_signal']
-
-    # if args.electrodes:
-    #     indices = [electrode_ids.index(i) for i in args.electrodes]
-
-    #     trimmed_signal = trimmed_signal[:, indices]
-    #     electrode_names = [electrode_names[i] for i in indices]
-
     ds = load_pickle(os.path.join(args.PICKLE_DIR, args.electrode_file))
     df = pd.DataFrame(ds)
 
@@ -299,13 +297,6 @@ def parallel_encoding(args, electrode_info, datum, stitch_index, parallel = True
                     stitch_index = stitch_index,
                 ), electrode_info.items()):
                 writer.writerow(result)
-        # with Pool(4) as p:
-        #     p.map(
-        #         partial(single_electrode_encoding,
-        #             args = args,
-        #             datum = datum,
-        #             stitch_index = stitch_index,
-        #         ), electrode_info.items())
     else:
         print('Running all electrodes')
         for electrode in electrode_info.items():
