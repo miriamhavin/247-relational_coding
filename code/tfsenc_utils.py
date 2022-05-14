@@ -408,7 +408,17 @@ def get_folds(args, datum, X, Y, fold_num = 5):
 
 
 def write_encoding_results(args, cor_results, elec_name, mode):
+    """Write output into csv files
 
+    Args:
+        args (namespace): commandline arguments
+        cor_results: correlation results
+        elec_name: electrode name as a substring of filename
+        mode: 'prod' or 'comp'
+
+    Returns:
+        None
+    """
     trial_str = append_jobid_to_string(args, mode)
     filename = os.path.join(args.full_output_dir, elec_name + trial_str + '.csv')
 

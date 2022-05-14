@@ -1,3 +1,4 @@
+from multiprocessing.spawn import is_forking
 import os
 import string
 
@@ -210,22 +211,25 @@ def filter_datum(args, df):
 
     Returns:
         DataFrame: filtered datum
-    """    
-    common = df.in_glove
+    """
+    if 'glove50' in args.emb_type.lower(): # filter based on embedding type argument
+        common = df.in_glove
+    elif 'gpt2' in args.emb_type.lower():
+        common = df.in_gpt2
+    elif 'blenderbot-small' in args.emb_type.lower():
+        common = df.in_blenderbot_small_90M
+    elif 'blenderbot' in args.emb_type.lower():
+        common = df.in_blenderbot_3B
+
     for model in args.align_with: # filter based on align with arguments
-        if 'gpt2' in model:
+        if 'glove' in model:
+            common = common & df.in_glove
+        elif 'gpt2' in model:
             common = common & df.in_gpt2
         elif 'blenderbot-small' in model:
             common = common & df.in_blenderbot_small_90M
         elif 'blenderbot' in model:
             common = common & df.in_blenderbot_3B
-
-    if 'gpt2' in args.emb_type.lower(): # filter based on embedding type argument
-        common = common & df.in_gpt2
-    elif 'blenderbot-small' in args.emb_type.lower():
-        common = common & df.in_blenderbot_small_90M
-    elif 'blenderbot' in args.emb_type.lower():
-        common = common & df.in_blenderbot_3B
 
     if args.exclude_nonwords: # filter based on exclude_nonwords argument
         nonword_mask = df.word.str.lower().apply(lambda x: x in NONWORDS)
@@ -240,7 +244,7 @@ def filter_datum(args, df):
     return df
 
 
-def mod_datum_by_top_pred(args, datum, emb_type):
+def mod_datum_by_preds(args, datum, emb_type):
     """Filter the datum based on the predictions of a potentially different model
 
     Args:
@@ -250,7 +254,7 @@ def mod_datum_by_top_pred(args, datum, emb_type):
 
     Returns:
         DataFrame: further filtered datum
-    """  
+    """
     if emb_type in args.load_emb_file: # current datum has the correct emb_type
         pass
     else: # current datum does not have the correct emb_type, need to load a second datum
@@ -270,12 +274,13 @@ def mod_datum_by_top_pred(args, datum, emb_type):
         datum = datum.merge(second_datum, how='inner', on='adjusted_onset')
 
     # modify datum based on correct or incorrect predictions
-    if args.datum_mod == emb_type + "-correct": # select words predicted by gpt2 correctly (top 1 pred)
-        datum = datum[datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()] # correct
-        print(f'Selected {len(datum.index)} correct words based on {emb_type} predictions')
-    elif args.datum_mod == emb_type + "-incorrect": # select words predicted by gpt2 incorrectly (top 1 pred)
+    if "incorrect" in args.datum_mod: # select words predicted by gpt2 incorrectly (top 1 pred)
         datum = datum[datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()] # incorrect
         print(f'Selected {len(datum.index)} incorrect words based on {emb_type} predictions')
+    elif "correct" in args.datum_mod: # select words predicted by gpt2 correctly (top 1 pred)
+        datum = datum[datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()] # correct
+        print(f'Selected {len(datum.index)} correct words based on {emb_type} predictions')
+
     # elif args.datum_mod == emb_type + "-pred": # for incorrectly predicted words, replace with top 1 pred (only used for podcast glove)
     #     glove = api.load('glove-wiki-gigaword-50')
     #     datum['embeddings'] = datum.top1_pred.str.strip().apply(lambda x: get_vector(x.lower(), glove))
@@ -302,9 +307,9 @@ def mod_datum(args, datum):
         datum.convo_offset = datum['convo_offset'] - datum['convo_onset']
         datum.convo_onset = 0
 
-    if args.datum_mod == "all": # no need for modification
+    if "no-trim" in args.datum_mod: # no need for edge trimming
         pass
-    elif 'lag' in args.datum_mod: # trim the edges
+    else: # trim the edges
         half_window = round((args.window_size / 1000) * 512 / 2)
         # lag = int(60000 / 1000 * 512) # trim edges with set length
         lag = int(args.lags[-1] / 1000 * 512) # trim edges based on lag
@@ -313,28 +318,42 @@ def mod_datum(args, datum):
         new_datum_len = len(datum.index)
         print(f'Trimming resulted in {new_datum_len} ({round(new_datum_len/original_len*100,5)}%) words')
 
-    elif 'gpt2-xl' in args.datum_mod: # modify datum based on gpt2-embeddings
-        datum = mod_datum_by_top_pred(args, datum, 'gpt2-xl')
-    
-    elif 'blenderbot-small' in args.datum_mod: # modify datum based on bbot-embeddings
-        datum = mod_datum_by_top_pred(args, datum, 'blenderbot-small')
+    if 'all' in args.datum_mod:
+        pass
 
-    else:
-        raise Exception('Invalid Datum Modification') 
+    else: # modify datum based on predictions
+        pred_type = args.emb_type
+        if 'gpt2-xl' in args.datum_mod:
+            pred_type = 'gpt2-xl'
+        elif 'blenderbot-small' in args.datum_mod:
+            pred_type = 'blenderbot-small'
+        assert 'glove' not in pred_type, 'Glove embeddings does not have predictions'
+        datum = mod_datum_by_preds(args, datum, args.emb_type)
+
+    # else:
+    #     raise Exception('Invalid Datum Modification') 
     assert len(datum.index) > 0, "Empty Datum"
     return datum
 
 
 def read_datum(args, stitch):
+    """Load, process, and filter datum
 
+    Args:
+        args (namespace): commandline arguments
+        stitch (list): stitch_index
+
+    Returns:
+        DataFrame: processed and filtered datum
+    """  
     file_name = os.path.join(args.PICKLE_DIR, args.load_emb_file)
     df = load_datum(file_name)
+    print(f'After loading: Datum loads with {len(df)} words')
 
-    start_n = len(df) # datum start length
     df = process_datum(args, df, stitch)
+    print(f'After processing: Datum now has {len(df)} words')
     df = filter_datum(args, df)
-    end_n = len(df) # datum end length after processing and filtering
-    print(f'Went from {start_n} words to {end_n} words')
+    print(f'After filtering: Datum now has {len(df)} words')
 
     df = mod_datum(args, df) # further filter datum based on datum_mod argument
 

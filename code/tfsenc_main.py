@@ -72,7 +72,7 @@ def return_stitch_index(args):
 
 
 def process_subjects(args):
-    """Run encoding on particular subject (requires specifying electrodes)
+    """Process electrodes for subjects (requires electrode list or sig elec file)
     """
     # trimmed_signal = trimmed_signal_dict['trimmed_signal']
 
@@ -85,112 +85,119 @@ def process_subjects(args):
     ds = load_pickle(os.path.join(args.PICKLE_DIR, args.electrode_file))
     df = pd.DataFrame(ds)
 
-    if args.electrodes:
+    if args.sig_elec_file: # sig elec files for 1 or more sid (used for 777)
+        sig_elec_file = os.path.join(os.path.join(os.getcwd(), 'data', args.sig_elec_file))
+        sig_elec_list = pd.read_csv(sig_elec_file).rename(columns={"electrode":"electrode_name"})
+        sid_sig_elec_list = pd.merge(df,sig_elec_list,how='inner',on=['subject','electrode_name'])
+        assert len(sig_elec_list) == len(sid_sig_elec_list), 'Sig Elecs Missing'
         electrode_info = {
-            key: next(
+            (values['subject'], values['electrode_id']): values['electrode_name']
+            for _, values in sid_sig_elec_list.iterrows()
+        }
+
+    else: # electrode list for 1 sid
+        assert args.electrodes, 'Need electrode list since no sig_elec_list'
+        electrode_info = {
+            (args.sid,key): next(
                 iter(df.loc[(df.subject == str(args.sid)) &
                             (df.electrode_id == key), 'electrode_name']), None)
             for key in args.electrodes
         }
 
-    # # Loop over each electrode
-    # for elec_id, elec_name in electrode_info.items():
-
-    #     if elec_name is None:
-    #         print(f'Electrode ID {elec_id} does not exist')
-    #         continue
-
-    #     elec_signal = load_electrode_data(args, elec_id)
-    #     # datum = load_processed_datum(args)
-
-    #     encoding_regression(args, datum, elec_signal, elec_name)
-
-    # # write_electrodes(args, electrode_names)
-
     return electrode_info
 
 
-def process_sig_electrodes(args, datum):
-    """Run encoding on select significant elctrodes specified by a file
-    """
-    # Read in the significant electrodes
-    sig_elec_file = os.path.join(
-        os.path.join(os.getcwd(), 'data', args.sig_elec_file))
-    sig_elec_list = pd.read_csv(sig_elec_file)
+# def process_sig_electrodes(args, datum):
+#     """Run encoding on select significant elctrodes specified by a file
+#     """
+#     # Read in the significant electrodes
+#     sig_elec_file = os.path.join(
+#         os.path.join(os.getcwd(), 'data', args.sig_elec_file))
+#     sig_elec_list = pd.read_csv(sig_elec_file)
 
-    # Loop over each electrode
-    for subject, elec_name in sig_elec_list.itertuples(index=False):
+#     # Loop over each electrode
+#     for subject, elec_name in sig_elec_list.itertuples(index=False):
 
-        assert isinstance(subject, int)
-        CONV_DIR = '/projects/HASSON/247/data/conversations'
-        if args.project_id == 'podcast':
-            CONV_DIR = '/projects/HASSON/247/data/podcast'
-        BRAIN_DIR_STR = 'preprocessed_all'
+#         assert isinstance(subject, int)
+#         CONV_DIR = '/projects/HASSON/247/data/conversations'
+#         if args.project_id == 'podcast':
+#             CONV_DIR = '/projects/HASSON/247/data/podcast'
+#         BRAIN_DIR_STR = 'preprocessed_all'
 
-        fname = os.path.join(CONV_DIR, 'NY' + str(subject) + '*')
-        subject_id = glob.glob(fname)
-        assert len(subject_id), f'No data found in {fname}'
-        subject_id = os.path.basename(subject_id[0])
+#         fname = os.path.join(CONV_DIR, 'NY' + str(subject) + '*')
+#         subject_id = glob.glob(fname)
+#         assert len(subject_id), f'No data found in {fname}'
+#         subject_id = os.path.basename(subject_id[0])
 
-        # Read subject's header
-        labels = load_header(CONV_DIR, subject_id)
-        assert labels is not None, 'Missing header'
-        electrode_num = labels.index(elec_name) + 1
+#         # Read subject's header
+#         labels = load_header(CONV_DIR, subject_id)
+#         assert labels is not None, 'Missing header'
+#         electrode_num = labels.index(elec_name) + 1
 
-        # Read electrode data
-        brain_dir = os.path.join(CONV_DIR, subject_id, BRAIN_DIR_STR)
-        electrode_file = os.path.join(
-            brain_dir, ''.join([
-                subject_id, '_electrode_preprocess_file_',
-                str(electrode_num), '.mat'
-            ]))
-        try:
-            elec_signal = loadmat(electrode_file)['p1st']
-            elec_signal = elec_signal.reshape(-1, 1)
-        except FileNotFoundError:
-            print(f'Missing: {electrode_file}')
-            continue
+#         # Read electrode data
+#         brain_dir = os.path.join(CONV_DIR, subject_id, BRAIN_DIR_STR)
+#         electrode_file = os.path.join(
+#             brain_dir, ''.join([
+#                 subject_id, '_electrode_preprocess_file_',
+#                 str(electrode_num), '.mat'
+#             ]))
+#         try:
+#             elec_signal = loadmat(electrode_file)['p1st']
+#             elec_signal = elec_signal.reshape(-1, 1)
+#         except FileNotFoundError:
+#             print(f'Missing: {electrode_file}')
+#             continue
 
-        # Perform encoding/regression
-        encoding_regression(args, datum, elec_signal,
-                            str(subject) + '_' + elec_name)
+#         # Perform encoding/regression
+#         encoding_regression(args, datum, elec_signal,
+#                             str(subject) + '_' + elec_name)
 
-    return
-
-
-def dumdum1(iter_idx, args, datum, signal, name):
-    seed = iter_idx + (os.getenv("SLURM_ARRAY_TASk_ID", 0) * 10000)
-    np.random.seed(seed)
-    new_signal = phase_randomize_1d(signal)
-    (prod_corr, comp_corr) = encoding_regression_pr(args, datum, new_signal,
-                                                    name)
-
-    return (prod_corr, comp_corr)
+#     return
 
 
-def write_output(args, output_mat, name, output_str):
+# def dumdum1(iter_idx, args, datum, signal, name):
+#     seed = iter_idx + (os.getenv("SLURM_ARRAY_TASk_ID", 0) * 10000)
+#     np.random.seed(seed)
+#     new_signal = phase_randomize_1d(signal)
+#     (prod_corr, comp_corr) = encoding_regression_pr(args, datum, new_signal,
+#                                                     name)
 
-    output_dir = create_output_directory(args)
+#     return (prod_corr, comp_corr)
 
-    if all(output_mat):
-        trial_str = append_jobid_to_string(args, output_str)
-        filename = os.path.join(output_dir, name + trial_str + '.csv')
-        with open(filename, 'w') as csvfile:
-            csvwriter = csv.writer(csvfile)
-            csvwriter.writerows(output_mat)
+
+# def write_output(args, output_mat, name, output_str):
+
+#     output_dir = create_output_directory(args)
+
+#     if all(output_mat):
+#         trial_str = append_jobid_to_string(args, output_str)
+#         filename = os.path.join(output_dir, name + trial_str + '.csv')
+#         with open(filename, 'w') as csvfile:
+#             csvwriter = csv.writer(csvfile)
+#             csvwriter.writerows(output_mat)
 
 
 def single_electrode_encoding(electrode, args, datum, stitch_index):
+    """Doing encoding for one electrode
 
+    Args:
+        electrode: tuple in the form ((sid, elec_id), elec_name)
+        args (namespace): commandline arguments
+        datum: datum of words
+        stitch_index: stitch_index
+
+    Returns:
+        tuple in the format (sid, electrode name, production len, comprehension len)
+    """
     # Get electrode info
-    elec_id, elec_name = electrode
+    (sid, elec_id), elec_name = electrode
 
     if elec_name is None:
         print(f'Electrode ID {elec_id} does not exist')
         return (args.sid, None, 0, 0)
 
     # Load signal Data
-    elec_signal, missing_convos = load_electrode_data(args, elec_id, stitch_index, False)
+    elec_signal, missing_convos = load_electrode_data(args, sid, elec_id, stitch_index, False)
 
     # Modify datum based on signal
     if len(missing_convos) > 0: # signal missing convos
@@ -218,18 +225,24 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     prod_Y = Y[elec_datum.speaker == 'Speaker1', :]
     comp_Y = Y[elec_datum.speaker != 'Speaker1', :]
 
+    if args.sig_elec_file: # could have multiple sids (like 777)
+        # Differentiates same electrode name from different subjects
+        elec_name = str(sid) + '_' + elec_name
     print(f'{args.sid} {elec_name} Prod: {len(prod_X)} Comp: {len(comp_X)}')
 
     # Run regression and correlation
     if args.model_mod and 'pc-flip' in args.model_mod: # prod-comp flip
-        prod_results = run_regression(args, prod_X, prod_Y, fold_cat_prod, comp_X, comp_Y, fold_cat_comp, fold_num)
+        if len(prod_X) > 0:
+            prod_results = run_regression(args, prod_X, prod_Y, fold_cat_prod, comp_X, comp_Y, fold_cat_comp, fold_num)
         comp_results = run_regression(args, comp_X, comp_Y, fold_cat_comp, prod_X, prod_Y, fold_cat_prod, fold_num)
     else: # normal encoding
-        prod_results = run_regression(args, prod_X, prod_Y, fold_cat_prod, prod_X, prod_Y, fold_cat_prod, fold_num)
+        if len(prod_X) > 0:
+            prod_results = run_regression(args, prod_X, prod_Y, fold_cat_prod, prod_X, prod_Y, fold_cat_prod, fold_num)
         comp_results = run_regression(args, comp_X, comp_Y, fold_cat_comp, comp_X, comp_Y, fold_cat_comp, fold_num)
     
     # Save encoding results
-    write_encoding_results(args, prod_results, elec_name, 'prod')
+    if len(prod_X) > 0:
+        write_encoding_results(args, prod_results, elec_name, 'prod')
     write_encoding_results(args, comp_results, elec_name, 'comp')
     
     # # Perform encoding/regression
@@ -254,7 +267,7 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     # else:
     #     encoding_regression(args, elec_datum, elec_signal, elec_name)
 
-    return (args.sid, elec_name, len(prod_X), len(comp_X))
+    return (sid, elec_name, len(prod_X), len(comp_X))
 
 
 def parallel_encoding(args, electrode_info, datum, stitch_index, parallel = True):
@@ -324,11 +337,8 @@ def main():
     datum = read_datum(args, stitch_index)
 
     # Processing significant electrodes or individual subjects
-    if args.sig_elec_file:
-        process_sig_electrodes(args, datum)
-    else:
-        electrode_info = process_subjects(args)
-        parallel_encoding(args, electrode_info, datum, stitch_index)
+    electrode_info = process_subjects(args)
+    parallel_encoding(args, electrode_info, datum, stitch_index)
 
     return
 

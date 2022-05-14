@@ -8,9 +8,10 @@ DT := ${USR}
 #  Configurable options
 # -----------------------------------------------------------------------------
 
-PRJCT_ID := tfs
+PRJCT_ID := podcast
 # {podcast | tfs}
 
+############## tfs electrode ids ##############
 # 625 Electrode IDs
 SID := 625
 E_LIST := $(shell seq 1 105)
@@ -22,26 +23,12 @@ BC :=
 # BC := --bad-convos 38 39
 
 # 717 Electrode IDs
-SID := 7170
-E_LIST := $(shell seq 1 256)
-BC :=
+# SID := 7170
+# E_LIST := $(shell seq 1 256)
+# BC :=
 
-# Sig file will override whatever electrodes you choose
-SIG_FN := 
-# SIG_FN := --sig-elec-file test.csv
-# SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
-# SIG_FN := --sig-elec-file colton625.csv colton625.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-prod.csv
-# SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
-# SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
-# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-prod.csv # for plotting
-# SIG_FN := --sig-elec-file 717_21-conv-elec-189.csv
-
-PKL_IDENTIFIER := full
-# {full | trimmed}
-
-# podcast electrode IDs
-# SID := 777
+############## podcast electrode IDs ##############
+SID := 777
 # SID := 661
 # E_LIST :=  $(shell seq 1 115)
 # SID := 662
@@ -61,51 +48,66 @@ PKL_IDENTIFIER := full
 # SID := 798
 # E_LIST :=  $(shell seq 1 195)
 #
+
+### podcast significant electrode list (if provided, override electrode IDs)
 # SIG_FN := --sig-elec-file test.csv
 # SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
 # SIG_FN := --sig-elec-file 160-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH_newVer.csv
-# SIG_FN :=
+SIG_FN := --sig-elec-file podcast_160.csv
+
+### tfs significant electrode list (only used for plotting)(for encoding, use electrode IDs)
+# SIG_FN := 
+# SIG_FN := --sig-elec-file test.csv
+# SIG_FN := --sig-elec-file colton625.csv colton625.csv
+# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-prod.csv
+# SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
+# SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
+# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-prod.csv # for plotting
+# SIG_FN := --sig-elec-file 717_21-conv-elec-189.csv
+
+PKL_IDENTIFIER := full
+# {full | trimmed}
 
 # number of permutations (goes with SH and PSH)
 NPERM := 1000
 
 # Choose the lags to run for.
-LAGS := {400000..500000..100} # lag400500-100
-LAGS := {-150000..150000..100} # lag60-1k
-LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60-10k
-LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150-30k
-LAGS := -300000 -250000 -200000 200000 250000 300000 # lag300-50k
-LAGS := {-10000..10000..25} # lag10-25
+LAGS := {400000..500000..100} # lag400500k-100
+LAGS := {-150000..150000..100} # lag60k-1k
+LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60k-10k
+LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150k-30k
+LAGS := -300000 -250000 -200000 200000 250000 300000 # lag300k-50k
+LAGS := {-2000..2000..25} # lag2k-25
 
 # Conversation ID (Choose 0 to run for all conversations)
 CONVERSATION_IDX := 0
 
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
-EMB := gpt2-xl
 EMB := blenderbot
 EMB := glove50
 EMB := blenderbot-small
+EMB := gpt2-xl
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
 WS := 200
 
 # Choose which set of embeddings to align with (intersection of embeddings)
-ALIGN_WITH := gpt2-xl
 ALIGN_WITH := blenderbot-small
 ALIGN_WITH := glove50
 ALIGN_WITH := gpt2-xl blenderbot-small
+ALIGN_WITH := gpt2-xl
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 16
+LAYER_IDX := $(shell seq 1 48)
 
 # Choose whether to PCA (not used in encoding for now)
 # PCA_TO := 50
 
 # Specify the minimum word frequency (0 for 247, 5 for podcast)
-MWF := 0
+MWF := 5
 
 # TODO: explain this parameter.
 WV := all
@@ -129,22 +131,39 @@ CMD := sbatch submit1.sh
 # DS := podcast-datum-glove-50d.csv
 # DS := podcast-datum-gpt2-xl-c_1024-previous-pca_50d.csv
 
-# Datum modifications
-# {gpt2-correct: choose words correctly predicted by gpt2}
-# {gpt2-incorret: choose words incorrectly predicted by gpt2}
-# {gpt2-pred: choose all words, for words incorrectly predicted by gpt2, replace embeddings to the words \
-actually predicted by gpt2} (only used for podcast glove)
-# {all: no changes}
-# {lag...: trim datum words that have any lag outside of the conversation range} \
-As long as 'lag' is a substring of DM, datum will be trimmed based on maximum lag \
-The rest of the string is purely for naming of the folder
-DM := gpt2-pred
-DM := gpt2-incorrect
-DM := gpt2-correct
-DM := all
-DM := lag10k-25
 
-# Model Modification
+############## Datum Modifications ##############
+
+# 1. {no-trim}
+#	if 'no-trim' is a substring of DM, do not trim datum words that have any lag \
+outside of the conversation range (currently not used)
+#	if 'no-trim' is not a substring of DM, datum will be trimmed based on maximum lag
+
+# 2. {all, correct, incorrect, pred}
+#	for all emb_type:
+#	{all: choose all words}
+
+#	for emb_type other than glove:
+#	{correct: choose words correctly predicted by the model}
+#	{incorrect: choose words incorrectly predicted by the model}
+
+#	for all emb_type, use predictions from another emb_type by concat 'emb_type' and 'pred_type':
+#	{gpt2-xl-corret: choose words correctly predicted by gpt2}
+#	{gpt2-xl-incorret: choose words incorrectly predicted by gpt2}
+#	{blenderbot-small-correct: choose words correctly predicted by bbot decoder}
+#	{blenderbot-small-incorrect: choose words incorrectly predicted by bbot decoder}
+#	{gpt2-pred: choose all words, for words incorrectly predicted by gpt2, use embeddings of the words \
+actually predicted by gpt2} (only used for podcast glove)
+
+# 3. {everything else is purely for the result folder name}
+
+# DM := no-trim
+# DM := gpt2-xl-pred
+DM := lag2k-25-all-layer
+DM := lag2k-25-correct-layer
+DM := lag2k-25-incorrect-layer
+
+############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
 # {pc-flip-best-lag: train on comp and test on prod using the best lag model, vice versa}
 # {leave empty for regular encoding}
@@ -195,8 +214,40 @@ run-encoding:
 		$(SH) \
 		$(PSH) \
 		--normalize $(NM)\
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM) \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM)-$(LAYER_IDX) \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
+
+
+run-encoding-layers:
+	mkdir -p logs
+	for layer in $(LAYER_IDX); do\
+		$(CMD) code/$(FILE).py \
+			--project-id $(PRJCT_ID) \
+			--pkl-identifier $(PKL_IDENTIFIER) \
+			--datum-emb-fn $(DS) \
+			--sid $(SID) \
+			--conversation-id $(CONVERSATION_IDX) \
+			--electrodes $(E_LIST) \
+			--emb-type $(EMB) \
+			--context-length $(CNXT_LEN) \
+			--align-with $(ALIGN_WITH) \
+			--window-size $(WS) \
+			--word-value $(WV) \
+			--npermutations $(NPERM) \
+			--lags $(LAGS) \
+			--min-word-freq $(MWF) \
+			--pca-to $(PCA_TO) \
+			--layer-idx $$layer \
+			--datum-mod $(DM) \
+			--model-mod $(MM) \
+			$(BC) \
+			$(SIG_FN) \
+			$(SH) \
+			$(PSH) \
+			--normalize $(NM)\
+			--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM)-$$layer \
+			--output-prefix $(USR)-$(WS)ms-$(WV);\
+	done;
 
 # Recommended naming convention for output_folder
 #--output-prefix $(USR)-$(WS)ms-$(WV); \

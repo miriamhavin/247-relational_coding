@@ -46,7 +46,7 @@ def detrend_signal(mat_signal): # Detrending
     return mat_signal
 
 
-def fake_signal(stitch, convo_id):
+def create_empty_signal(stitch, convo_id):
     """Returns fake signal for a conversation
 
     Args:
@@ -64,8 +64,8 @@ def fake_signal(stitch, convo_id):
     return mat_signal
 
 
-def load_electrode_data(args, elec_id, stitch, z_score = False):
-    """Loads specific electrodes mat files and modifies datum based on the signal
+def load_electrode_data(args, sid, elec_id, stitch, z_score = False):
+    """Load and concat signal mat files for a specific electrode
 
     Args:
         args (namespace): commandline arguments
@@ -87,7 +87,7 @@ def load_electrode_data(args, elec_id, stitch, z_score = False):
     else:
         raise Exception('Invalid Project ID')
 
-    convos = sorted(glob.glob(os.path.join(DATA_DIR, str(args.sid), 'NY*Part*conversation*')))
+    convos = sorted(glob.glob(os.path.join(DATA_DIR, str(sid), 'NY*Part*conversation*')))
 
     all_signal = []
     missing_convos = []
@@ -114,7 +114,7 @@ def load_electrode_data(args, elec_id, stitch, z_score = False):
             if args.sid != 7170:
                 raise SystemExit(f'Error: Conversation file does not exist for electrode {elec_id} at {convo}')
             missing_convos.append(os.path.basename(convo)) # append missing convo name
-            mat_signal = fake_signal(stitch, convo_id)
+            mat_signal = create_empty_signal(stitch, convo_id)
 
         else: # more than 1 conversation files
             raise SystemExit(f'Error: More than 1 signal file exists for electrode {elec_id} at {convo}')
