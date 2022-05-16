@@ -240,7 +240,6 @@ def filter_datum(args, df):
         common &= freq_mask
 
     df = df[common]
-
     return df
 
 

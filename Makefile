@@ -101,13 +101,14 @@ ALIGN_WITH := gpt2-xl
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
+LAYER_IDX := 1
 LAYER_IDX := $(shell seq 1 48)
 
 # Choose whether to PCA (not used in encoding for now)
 # PCA_TO := 50
 
 # Specify the minimum word frequency (0 for 247, 5 for podcast)
-MWF := 5
+MWF := 0
 
 # TODO: explain this parameter.
 WV := all
