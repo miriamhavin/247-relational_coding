@@ -41,6 +41,7 @@ def get_elecbrain(electrode):
     imname = elecdir + f'thumb_{name}.png'  # + f'{args.sid}_{name}.png'
     return imname
 
+
 # Read significant electrode file(s)
 sigelecs = {}
 multiple_sid = False

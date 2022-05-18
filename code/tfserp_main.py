@@ -4,15 +4,14 @@ import os
 from functools import partial
 from multiprocessing import Pool
 
-import mat73
 import numpy as np
 import pandas as pd
 from tfsenc_parser import parse_arguments
 from tfsenc_read_datum import read_datum
 from tfsenc_utils import setup_environ
 from utils import main_timer, write_config
-from tfsenc_main import write_output, mod_datum, process_subjects, load_electrode_data
-from tfsenc_read_datum import return_stitch_index
+from tfsenc_main import write_output, process_subjects, return_stitch_index
+from tfsenc_load_signal import load_electrode_data
 
 
 def erp(args, datum, elec_signal, name):
@@ -114,9 +113,6 @@ def main():
 
     # Locate and read datum
     datum = read_datum(args)
-
-    # modify datum if needed (args.datum_mod)
-    datum = mod_datum(args, datum)
     datum = datum.drop('embeddings', 1) # trim datum to smaller size
 
     assert args.sig_elec_file == None, "Do not input significant electrode list"
