@@ -8,14 +8,14 @@ DT := ${USR}
 #  Configurable options
 # -----------------------------------------------------------------------------
 
-PRJCT_ID := podcast
+PRJCT_ID := tfs
 # {podcast | tfs}
 
 ############## tfs electrode ids ##############
 # 625 Electrode IDs
-SID := 625
-E_LIST := $(shell seq 1 105)
-BC := 
+# SID := 625
+# E_LIST := $(shell seq 1 105)
+# BC := 
 
 # 676 Electrode IDs
 # SID := 676
@@ -74,10 +74,10 @@ NPERM := 1000
 # Choose the lags to run for.
 LAGS := {400000..500000..100} # lag400500k-100
 LAGS := {-150000..150000..100} # lag60k-1k
-LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60k-10k
-LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150k-30k
 LAGS := -300000 -250000 -200000 200000 250000 300000 # lag300k-50k
-LAGS := {-2000..2000..25} # lag2k-25
+LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150k-30k
+LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60k-10k
+LAGS := {-10000..10000..25} # lag10sk-25
 
 # Conversation ID (Choose 0 to run for all conversations)
 CONVERSATION_IDX := 0
@@ -95,14 +95,13 @@ WS := 200
 
 # Choose which set of embeddings to align with (intersection of embeddings)
 ALIGN_WITH := blenderbot-small
-ALIGN_WITH := glove50
-ALIGN_WITH := gpt2-xl blenderbot-small
 ALIGN_WITH := gpt2-xl
+ALIGN_WITH := glove50
+ALIGN_WITH := glove50 gpt2-xl blenderbot-small
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 1
-LAYER_IDX := $(shell seq 1 48)
+LAYER_IDX := 48
 
 # Choose whether to PCA (not used in encoding for now)
 # PCA_TO := 50
@@ -160,9 +159,9 @@ actually predicted by gpt2} (only used for podcast glove)
 
 # DM := no-trim
 # DM := gpt2-xl-pred
-DM := lag2k-25-all-layer
 DM := lag2k-25-correct-layer
 DM := lag2k-25-incorrect-layer
+DM := lag10k-25-all-2
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -215,7 +214,7 @@ run-encoding:
 		$(SH) \
 		$(PSH) \
 		--normalize $(NM)\
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM)-$(LAYER_IDX) \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM) \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 
@@ -376,8 +375,8 @@ LAG_TKS := --lag-ticks {-28..28..2}
 LAG_TK_LABLS := --lag-tick-labels -300 -250 -200 -150 -120 -90 -60 -40 -20 {-10..10..2} 20 40 60 90 120 150 200 250 300
 
 # Plotting for type Final (final plots for 247) 
-# LAGS_PLT := -300000 -60000 -30000 {-10000..10000..25} 30000 60000 300000
-# LAGS_SHOW := $(LAGS_PLT)
+# LAGS_PLT := {-300000..-150000..50000} -120000 -90000 {-60000..-20000..10000} {-10000..10000..25} {20000..60000..10000} 90000 120000 {150000..300000..50000}
+# LAGS_SHOW := -300000 -60000 -30000 {-10000..10000..25} 30000 60000 300000
 # X_VALS_SHOW := -16 -14 -12 {-10000..10000..25} 12 14 16
 # LAG_TKS := --lag-ticks {-16..16..2}
 # LAG_TK_LABLS := --lag-tick-labels -300 -60 -30 {-10..10..2} 30 60 300
@@ -414,12 +413,18 @@ The number of sig elec files should also equal # of sid * # of keys
 plot-new:
 	rm -f results/figures/*
 	python code/plot_new.py \
-		--sid 625 \
+		--sid 717 \
 		--formats \
-			'results/tfs/kw-tfs-full-625-glove50-final/kw-200ms-all-625/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-blenderbot-small-final/kw-200ms-all-625/*_%s.csv' \
-		--labels glove bbot \
-		--keys prod \
+			'results/tfs/7170-2-20220505/kw-tfs-full-7170-glove50-quardra/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/7170-2-20220505/kw-tfs-full-7170-gpt2-xl-quardra/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/7170-2-20220505/kw-tfs-full-7170-blenderbot-small-quardra/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/7170-2-20220505/kw-tfs-full-7170-gpt2-xl-ctx-128-quardra/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/7170-3-20220517/kw-tfs-full-7170-glove50-quardra/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/7170-3-20220517/kw-tfs-full-7170-gpt2-xl-quardra/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/7170-3-20220517/kw-tfs-full-7170-blenderbot-small-quardra/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/7170-3-20220517/kw-tfs-full-7170-gpt2-xl-ctx-128-quardra/kw-200ms-all-7170/*_%s.csv' \
+		--labels glove-good gpt2-good bbot-good gpt2-128-good glove-all gpt2-all bbot-all gpt2-128-all \
+		--keys comp \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
 		--lags-plot $(LAGS_PLT) \
@@ -428,7 +433,7 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/tfs-plot-test.pdf
+		--outfile results/figures/tfs-7170-gggb-allgood-quardra-comp-grid.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
@@ -539,24 +544,24 @@ LAGS1 := {-10000..10000..25}
 LAGS2 := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000
 LAGS3 := -150000 -120000 -90000 90000 120000 150000
 LAGS4 := -300000 -250000 -200000 200000 250000 300000
+# LAGS_FINAL := -300000 -60000 -30000 {-10000..10000..25} 30000 60000 300000 # final
 LAGS_FINAL := -99999999 # select all the lags that are concatenated (quardra)
-LAGS_FINAL := -300000 -60000 -30000 {-10000..10000..25} 30000 60000 300000 # final
 
 
 concat-lags:
 	python code/concat_lags.py \
 		--formats \
-			'results/tfs/kw-tfs-full-7170-glove50-lag10-25/kw-200ms-all-7170/' \
-			'results/tfs/kw-tfs-full-7170-glove50-lag60-10k/kw-200ms-all-7170/' \
-			'results/tfs/kw-tfs-full-7170-glove50-lag150-30k/kw-200ms-all-7170/' \
-			'results/tfs/kw-tfs-full-7170-glove50-lag300-50k/kw-200ms-all-7170/' \
+			'results/tfs/kw-tfs-full-7170-gpt2-xl-ctx-128-lag10k-25-all/kw-200ms-all-7170/' \
+			'results/tfs/kw-tfs-full-7170-gpt2-xl-ctx-128-lag60k-10k-all/kw-200ms-all-7170/' \
+			'results/tfs/kw-tfs-full-7170-gpt2-xl-ctx-128-lag150k-30k-all/kw-200ms-all-7170/' \
+			'results/tfs/kw-tfs-full-7170-gpt2-xl-ctx-128-lag300k-50k-all/kw-200ms-all-7170/' \
 		--lags \
 			$(LAGS1) \
 			$(LAGS2) \
 			$(LAGS3) \
 			$(LAGS4) \
 		--lags-final $(LAGS_FINAL) \
-		--output-dir results/tfs/kw-tfs-full-7170-glove50-final/kw-200ms-all-7170/
+		--output-dir results/tfs/kw-tfs-full-7170-gpt2-xl-ctx-128-quardra/kw-200ms-all-7170/
 
 
 # plot-autocor:

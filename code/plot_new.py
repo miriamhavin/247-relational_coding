@@ -3,8 +3,10 @@ import argparse
 import os
 import pandas as pd
 import itertools
+import numpy as np
 from scipy.stats import pearsonr
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -13,45 +15,67 @@ from matplotlib.backends.backend_pdf import PdfPages
 # Argument Parser
 # -----------------------------------------------------------------------------
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--formats", nargs="+", required=True)
-parser.add_argument("--sid", type=int, nargs="+", required=True)
-parser.add_argument("--labels", nargs="+",  required=True)
-parser.add_argument("--keys", nargs="+",  required=True)
-parser.add_argument("--sig-elec-file", nargs="+", default=[])
-parser.add_argument("--fig-size", nargs="+", type=int, default=[18,6])
-parser.add_argument("--lags-plot", nargs="+", type=float, required=True)
-parser.add_argument("--lags-show", nargs="+", type=float, required=True)
-parser.add_argument("--x-vals-show", nargs="+", type=float, required=True)
-parser.add_argument("--lag-ticks", nargs="+", type=float, default=[])
-parser.add_argument("--lag-tick-labels", nargs="+", type=int, default=[])
-parser.add_argument("--lc-by", type=str, default=None)
-parser.add_argument("--ls-by", type=str, default=None)
-parser.add_argument("--split", type=str, default=None)
-parser.add_argument("--split-by", type=str, default=None)
-parser.add_argument("--outfile", default='results/figures/tmp.pdf')
-args = parser.parse_args()
+def arg_parser(): # argument parser
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--formats", nargs="+", required=True)
+    parser.add_argument("--sid", type=int, nargs="+", required=True)
+    parser.add_argument("--labels", nargs="+",  required=True)
+    parser.add_argument("--keys", nargs="+",  required=True)
+    parser.add_argument("--sig-elec-file", nargs="+", default=[])
+    parser.add_argument("--fig-size", nargs="+", type=int, default=[18,6])
+    parser.add_argument("--lags-plot", nargs="+", type=float, required=True)
+    parser.add_argument("--lags-show", nargs="+", type=float, required=True)
+    parser.add_argument("--x-vals-show", nargs="+", type=float, required=True)
+    parser.add_argument("--lag-ticks", nargs="+", type=float, default=[])
+    parser.add_argument("--lag-tick-labels", nargs="+", type=int, default=[])
+    parser.add_argument("--lc-by", type=str, default=None)
+    parser.add_argument("--ls-by", type=str, default=None)
+    parser.add_argument("--split", type=str, default=None)
+    parser.add_argument("--split-by", type=str, default=None)
+    parser.add_argument("--outfile", default='results/figures/tmp.pdf')
+    args = parser.parse_args()
+    return args
 
-# Some sanity checks
-assert len(args.fig_size) == 2
-assert len(args.formats) == len(args.labels), 'Need same number of labels as formats'
-assert len(args.lags_show) == len(args.x_vals_show), 'Need same number of lags values and x values'
-assert all(lag in args.lags_plot for lag in args.lags_show), 'Lags plot should contain all lags from lags show'
+
+def arg_assert(args): # some sanity checks
+    assert len(args.fig_size) == 2
+    assert len(args.formats) == len(args.labels), 'Need same number of labels as formats'
+    assert len(args.lags_show) == len(args.x_vals_show), 'Need same number of lags values and x values'
+    assert all(lag in args.lags_plot for lag in args.lags_show), 'Lags plot should contain all lags from lags show'
+    assert all(lag in x_vals_show for lag in args.lag_ticks), 'X values show should contain all values from lags ticks'
+    assert all(lag in lags_show for lag in args.lag_tick_labels), 'Lags show should contain all values from lag tick labels'
+    assert len(args.lag_ticks) == len(args.lag_tick_labels), 'Need same number of lag ticks and lag tick labels'
+    
+    if args.split:
+        assert args.split_by, 'Need split by criteria'
+        assert args.split == 'horizontal' or args.split == 'vertical'
+        assert args.split_by == 'keys' or args.split_by == 'labels'
+
+args = arg_parser()
 x_vals_show = [x_val / 1000 for x_val in args.x_vals_show]
-assert all(lag in x_vals_show for lag in args.lag_ticks), 'X values show should contain all values from lags ticks'
 lags_show = [lag / 1000 for lag in args.lags_show]
-assert all(lag in lags_show for lag in args.lag_tick_labels), 'Lags show should contain all values from lag tick labels'
-assert len(args.lag_ticks) == len(args.lag_tick_labels), 'Need same number of lag ticks and lag tick labels'
-
-if args.split:
-    assert args.split_by, 'Need split by criteria'
-    assert args.split == 'horizontal' or args.split == 'vertical'
-    assert args.split_by == 'keys' or args.split_by == 'labels'
+arg_assert(args)
 
 
 # -----------------------------------------------------------------------------
-# Get Color and Style Maps
+# Functions for Color and Style Maps
 # -----------------------------------------------------------------------------
+
+def colorFader(c1, c2, mix):
+    """Get color in between two colors (based on linear interpolate)
+
+    Args:
+        c1: color 1 in hex format
+        c2: color 2 in hex format
+        mix: percentage between two colors (0 is c1, 1 is c2)
+
+    Returns:
+        a color in hex format
+    """
+    c1 = np.array(mpl.colors.to_rgb(c1))
+    c2 = np.array(mpl.colors.to_rgb(c2))
+    return mpl.colors.to_hex((1 - mix) * c1 + mix * c2)
+
 
 def get_cmap_smap(args):
     """Get line color and style map for given label key combinations
@@ -64,8 +88,12 @@ def get_cmap_smap(args):
         smap: dictionary of {line style: (label, key)}
     """
     prop_cycle = plt.rcParams['axes.prop_cycle']
-    colors = prop_cycle.by_key()['color']
+    colors = prop_cycle.by_key()['color'] # separate colors
+
+    # col_len = 11
+    # colors = [colorFader('#97baf7','#000308',i/col_len) for i in range(1,col_len)] # color gradient
     styles = ['-', '--', '-.', ':']
+
     cmap = {}  # line color map
     smap = {}  # line style map
 
@@ -93,8 +121,9 @@ def get_cmap_smap(args):
         raise Exception('Invalid input for arguments lc_by or ls_by') 
     return (cmap, smap)
 
-unique_labels = list(set(args.labels))
-unique_keys = list(set(args.keys))
+
+unique_labels = list(dict.fromkeys(args.labels))
+unique_keys = list(dict.fromkeys(args.keys))
 cmap, smap = get_cmap_smap(args)
 
 
@@ -111,8 +140,15 @@ if len(args.sig_elec_file) == 0:
 elif len(args.sig_elec_file) == len(args.sid) * len(args.keys):
     sid_key_tup = [x for x in itertools.product(args.sid, args.keys)]
     for fname, sid_key in zip(args.sig_elec_file, sid_key_tup):
-        elecs = pd.read_csv('data/' + fname)['electrode'].tolist()
-        sigelecs[sid_key] = set(elecs)
+        sig_file = pd.read_csv('data/' + fname)
+        if sig_file.subject.nunique() == 1:
+            elecs = sig_file['electrode'].tolist()
+            sigelecs[sid_key] = set(elecs)
+        else:
+            sig_file['sid_electrode'] = sig_file['subject'].astype(str) + '_' + sig_file['electrode']
+            elecs = sig_file['sid_electrode'].tolist()
+            sigelecs[sid_key] = set(elecs)
+            multiple_sid = True
 else:
     raise Exception('Need a significant electrode file for each subject-key combo')
 

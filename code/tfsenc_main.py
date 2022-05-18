@@ -222,26 +222,29 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     comp_X = X[elec_datum.speaker != 'Speaker1', :]
     prod_Y = Y[elec_datum.speaker == 'Speaker1', :]
     comp_Y = Y[elec_datum.speaker != 'Speaker1', :]
-
-    if args.sig_elec_file: # could have multiple sids (like 777)
-        # Differentiates same electrode name from different subjects
-        elec_name = str(sid) + '_' + elec_name
+  
+    elec_name = str(sid) + '_' + elec_name
     print(f'{args.sid} {elec_name} Prod: {len(prod_X)} Comp: {len(comp_X)}')
 
-    # Run regression and correlation
-    if args.model_mod and 'pc-flip' in args.model_mod: # prod-comp flip
-        if len(prod_X) > 0:
-            prod_results = run_regression(args, prod_X, prod_Y, fold_cat_prod, comp_X, comp_Y, fold_cat_comp, fold_num)
-        comp_results = run_regression(args, comp_X, comp_Y, fold_cat_comp, prod_X, prod_Y, fold_cat_prod, fold_num)
-    else: # normal encoding
-        if len(prod_X) > 0:
-            prod_results = run_regression(args, prod_X, prod_Y, fold_cat_prod, prod_X, prod_Y, fold_cat_prod, fold_num)
-        comp_results = run_regression(args, comp_X, comp_Y, fold_cat_comp, comp_X, comp_Y, fold_cat_comp, fold_num)
-    
-    # Save encoding results
-    if len(prod_X) > 0:
+    # Run regression and save correlation results
+    if args.model_mod and 'pc-flip' in args.model_mod: # train of prod test on comp
+        train_x, train_y, train_fold, test_x, test_y, test_fold = prod_X, prod_Y, fold_cat_prod, comp_X, comp_Y, fold_cat_comp
+    else: # regular prod
+        train_x, train_y, train_fold, test_x, test_y, test_fold = prod_X, prod_Y, fold_cat_prod, prod_X, prod_Y, fold_cat_prod
+
+    if len(train_x) > 0 and len(test_x) > 0:
+        prod_results = run_regression(args, train_x, train_y, train_fold, test_x, test_y, test_fold, fold_num)
         write_encoding_results(args, prod_results, elec_name, 'prod')
-    write_encoding_results(args, comp_results, elec_name, 'comp')
+    
+    if args.model_mod and 'pc-flip' in args.model_mod: # train on comp test on prod
+        train_x, train_y, train_fold, test_x, test_y, test_fold = comp_X, comp_Y, fold_cat_comp, prod_X, prod_Y, fold_cat_prod
+    else: # regular comp
+        train_x, train_y, train_fold, test_x, test_y, test_fold = comp_X, comp_Y, fold_cat_comp, comp_X, comp_Y, fold_cat_comp
+
+    if len(train_x) > 0 and len(test_x) > 0:
+        comp_results = run_regression(args, train_x, train_y, train_fold, test_x, test_y, test_fold, fold_num)
+        write_encoding_results(args, comp_results, elec_name, 'comp')
+
     
     # # Perform encoding/regression
     # if args.phase_shuffle:
