@@ -246,12 +246,12 @@ def encode_lags_numba(args, X, Y, folds, fold_num, lag):
     return rp
 
 
-def encoding_mp_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, fold_num, lag):
+def encoding_mp_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag):
     if args.shuffle:
         np.random.shuffle(Ytra)
         np.random.shuffle(Ytes)
 
-    PY_hat = cv_lm_003_prod_comp(Xtra, Ytra, fold_tra, Xtes, fold_tes, fold_num,lag)
+    PY_hat = cv_lm_003_prod_comp(Xtra, Ytra, fold_tra, Xtes, fold_tes, args.fold_num,lag)
     rp, _, _ = encColCorr(Ytes, PY_hat)
 
     return rp
@@ -273,14 +273,14 @@ def run_save_permutation_pr(args, prod_X, prod_Y, filename):
     return perm_rc
 
 
-def run_regression(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, fold_num):
+def run_regression(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes):
     perm_prod = []
     for i in range(args.npermutations):
-        result = encoding_mp_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, fold_num, -1)
+        result = encoding_mp_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, -1)
         if args.model_mod and 'best-lag' in args.model_mod:
             best_lag = np.argmax(np.array(result))
             print('switch to best-lag: ' + str(best_lag))
-            perm_prod.append(encoding_mp_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, fold_num, best_lag))
+            perm_prod.append(encoding_mp_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, best_lag))
         else:
             perm_prod.append(result)
     

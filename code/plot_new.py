@@ -174,6 +174,8 @@ for fmt, label in zip(args.formats, args.labels):
         for resultfn in files:
             elec = os.path.basename(resultfn).replace('.csv', '')[:-5]
             # Skip electrodes if they're not part of the sig list
+            # if 'LGA' not in elec and 'LGB' not in elec: # for 717, only grid
+            #     continue
             if len(sigelecs) and elec not in sigelecs[(load_sid,key)]:
                 continue
             df = pd.read_csv(resultfn, header=None)
@@ -192,6 +194,17 @@ df.set_index(['label', 'electrode', 'mode','sid'], inplace=True)
 n_lags, n_df = len(args.lags_plot), len(df.columns)
 assert n_lags == n_df, 'args.lags_plot length ({n_av}) must be the same size as results ({n_df})'
 
+def add_sid(string):
+    if string.find('_') < 0 or not string[0:3].isdigit(): # no sid in front
+        assert len(args.sid) == 1
+        new_string = str(args.sid[0]) + '_' + string # add sid
+        dict[string] = new_string
+    return string
+
+dict = {}
+new_sid = df.index.to_series().str.get(1).apply(add_sid) # add sid if no sid in front
+df = df.rename(index=dict) # rename electrodes to add sid in front
+
 if len(args.lags_show) < len(args.lags_plot): # if we want to plot part of the lags and not all lags
     print('Trimming Data')
     chosen_lag_idx = [idx for idx, element in enumerate(args.lags_plot) if element in args.lags_show]
@@ -203,16 +216,35 @@ if len(args.lags_show) < len(args.lags_plot): # if we want to plot part of the l
 # Plotting Average and Individual Electrodes
 # -----------------------------------------------------------------------------
 
-def get_elecbrain(sid, electrode):
+def sep_sid_elec(string):
+    """Separate string into subject id and electrode name
+
+    Args:
+        string: string in the format
+
+    Returns:
+        tuple in the format (subject id, electrode name)
+    """
+    sid_index = string.find('_')
+    if sid_index > 1: # if string contains '_'
+        if string[:sid_index].isdigit(): # if electrode name starts with sid
+            sid_name = string[:sid_index]
+            elec_name = string[(sid_index + 1):] # remove the sid
+    return (sid_name, elec_name)
+
+
+def get_elecbrain(electrode):
     """Get filepath for small brain plots
 
     Args:
-        sid: subject id
         electrode: electrode name
 
     Returns:
         imname: filepath for small brain plot for the given electrode
     """
+    sid, electrode = sep_sid_elec(electrode)
+    if sid == '7170':
+        sid = '717'
     elecdir = f'/projects/HASSON/247/data/elecimg/{sid}/'
     name = electrode.replace('EEG', '').replace('REF', '').replace('\\', '')
     name = name.replace('_', '').replace('GR', 'G')
@@ -311,7 +343,7 @@ def plot_electrodes(pdf):
         ax.set_ylim(vmin - 0.05, vmax + .05)  # .35
         ax.legend(loc='upper left', frameon=False)
         ax.set(xlabel='Lag (s)', ylabel='Correlation (r)', title=f'{sid} {electrode}')
-        imname = get_elecbrain(sid, electrode)
+        imname = get_elecbrain(electrode)
         if os.path.isfile(imname):
             arr_image = plt.imread(imname, format='png')
             fig.figimage(arr_image,
@@ -342,7 +374,7 @@ def plot_electrodes_split_by_key(pdf, split_dir):
             ax.legend(loc='upper left', frameon=False)
             ax.set_ylim(vmin - 0.05, vmax + .05)  # .35
             ax.set(xlabel='Lag (s)', ylabel='Correlation (r)', title=f'{sid} {electrode} {mode}')
-        imname = get_elecbrain(sid, electrode)
+        imname = get_elecbrain(electrode)
         if os.path.isfile(imname):
             arr_image = plt.imread(imname, format='png')
             fig.figimage(arr_image,
@@ -373,7 +405,7 @@ def plot_electrodes_split_by_label(pdf, split_dir):
             ax.legend(loc='upper left', frameon=False)
             ax.set_ylim(vmin - 0.05, vmax + .05)  # .35
             ax.set(xlabel='Lag (s)', ylabel='Correlation (r)', title=f'{sid} {electrode} {label}')
-        imname = get_elecbrain(sid, electrode)
+        imname = get_elecbrain(electrode)
         if os.path.isfile(imname):
             arr_image = plt.imread(imname, format='png')
             fig.figimage(arr_image,

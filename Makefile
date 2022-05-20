@@ -8,7 +8,7 @@ DT := ${USR}
 #  Configurable options
 # -----------------------------------------------------------------------------
 
-PRJCT_ID := tfs
+PRJCT_ID := podcast
 # {podcast | tfs}
 
 ############## tfs electrode ids ##############
@@ -74,10 +74,11 @@ NPERM := 1000
 # Choose the lags to run for.
 LAGS := {400000..500000..100} # lag400500k-100
 LAGS := {-150000..150000..100} # lag60k-1k
-LAGS := -300000 -250000 -200000 200000 250000 300000 # lag300k-50k
-LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150k-30k
+LAGS := {-500..500..5} # lag500-5
 LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60k-10k
-LAGS := {-10000..10000..25} # lag10sk-25
+LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150k-30k
+LAGS := -300000 -250000 -200000 200000 250000 300000 # lag300k-50k
+LAGS := {-10000..10000..25} # lag10k-25
 
 # Conversation ID (Choose 0 to run for all conversations)
 CONVERSATION_IDX := 0
@@ -85,9 +86,9 @@ CONVERSATION_IDX := 0
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
-EMB := glove50
 EMB := blenderbot-small
 EMB := gpt2-xl
+EMB := glove50
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
@@ -95,19 +96,22 @@ WS := 200
 
 # Choose which set of embeddings to align with (intersection of embeddings)
 ALIGN_WITH := blenderbot-small
-ALIGN_WITH := gpt2-xl
 ALIGN_WITH := glove50
 ALIGN_WITH := glove50 gpt2-xl blenderbot-small
+ALIGN_WITH := gpt2-xl
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 48
+LAYER_IDX := 1
 
 # Choose whether to PCA (not used in encoding for now)
 # PCA_TO := 50
 
 # Specify the minimum word frequency (0 for 247, 5 for podcast)
-MWF := 0
+MWF := 5
+
+# Specify the number of folds (usually 5)
+FN := 5
 
 # TODO: explain this parameter.
 WV := all
@@ -123,8 +127,8 @@ WV := all
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
-CMD := python
 CMD := sbatch submit1.sh
+CMD := python
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -161,7 +165,7 @@ actually predicted by gpt2} (only used for podcast glove)
 # DM := gpt2-xl-pred
 DM := lag2k-25-correct-layer
 DM := lag2k-25-incorrect-layer
-DM := lag10k-25-all-2
+DM := test-all
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -205,6 +209,7 @@ run-encoding:
 		--npermutations $(NPERM) \
 		--lags $(LAGS) \
 		--min-word-freq $(MWF) \
+		--fold-num $(FN) \
 		--pca-to $(PCA_TO) \
 		--layer-idx $(LAYER_IDX) \
 		--datum-mod $(DM) \
@@ -220,33 +225,35 @@ run-encoding:
 
 run-encoding-layers:
 	mkdir -p logs
-	for layer in $(LAYER_IDX); do\
-		$(CMD) code/$(FILE).py \
-			--project-id $(PRJCT_ID) \
-			--pkl-identifier $(PKL_IDENTIFIER) \
-			--datum-emb-fn $(DS) \
-			--sid $(SID) \
-			--conversation-id $(CONVERSATION_IDX) \
-			--electrodes $(E_LIST) \
-			--emb-type $(EMB) \
-			--context-length $(CNXT_LEN) \
-			--align-with $(ALIGN_WITH) \
-			--window-size $(WS) \
-			--word-value $(WV) \
-			--npermutations $(NPERM) \
-			--lags $(LAGS) \
-			--min-word-freq $(MWF) \
-			--pca-to $(PCA_TO) \
-			--layer-idx $$layer \
-			--datum-mod $(DM) \
-			--model-mod $(MM) \
-			$(BC) \
-			$(SIG_FN) \
-			$(SH) \
-			$(PSH) \
-			--normalize $(NM)\
-			--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM)-$$layer \
-			--output-prefix $(USR)-$(WS)ms-$(WV);\
+	for context in $(CNXT_LEN); do\
+		for layer in $(LAYER_IDX); do\
+			$(CMD) code/$(FILE).py \
+				--project-id $(PRJCT_ID) \
+				--pkl-identifier $(PKL_IDENTIFIER) \
+				--datum-emb-fn $(DS) \
+				--sid $(SID) \
+				--conversation-id $(CONVERSATION_IDX) \
+				--electrodes $(E_LIST) \
+				--emb-type $(EMB) \
+				--context-length $$context \
+				--align-with $(ALIGN_WITH) \
+				--window-size $(WS) \
+				--word-value $(WV) \
+				--npermutations $(NPERM) \
+				--lags $(LAGS) \
+				--min-word-freq $(MWF) \
+				--pca-to $(PCA_TO) \
+				--layer-idx $$layer \
+				--datum-mod $(DM) \
+				--model-mod $(MM) \
+				$(BC) \
+				$(SIG_FN) \
+				$(SH) \
+				$(PSH) \
+				--normalize $(NM)\
+				--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM)-$$context-$$layer \
+				--output-prefix $(USR)-$(WS)ms-$(WV);\
+		done; \
 	done;
 
 # Recommended naming convention for output_folder
@@ -413,18 +420,18 @@ The number of sig elec files should also equal # of sid * # of keys
 plot-new:
 	rm -f results/figures/*
 	python code/plot_new.py \
-		--sid 717 \
+		--sid 7170 \
 		--formats \
 			'results/tfs/7170-2-20220505/kw-tfs-full-7170-glove50-quardra/kw-200ms-all-7170/*_%s.csv' \
 			'results/tfs/7170-2-20220505/kw-tfs-full-7170-gpt2-xl-quardra/kw-200ms-all-7170/*_%s.csv' \
 			'results/tfs/7170-2-20220505/kw-tfs-full-7170-blenderbot-small-quardra/kw-200ms-all-7170/*_%s.csv' \
 			'results/tfs/7170-2-20220505/kw-tfs-full-7170-gpt2-xl-ctx-128-quardra/kw-200ms-all-7170/*_%s.csv' \
-			'results/tfs/7170-3-20220517/kw-tfs-full-7170-glove50-quardra/kw-200ms-all-7170/*_%s.csv' \
-			'results/tfs/7170-3-20220517/kw-tfs-full-7170-gpt2-xl-quardra/kw-200ms-all-7170/*_%s.csv' \
-			'results/tfs/7170-3-20220517/kw-tfs-full-7170-blenderbot-small-quardra/kw-200ms-all-7170/*_%s.csv' \
-			'results/tfs/7170-3-20220517/kw-tfs-full-7170-gpt2-xl-ctx-128-quardra/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/7170-4-20220518/kw-tfs-full-7170-glove50-quardra/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/7170-4-20220518/kw-tfs-full-7170-gpt2-xl-quardra/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/7170-4-20220518/kw-tfs-full-7170-blenderbot-small-quardra/kw-200ms-all-7170/*_%s.csv' \
+			'results/tfs/7170-4-20220518/kw-tfs-full-7170-gpt2-xl-ctx-128-quardra/kw-200ms-all-7170/*_%s.csv' \
 		--labels glove-good gpt2-good bbot-good gpt2-128-good glove-all gpt2-all bbot-all gpt2-128-all \
-		--keys comp \
+		--keys prod \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
 		--lags-plot $(LAGS_PLT) \
@@ -433,7 +440,7 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/tfs-7170-gggb-allgood-quardra-comp-grid.pdf
+		--outfile results/figures/tfs-7170-gggb-allgood-quardra-prod.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 

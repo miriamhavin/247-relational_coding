@@ -206,16 +206,15 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     if len(elec_datum) == 0: # datum has no words, meaning no signal
         print(f'{args.sid} {elec_name} No Signal')
         return (args.sid, elec_name, 0, 0)
-    elif args.project_id == 'tfs' and elec_datum.conversation_id.nunique() < 5: # datum has less than 5 convos
-        print(f'{args.sid} {elec_name} has less than 5 conversations')
+    elif args.project_id == 'tfs' and elec_datum.conversation_id.nunique() < args.fold_num: # num of convos less than num of folds
+        print(f'{args.sid} {elec_name} has less conversations than the number of folds')
         return (args.sid, elec_name, 1, 1)
 
     # Build design matrices
     X, Y = build_XY(args, elec_datum, elec_signal)
 
     # Get folds
-    fold_num = 5
-    fold_cat_prod, fold_cat_comp = get_folds(args, elec_datum, X, Y, fold_num)
+    fold_cat_prod, fold_cat_comp = get_folds(args, elec_datum, X, Y, args.fold_num)
 
     # Split into production and comprehension
     prod_X = X[elec_datum.speaker == 'Speaker1', :]
@@ -227,26 +226,22 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     print(f'{args.sid} {elec_name} Prod: {len(prod_X)} Comp: {len(comp_X)}')
 
     # Run regression and save correlation results
-    if args.model_mod and 'pc-flip' in args.model_mod: # train of prod test on comp
-        train_x, train_y, train_fold, test_x, test_y, test_fold = prod_X, prod_Y, fold_cat_prod, comp_X, comp_Y, fold_cat_comp
-    else: # regular prod
-        train_x, train_y, train_fold, test_x, test_y, test_fold = prod_X, prod_Y, fold_cat_prod, prod_X, prod_Y, fold_cat_prod
+    prod_train = prod_X, prod_Y, fold_cat_prod
+    comp_train = comp_X, comp_Y, fold_cat_comp
 
-    if len(train_x) > 0 and len(test_x) > 0:
-        prod_results = run_regression(args, train_x, train_y, train_fold, test_x, test_y, test_fold, fold_num)
+    if args.model_mod and 'pc-flip' in args.model_mod: # flip test
+        prod_test, comp_test = comp_train, prod_train
+    else:
+        prod_test, comp_test = prod_train, comp_train
+
+    if len(prod_train[0]) > 0 and len(prod_test[0]) > 0:
+        prod_results = run_regression(args, *prod_train, *prod_test)
         write_encoding_results(args, prod_results, elec_name, 'prod')
-    
-    if args.model_mod and 'pc-flip' in args.model_mod: # train on comp test on prod
-        train_x, train_y, train_fold, test_x, test_y, test_fold = comp_X, comp_Y, fold_cat_comp, prod_X, prod_Y, fold_cat_prod
-    else: # regular comp
-        train_x, train_y, train_fold, test_x, test_y, test_fold = comp_X, comp_Y, fold_cat_comp, comp_X, comp_Y, fold_cat_comp
-
-    if len(train_x) > 0 and len(test_x) > 0:
-        comp_results = run_regression(args, train_x, train_y, train_fold, test_x, test_y, test_fold, fold_num)
+    if len(comp_train[0]) > 0 and len(comp_test[0]) > 0:
+        comp_results = run_regression(args, *comp_train, *comp_test)
         write_encoding_results(args, comp_results, elec_name, 'comp')
-
     
-    # # Perform encoding/regression
+    # # Perform encoding/regression (old code)
     # if args.phase_shuffle:
     #     if args.project_id == 'podcast':
     #         with Pool() as pool:
@@ -307,11 +302,11 @@ def parallel_encoding(args, electrode_info, datum, stitch_index, parallel = True
 
     return None
 
-def get_vector(x, glove):
-    try:
-        return glove.get_vector(x)
-    except KeyError:
-        return None
+# def get_vector(x, glove):
+#     try:
+#         return glove.get_vector(x)
+#     except KeyError:
+#         return None
 
 
 @main_timer
