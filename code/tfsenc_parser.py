@@ -35,6 +35,7 @@ def parse_arguments():
     parser.add_argument('--electrodes', nargs='*', type=int)
     parser.add_argument('--npermutations', type=int, default=1)
     parser.add_argument('--min-word-freq', nargs='?', type=int, default=5)
+    parser.add_argument('--fold-num', nargs='?', type=int, default=5)
     parser.add_argument('--exclude-nonwords', action='store_true')
     parser.add_argument('--job-id', type=int, default=0)
 
