@@ -63,7 +63,9 @@ def make_input_from_tokens(token_list):
     Returns:
         [type]: [description]
     """
-    windows = [tuple(token_list[x : x + 2]) for x in range(len(token_list) - 2 + 1)]
+    windows = [
+        tuple(token_list[x : x + 2]) for x in range(len(token_list) - 2 + 1)
+    ]
 
     return windows
 
@@ -107,7 +109,9 @@ def add_signal_length(df, stitch):
     df["conv_signal_length"] = np.nan
 
     for idx, conv in enumerate(df.conversation_id.unique()):
-        df.loc[df.conversation_id == conv, "conv_signal_length"] = signal_lengths[idx]
+        df.loc[
+            df.conversation_id == conv, "conv_signal_length"
+        ] = signal_lengths[idx]
 
     return df
 
@@ -164,8 +168,12 @@ def process_datum(args, df, stitch):
 
     df = add_signal_length(df, stitch)
 
-    df = df.loc[~df["conversation_id"].isin(args.bad_convos)]  # filter bad convos
-    assert len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
+    df = df.loc[
+        ~df["conversation_id"].isin(args.bad_convos)
+    ]  # filter bad convos
+    assert (
+        len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
+    )
 
     if args.project_id == "tfs" and not all(
         [item in df.columns for item in ["adjusted_onset", "adjusted_offset"]]
@@ -211,24 +219,21 @@ def filter_datum(args, df):
     Returns:
         DataFrame: filtered datum
     """
-    if "glove50" in args.emb_type.lower():  # filter based on embedding type argument
-        common = df.in_glove
-    elif "gpt2" in args.emb_type.lower():
-        common = df.in_gpt2
-    elif "blenderbot-small" in args.emb_type.lower():
-        common = df.in_blenderbot_small_90M
-    elif "blenderbot" in args.emb_type.lower():
-        common = df.in_blenderbot_3B
+    # FIXME: Move away from glove50/glove confusion
+    # stick with one convention
+    if args.emb_type == "glove50":
+        emb_type_trimmed = "glove"
+    else:
+        emb_type_trimmed = args.emb_type.split("/")[-1]
 
-    for model in args.align_with:  # filter based on align with arguments
-        if "glove" in model:
-            common = common & df.in_glove
-        elif "gpt2" in model:
-            common = common & df.in_gpt2
-        elif "blenderbot-small" in model:
-            common = common & df.in_blenderbot_small_90M
-        elif "blenderbot" in model:
-            common = common & df.in_blenderbot_3B
+    align_with_trimmed = [model.split("/")[-1] for model in args.align_with]
+
+    # filter based on embedding type argument
+    common = df[f"in_{emb_type_trimmed}"]
+
+    # filter based on align with arguments
+    for model in align_with_trimmed:
+        common = common & df[f"in_{model}"]
 
     if args.exclude_nonwords:  # filter based on exclude_nonwords argument
         nonword_mask = df.word.str.lower().apply(lambda x: x in NONWORDS)
@@ -260,7 +265,8 @@ def mod_datum_by_preds(args, datum, emb_type):
         # load second datum
         if emb_type == "gpt2-xl":
             second_datum_name = (
-                str(args.sid) + "_full_gpt2-xl_cnxt_1024_layer_48_embeddings.pkl"
+                str(args.sid)
+                + "_full_gpt2-xl_cnxt_1024_layer_48_embeddings.pkl"
             )
         elif emb_type == "blenderbot-small":
             second_datum_name = (
@@ -358,7 +364,9 @@ def mod_datum(args, datum):
             pred_type = "gpt2-xl"
         elif "blenderbot-small" in args.datum_mod:
             pred_type = "blenderbot-small"
-        assert "glove" not in pred_type, "Glove embeddings does not have predictions"
+        assert (
+            "glove" not in pred_type
+        ), "Glove embeddings does not have predictions"
         datum = mod_datum_by_preds(args, datum, pred_type)
 
     # else:
