@@ -436,7 +436,7 @@ The number of sig elec files should also equal # of sid * # of keys
 
 plot-new:
 	rm -f results/figures/*
-	python code/plot_new.py \
+	python code/tfsplt_new.py \
 		--sid 717 \
 		--formats \
 			'results/tfs/bbot-layers-7170-good/kw-tfs-full-7170-blenderbot-small-lag10k-25-all-14/kw-200ms-all-7170/*_%s.csv' \
@@ -455,87 +455,23 @@ plot-new:
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
-# plot-encoding:
-# 	mkdir -p results/figures
-# 	python code/tfsenc_plots.py \
-# 			--project-id $(PRJCT_ID) \
-# 			--sid $(SID) \
-# 			--electrodes $(E_LIST) \
-# 			--lags $(LAGS) \
-# 			$(SIG_FN) \
-# 			--input-directory \
-# 				zz-tfs-full-625-glove50 \
-# 			--labels \
-# 				glove \
-# 			--output-file-name \
-# 				$(PRJCT_ID)-$(SID)-glove-one
-# 	rsync -av results/figures/ ~/tigress/247-encoding-results/figures/
+# HAS_CTX := --has-ctx
+SIG_ELECS := --sig-elecs
 
-# plot-encoding1:
-# 	mkdir -p results/figures
-# 	python code/tfsenc_plots.py \
-# 			--project-id $(PRJCT_ID) \
-# 			--sid 777 \
-# 			--input-directory \
-# 				podcast-e_bb-d_blenderbot-small-w_200/ \
-# 				podcast-e_bb-d_glove50-w_200/ \
-# 				podcast-e_bb-d_gpt2-xl-w_200/ \
-# 			--labels \
-# 				bbot-small glove gpt2-xl \
-# 			--output-file-name \
-# 				podcast-test
-# 	rsync -av --delete results/figures ~/tigress/247-encoding-results
+CONDS := all correct incorrect
+CONDS := all flip
 
-# 'results/tfs/zz1-tfs-full-625-blenderbot-small/625/*_%s.csv' 
-
-
-# plot-old:
-# 	rm -f results/figures/*
-# 	python code/plot_old.py \
-# 		--formats \
-# 			'results/tfs/kw-tfs-full-625-glove50-quardra/kw-200ms-all-625/*_%s.csv' \
-# 		--labels glove \
-# 		--values $(LAGS) \
-# 		--keys prod \
-# 		$(SIG_FN) \
-# 		--outfile results/figures/tfs-625-new-test-prod.pdf
-# 	rsync -av results/figures/ ~/tigress/247-encoding-results/
-
-
-# plot-all:
-# 	rm -f results/figures/*
-# 	python code/plot_all.py \
-# 		--formats \
-# 			'results/tfs/kw-tfs-full-625-glove50-final/kw-200ms-all-625/*_%s.csv' \
-# 			'results/tfs/kw-tfs-full-625-gpt2-xl-final/kw-200ms-all-625/*_%s.csv' \
-# 			'results/tfs/kw-tfs-full-625-blenderbot-small-final/kw-200ms-all-625/*_%s.csv' \
-# 			'results/tfs/kw-tfs-full-625-gpt2-xl-ctx-128-final/kw-200ms-all-625/*_%s.csv' \
-# 			'results/tfs/kw-tfs-full-676-glove50-final/kw-200ms-all-676/*_%s.csv' \
-# 			'results/tfs/kw-tfs-full-676-gpt2-xl-final/kw-200ms-all-676/*_%s.csv' \
-# 			'results/tfs/kw-tfs-full-676-blenderbot-small-final/kw-200ms-all-676/*_%s.csv' \
-# 			'results/tfs/kw-tfs-full-676-gpt2-xl-ctx-128-final/kw-200ms-all-676/*_%s.csv' \
-# 		--labels glove gpt2-xl-1024 bbot-de gpt2-xl-128 \
-# 		--values $(LAGS) \
-# 		--keys prod \
-# 		$(SIG_FN) \
-# 		--sid 625 676 \
-# 		--outfile results/figures/tfs-gggb-final-sig1.0-prod.pdf
-# 	rsync -av results/figures/ ~/tigress/247-encoding-results/
-
-
-# plot-erp:
-# 	rm -f results/figures/*
-# 	python code/plot_erp.py \
-# 		--formats \
-# 			'results/tfs/kw-tfs-full-625-erp-quardra/kw-200ms-all-625/*_%s.csv' \
-# 			'results/tfs/kw-tfs-full-625-gpt2-xl-det-quardra/kw-200ms-all-625/*_%s.csv' \
-# 			'results/tfs/kw-tfs-full-625-blenderbot-small-det-quardra/kw-200ms-all-625/*_%s.csv' \
-# 		--labels erp gpt2 bbot \
-# 		--values $(LAGS) \
-# 		--keys prod comp \
-# 		$(SIG_FN) \
-# 		--outfile results/figures/tfs-625-erp-quardra.pdf
-# 	rsync -av results/figures/ ~/tigress/247-encoding-results/
+plot_layers:
+	rm -f results/figures/*
+	python code/tfsplt_layer.py \
+		--sid 625 \
+		--layer-num 16 \
+		--top-dir results/tfs/bbot-layers-625 \
+		--modes comp prod \
+		--conditions $(CONDS) \
+		$(HAS_CTX) \
+		$(SIG_ELECS) \
+		--outfile results/figures/625-ericplots-bbot.pdf
 
 
 # -----------------------------------------------------------------------------

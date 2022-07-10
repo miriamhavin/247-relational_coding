@@ -327,7 +327,7 @@ def main():
 
     # Processing significant electrodes or individual subjects
     electrode_info = process_subjects(args)
-    parallel_encoding(args, electrode_info, datum, stitch_index, False)
+    parallel_encoding(args, electrode_info, datum, stitch_index)
 
     return
 
