@@ -87,7 +87,7 @@ for format in formats:
         if row in comp_sig_elecs:
             df.loc[row, col_name2] = get_max(comp_name,format)
 
-breakpoint()
+
 for col in emb_key:
     output_filename = 'results/cor_tfs/' + sub + '_' + corr + '_' + col + '.txt'
     df_output = df.loc[:,[1,2,3,4,col]]

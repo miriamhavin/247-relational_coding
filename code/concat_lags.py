@@ -22,6 +22,8 @@ for format in formats:
     assert len(files1) == len(files2), 'Need same number files under data sources'
 
 for file in files1:
+    if 'summary' in file:
+        continue
     filename = os.path.basename(file) # get filename
     newfilename = args.output_dir + filename
 
