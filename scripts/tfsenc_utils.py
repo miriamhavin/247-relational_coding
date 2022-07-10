@@ -132,7 +132,9 @@ def cv_lm_003_prod_comp(Xtra, Ytra, fold_tra, Xtes, fold_tes, fold_num, lag):
         if lag != -1:
             B = model.named_steps["linearregression"].coef_
             assert lag < B.shape[0], f"Lag index out of range"
-            B = np.repeat(B[lag, :][np.newaxis, :], B.shape[0], 0)  # best-lag model
+            B = np.repeat(
+                B[lag, :][np.newaxis, :], B.shape[0], 0
+            )  # best-lag model
             model.named_steps["linearregression"].coef_ = B
 
             # old best-lag model
@@ -161,7 +163,9 @@ def cv_lm_003_prod_comp(Xtra, Ytra, fold_tra, Xtes, fold_tes, fold_num, lag):
 
 
 @jit(nopython=True)
-def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags, window_size):
+def build_Y(
+    onsets, convo_onsets, convo_offsets, brain_signal, lags, window_size
+):
     """[summary]
 
     Args:
@@ -226,7 +230,12 @@ def build_XY(args, datum, brain_signal):
     brain_signal = brain_signal.reshape(-1, 1)
 
     Y = build_Y(
-        word_onsets, convo_onsets, convo_offsets, brain_signal, lags, args.window_size
+        word_onsets,
+        convo_onsets,
+        convo_offsets,
+        brain_signal,
+        lags,
+        args.window_size,
     )
 
     return X, Y
@@ -249,7 +258,9 @@ def encode_lags_numba(args, X, Y, folds, fold_num, lag):
     return rp
 
 
-def encoding_mp_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag):
+def encoding_mp_prod_comp(
+    args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag
+):
     if args.shuffle:
         np.random.shuffle(Ytra)
         np.random.shuffle(Ytes)
@@ -325,9 +336,13 @@ def run_save_permutation(args, prod_X, prod_Y, folds, fold_num, filename):
         else:
             perm_prod = []
             for i in range(args.npermutations):
-                result = encode_lags_numba(args, prod_X, prod_Y, folds, fold_num, -1)
+                result = encode_lags_numba(
+                    args, prod_X, prod_Y, folds, fold_num, -1
+                )
                 if args.model_mod:
-                    assert "best-lag" in args.model_mod, f"Model modification Error"
+                    assert (
+                        "best-lag" in args.model_mod
+                    ), f"Model modification Error"
                     best_lag = np.argmax(np.array(result))
                     print("switch to best-lag: " + str(best_lag))
                     perm_prod.append(
@@ -362,27 +377,6 @@ def load_header(conversation_dir, subject_id):
     labels = header.header.label
 
     return labels
-
-
-def create_output_directory(args):
-    # output_prefix_add = '-'.join(args.emb_file.split('_')[:-1])
-
-    # folder_name = folder_name + '-pca_' + str(args.reduce_to) + 'd'
-    # full_output_dir = os.path.join(args.output_dir, folder_name)
-
-    folder_name = "-".join([args.output_prefix, str(args.sid)])
-    folder_name = folder_name.strip("-")
-    if args.model_mod:
-        parent_folder_name = "-".join([args.output_parent_dir, args.model_mod])
-    else:
-        parent_folder_name = args.output_parent_dir
-    full_output_dir = os.path.join(
-        os.getcwd(), "results", args.project_id, parent_folder_name, folder_name
-    )
-
-    os.makedirs(full_output_dir, exist_ok=True)
-
-    return full_output_dir
 
 
 def encoding_regression_pr(args, datum, elec_signal, name):
@@ -443,7 +437,9 @@ def write_encoding_results(args, cor_results, elec_name, mode):
         None
     """
     trial_str = append_jobid_to_string(args, mode)
-    filename = os.path.join(args.full_output_dir, elec_name + trial_str + ".csv")
+    filename = os.path.join(
+        args.full_output_dir, elec_name + trial_str + ".csv"
+    )
 
     with open(filename, "w") as csvfile:
         print("writing file")
@@ -474,54 +470,17 @@ def encoding_regression(args, datum, elec_signal, name):
     # Run permutation and save results
     trial_str = append_jobid_to_string(args, "prod")
     filename = os.path.join(args.full_output_dir, name + trial_str + ".csv")
-    run_save_permutation(args, prod_X, prod_Y, fold_cat_prod, fold_num, filename)
+    run_save_permutation(
+        args, prod_X, prod_Y, fold_cat_prod, fold_num, filename
+    )
 
     trial_str = append_jobid_to_string(args, "comp")
     filename = os.path.join(args.full_output_dir, name + trial_str + ".csv")
-    run_save_permutation(args, comp_X, comp_Y, fold_cat_comp, fold_num, filename)
+    run_save_permutation(
+        args, comp_X, comp_Y, fold_cat_comp, fold_num, filename
+    )
 
     return
-
-
-def setup_environ(args):
-    """Update args with project specific directories and other flags"""
-    PICKLE_DIR = os.path.join(
-        os.getcwd(), "data", args.project_id, str(args.sid), "pickles"
-    )
-    path_dict = dict(PICKLE_DIR=PICKLE_DIR)
-
-    stra = "cnxt_" + str(args.context_length)
-    if args.emb_type == "glove50":
-        stra = ""
-        args.layer_idx = 1
-    if args.emb_type == "blenderbot-small":
-        stra = ""
-
-    args.emb_file = "_".join(
-        [
-            str(args.sid),
-            args.pkl_identifier,
-            args.emb_type,
-            stra,
-            f"layer_{args.layer_idx:02d}",
-            "embeddings.pkl",
-        ]
-    )
-    args.load_emb_file = args.emb_file.replace("__", "_")
-
-    args.signal_file = "_".join([str(args.sid), args.pkl_identifier, "signal.pkl"])
-    args.electrode_file = "_".join([str(args.sid), "electrode_names.pkl"])
-    args.stitch_file = "_".join(
-        [str(args.sid), args.pkl_identifier, "stitch_index.pkl"]
-    )
-
-    args.output_dir = os.path.join(os.getcwd(), "results")
-    args.full_output_dir = create_output_directory(args)
-
-    args.best_lag = -1
-
-    vars(args).update(path_dict)
-    return args
 
 
 def append_jobid_to_string(args, speech_str):
