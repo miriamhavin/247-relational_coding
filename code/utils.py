@@ -13,7 +13,7 @@ def main_timer(func):
 
         end_time = datetime.now()
         print(f'End Time: {end_time.strftime("%A %m/%d/%Y %H:%M:%S")}')
-        print(f'Total runtime: {end_time - start_time} (HH:MM:SS)')
+        print(f"Total runtime: {end_time - start_time} (HH:MM:SS)")
 
     return function_wrapper
 
@@ -27,8 +27,8 @@ def load_pickle(file):
     Returns:
         DataFrame: pickle contents returned as dataframe
     """
-    print(f'Loading {file}')
-    with open(file, 'rb') as fh:
+    print(f"Loading {file}")
+    with open(file, "rb") as fh:
         datum = pickle.load(fh)
 
     return datum
@@ -41,6 +41,6 @@ def write_config(dictionary):
     """
     json_object = json.dumps(dictionary, sort_keys=True, indent=4)
 
-    config_file = os.path.join(dictionary['full_output_dir'], 'config.json')
+    config_file = os.path.join(dictionary["full_output_dir"], "config.json")
     with open(config_file, "w") as outfile:
         outfile.write(json_object)

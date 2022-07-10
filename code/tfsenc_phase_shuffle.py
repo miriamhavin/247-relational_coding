@@ -1,6 +1,7 @@
 import math
 
 import numexpr as ne
+
 # import jax.numpy as jnp
 import numpy as np
 from scipy.fftpack import fft, ifft
@@ -18,10 +19,10 @@ def phase_shuffle(input_signal):
 
     F = np.fft.fft(input_signal, axis=-1)
     t = np.zeros(F.shape)
-    t[0, 1:math.
-      floor(N /
-            2)] = np.random.rand(math.floor(N / 2) - 1) * 2 * math.pi - math.pi
-    t[:, (math.floor(N / 2) + 1):] = -t[:, math.floor(N / 2) - 1:0:-1]
+    t[0, 1 : math.floor(N / 2)] = (
+        np.random.rand(math.floor(N / 2) - 1) * 2 * math.pi - math.pi
+    )
+    t[:, (math.floor(N / 2) + 1) :] = -t[:, math.floor(N / 2) - 1 : 0 : -1]
 
     output_signal = np.real(np.fft.ifft(F * np.exp(1j * t), axis=-1))
 
@@ -47,8 +48,7 @@ def phase_randomize(data):
         pos_freq = np.arange(1, (n_samples - 1) // 2 + 1)
         neg_freq = np.arange(n_samples - 1, (n_samples - 1) // 2, -1)
 
-    phase_shifts = np.random.rand(n_examples, n_lags,
-                                  len(pos_freq)) * 2 * np.math.pi
+    phase_shifts = np.random.rand(n_examples, n_lags, len(pos_freq)) * 2 * np.math.pi
 
     # Fast Fourier transform along time dimension of data
     fft_data = np.fft.fft(data, axis=-1)
@@ -70,9 +70,9 @@ def phase_randomize(data):
 
 
 def phase_randomize_1d(data):
-    '''Adapted from
+    """Adapted from
     data is (n_examples, n_samples, n_electrodes)
-    https://github.com/brainiak/brainiak/blob/master/brainiak/utils/utils.py'''
+    https://github.com/brainiak/brainiak/blob/master/brainiak/utils/utils.py"""
 
     n_samples = data.shape[0]
 
@@ -102,11 +102,11 @@ def phase_randomize_1d(data):
     return shifted_data
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     iter = 10
 
     input_vec = np.arange(1, 101).reshape(1, -1)
-    print(f'input vec sum: {sum(sum(input_vec))}')
+    print(f"input vec sum: {sum(sum(input_vec))}")
     for i in range(iter):
         np.random.seed(i)
         output_vec0 = phase_shuffle(input_vec)
@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
     print("============================")
     input_vec = np.arange(1, 101).reshape(-1, 1)
-    print(f'input vec sum: {sum(sum(input_vec))}')
+    print(f"input vec sum: {sum(sum(input_vec))}")
     for i in range(iter):
         np.random.seed(i)
         output_vec1 = phase_randomize_1d(input_vec)
@@ -122,7 +122,7 @@ if __name__ == '__main__':
 
     print("============================")
     input_vec = np.arange(1, 101).reshape(1, 1, -1)
-    print(f'input vec sum: {sum(sum(sum((input_vec))))}')
+    print(f"input vec sum: {sum(sum(sum((input_vec))))}")
     for i in range(iter):
         np.random.seed(i)
         output_vec2 = phase_randomize(input_vec)

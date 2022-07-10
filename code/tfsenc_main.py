@@ -8,14 +8,22 @@ from urllib.parse import _NetlocResultMixinBytes
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
+from tfsenc_load_signal import load_electrode_data
 from tfsenc_parser import parse_arguments
 from tfsenc_phase_shuffle import phase_randomize_1d
 from tfsenc_read_datum import read_datum
-from tfsenc_load_signal import load_electrode_data
-from tfsenc_utils import (append_jobid_to_string, create_output_directory,
-                          encoding_regression, encoding_regression_pr,
-                          load_header, setup_environ, build_XY, get_folds,
-                          run_regression, write_encoding_results)
+from tfsenc_utils import (
+    append_jobid_to_string,
+    build_XY,
+    create_output_directory,
+    encoding_regression,
+    encoding_regression_pr,
+    get_folds,
+    load_header,
+    run_regression,
+    setup_environ,
+    write_encoding_results,
+)
 from utils import load_pickle, main_timer, write_config
 
 
@@ -73,7 +81,7 @@ def return_stitch_index(args):
 
 def process_subjects(args):
     """Process electrodes for subjects (requires electrode list or sig elec file)
-    
+
     Args:
         args (namespace): commandline arguments
 
@@ -83,22 +91,34 @@ def process_subjects(args):
     ds = load_pickle(os.path.join(args.PICKLE_DIR, args.electrode_file))
     df = pd.DataFrame(ds)
 
-    if args.sig_elec_file: # sig elec files for 1 or more sid (used for 777)
-        sig_elec_file = os.path.join(os.path.join(os.getcwd(), 'data', args.sig_elec_file))
-        sig_elec_list = pd.read_csv(sig_elec_file).rename(columns={"electrode":"electrode_name"})
-        sid_sig_elec_list = pd.merge(df,sig_elec_list,how='inner',on=['subject','electrode_name'])
-        assert len(sig_elec_list) == len(sid_sig_elec_list), 'Sig Elecs Missing'
+    if args.sig_elec_file:  # sig elec files for 1 or more sid (used for 777)
+        sig_elec_file = os.path.join(
+            os.path.join(os.getcwd(), "data", args.sig_elec_file)
+        )
+        sig_elec_list = pd.read_csv(sig_elec_file).rename(
+            columns={"electrode": "electrode_name"}
+        )
+        sid_sig_elec_list = pd.merge(
+            df, sig_elec_list, how="inner", on=["subject", "electrode_name"]
+        )
+        assert len(sig_elec_list) == len(sid_sig_elec_list), "Sig Elecs Missing"
         electrode_info = {
-            (values['subject'], values['electrode_id']): values['electrode_name']
+            (values["subject"], values["electrode_id"]): values["electrode_name"]
             for _, values in sid_sig_elec_list.iterrows()
         }
 
-    else: # electrode list for 1 sid
-        assert args.electrodes, 'Need electrode list since no sig_elec_list'
+    else:  # electrode list for 1 sid
+        assert args.electrodes, "Need electrode list since no sig_elec_list"
         electrode_info = {
-            (args.sid,key): next(
-                iter(df.loc[(df.subject == str(args.sid)) &
-                            (df.electrode_id == key), 'electrode_name']), None)
+            (args.sid, key): next(
+                iter(
+                    df.loc[
+                        (df.subject == str(args.sid)) & (df.electrode_id == key),
+                        "electrode_name",
+                    ]
+                ),
+                None,
+            )
             for key in args.electrodes
         }
 
@@ -191,23 +211,30 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     (sid, elec_id), elec_name = electrode
 
     if elec_name is None:
-        print(f'Electrode ID {elec_id} does not exist')
+        print(f"Electrode ID {elec_id} does not exist")
         return (args.sid, None, 0, 0)
 
     # Load signal Data
-    elec_signal, missing_convos = load_electrode_data(args, sid, elec_id, stitch_index, False)
+    elec_signal, missing_convos = load_electrode_data(
+        args, sid, elec_id, stitch_index, False
+    )
 
     # Modify datum based on signal
-    if len(missing_convos) > 0: # signal missing convos
-        elec_datum = datum.loc[~datum['conversation_name'].isin(missing_convos)] # filter missing convos
+    if len(missing_convos) > 0:  # signal missing convos
+        elec_datum = datum.loc[
+            ~datum["conversation_name"].isin(missing_convos)
+        ]  # filter missing convos
     else:
         elec_datum = datum
 
-    if len(elec_datum) == 0: # datum has no words, meaning no signal
-        print(f'{args.sid} {elec_name} No Signal')
+    if len(elec_datum) == 0:  # datum has no words, meaning no signal
+        print(f"{args.sid} {elec_name} No Signal")
         return (args.sid, elec_name, 0, 0)
-    elif args.project_id == 'tfs' and elec_datum.conversation_id.nunique() < args.fold_num: # num of convos less than num of folds
-        print(f'{args.sid} {elec_name} has less conversations than the number of folds')
+    elif (
+        args.project_id == "tfs"
+        and elec_datum.conversation_id.nunique() < args.fold_num
+    ):  # num of convos less than num of folds
+        print(f"{args.sid} {elec_name} has less conversations than the number of folds")
         return (args.sid, elec_name, 1, 1)
 
     # Build design matrices
@@ -217,30 +244,30 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     fold_cat_prod, fold_cat_comp = get_folds(args, elec_datum, X, Y, args.fold_num)
 
     # Split into production and comprehension
-    prod_X = X[elec_datum.speaker == 'Speaker1', :]
-    comp_X = X[elec_datum.speaker != 'Speaker1', :]
-    prod_Y = Y[elec_datum.speaker == 'Speaker1', :]
-    comp_Y = Y[elec_datum.speaker != 'Speaker1', :]
-  
-    elec_name = str(sid) + '_' + elec_name
-    print(f'{args.sid} {elec_name} Prod: {len(prod_X)} Comp: {len(comp_X)}')
+    prod_X = X[elec_datum.speaker == "Speaker1", :]
+    comp_X = X[elec_datum.speaker != "Speaker1", :]
+    prod_Y = Y[elec_datum.speaker == "Speaker1", :]
+    comp_Y = Y[elec_datum.speaker != "Speaker1", :]
+
+    elec_name = str(sid) + "_" + elec_name
+    print(f"{args.sid} {elec_name} Prod: {len(prod_X)} Comp: {len(comp_X)}")
 
     # Run regression and save correlation results
     prod_train = prod_X, prod_Y, fold_cat_prod
     comp_train = comp_X, comp_Y, fold_cat_comp
 
-    if args.model_mod and 'pc-flip' in args.model_mod: # flip test
+    if args.model_mod and "pc-flip" in args.model_mod:  # flip test
         prod_test, comp_test = comp_train, prod_train
     else:
         prod_test, comp_test = prod_train, comp_train
 
     if len(prod_train[0]) > 0 and len(prod_test[0]) > 0:
         prod_results = run_regression(args, *prod_train, *prod_test)
-        write_encoding_results(args, prod_results, elec_name, 'prod')
+        write_encoding_results(args, prod_results, elec_name, "prod")
     if len(comp_train[0]) > 0 and len(comp_test[0]) > 0:
         comp_results = run_regression(args, *comp_train, *comp_test)
-        write_encoding_results(args, comp_results, elec_name, 'comp')
-    
+        write_encoding_results(args, comp_results, elec_name, "comp")
+
     # # Perform encoding/regression (old code)
     # if args.phase_shuffle:
     #     if args.project_id == 'podcast':
@@ -266,7 +293,7 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     return (sid, elec_name, len(prod_X), len(comp_X))
 
 
-def parallel_encoding(args, electrode_info, datum, stitch_index, parallel = True):
+def parallel_encoding(args, electrode_info, datum, stitch_index, parallel=True):
     """Doing encoding for all electrodes in parallel
 
     Args:
@@ -280,27 +307,32 @@ def parallel_encoding(args, electrode_info, datum, stitch_index, parallel = True
         None
     """
 
-    if args.emb_type == 'gpt2-xl' and args.sid == 676:
+    if args.emb_type == "gpt2-xl" and args.sid == 676:
         parallel = False
     if parallel:
-        print('Running all electrodes in parallel')
-        summary_file = os.path.join(args.full_output_dir,'summary.csv') # summary file
-        p = Pool(4) # multiprocessing
-        with open(summary_file, 'w') as f:
-            writer=csv.writer(f, delimiter=",", lineterminator="\r\n") 
-            writer.writerow(('sid','electrode','prod','comp'))
-            for result in p.map(partial(single_electrode_encoding,
-                    args = args,
-                    datum = datum,
-                    stitch_index = stitch_index,
-                ), electrode_info.items()):
+        print("Running all electrodes in parallel")
+        summary_file = os.path.join(args.full_output_dir, "summary.csv")  # summary file
+        p = Pool(4)  # multiprocessing
+        with open(summary_file, "w") as f:
+            writer = csv.writer(f, delimiter=",", lineterminator="\r\n")
+            writer.writerow(("sid", "electrode", "prod", "comp"))
+            for result in p.map(
+                partial(
+                    single_electrode_encoding,
+                    args=args,
+                    datum=datum,
+                    stitch_index=stitch_index,
+                ),
+                electrode_info.items(),
+            ):
                 writer.writerow(result)
     else:
-        print('Running all electrodes')
+        print("Running all electrodes")
         for electrode in electrode_info.items():
             single_electrode_encoding(electrode, args, datum, stitch_index)
 
     return None
+
 
 # def get_vector(x, glove):
 #     try:
@@ -311,10 +343,10 @@ def parallel_encoding(args, electrode_info, datum, stitch_index, parallel = True
 
 @main_timer
 def main():
-    
+
     # Read command line arguments
     args = parse_arguments()
-    
+
     # Setup paths to data
     args = setup_environ(args)
 

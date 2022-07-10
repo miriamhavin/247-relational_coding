@@ -1,17 +1,17 @@
 import csv
-from imp import C_EXTENSION
 import os
 from functools import partial
+from imp import C_EXTENSION
 from multiprocessing import Pool
 
 import mat73
 import numpy as np
 from numba import jit, prange
 from scipy import stats
-from sklearn.model_selection import KFold, GroupKFold
-from sklearn.linear_model import LinearRegression
-from sklearn.pipeline import make_pipeline
 from sklearn.decomposition import PCA
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import GroupKFold, KFold
+from sklearn.pipeline import make_pipeline
 
 
 def encColCorr(CA, CB):
@@ -61,7 +61,7 @@ def cv_lm_003(X, Y, folds, fold_num, lag):
         print("running normal encoding")
     else:
         print("running best-lag")
-    
+
     # Data size
     nSamps = X.shape[0]
     nChans = Y.shape[1] if Y.shape[1:] else 1
@@ -90,11 +90,11 @@ def cv_lm_003(X, Y, folds, fold_num, lag):
         model = make_pipeline(PCA(50, whiten=True), LinearRegression())
         model.fit(Xtra, Ytra)
 
-        if lag != -1: # best-lag model
-            B = model.named_steps['linearregression'].coef_
-            assert lag < B.shape[0], f'Lag index out of range'
-            B = np.repeat(B[lag,:][np.newaxis,:], B.shape[0],0)
-            model.named_steps['linearregression'].coef_ = B
+        if lag != -1:  # best-lag model
+            B = model.named_steps["linearregression"].coef_
+            assert lag < B.shape[0], f"Lag index out of range"
+            B = np.repeat(B[lag, :][np.newaxis, :], B.shape[0], 0)
+            model.named_steps["linearregression"].coef_ = B
 
         # Predict
         foldYhat = model.predict(Xtes)
@@ -105,7 +105,7 @@ def cv_lm_003(X, Y, folds, fold_num, lag):
     return YHAT
 
 
-def cv_lm_003_prod_comp(Xtra,Ytra,fold_tra,Xtes,fold_tes,fold_num,lag):
+def cv_lm_003_prod_comp(Xtra, Ytra, fold_tra, Xtes, fold_tes, fold_num, lag):
     if lag == -1:
         print("running regression")
     else:
@@ -116,7 +116,7 @@ def cv_lm_003_prod_comp(Xtra,Ytra,fold_tra,Xtes,fold_tes,fold_num,lag):
 
     YHAT = np.zeros((nSamps, nChans))
 
-    for i in range(0,fold_num):
+    for i in range(0, fold_num):
         Xtraf, Xtesf = Xtra[fold_tra == i], Xtes[fold_tes != i]
         Ytraf = Ytra[fold_tra == i]
 
@@ -130,10 +130,10 @@ def cv_lm_003_prod_comp(Xtra,Ytra,fold_tra,Xtes,fold_tes,fold_num,lag):
         # B = np.linalg.pinv(Xtraf) @ Ytraf
 
         if lag != -1:
-            B = model.named_steps['linearregression'].coef_
-            assert lag < B.shape[0], f'Lag index out of range'
-            B = np.repeat(B[lag,:][np.newaxis,:], B.shape[0],0) # best-lag model
-            model.named_steps['linearregression'].coef_ = B
+            B = model.named_steps["linearregression"].coef_
+            assert lag < B.shape[0], f"Lag index out of range"
+            B = np.repeat(B[lag, :][np.newaxis, :], B.shape[0], 0)  # best-lag model
+            model.named_steps["linearregression"].coef_ = B
 
             # old best-lag model
             # assert lag < B.shape[1], f'Lag index out of range'
@@ -161,8 +161,7 @@ def cv_lm_003_prod_comp(Xtra,Ytra,fold_tra,Xtes,fold_tes,fold_num,lag):
 
 
 @jit(nopython=True)
-def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
-            window_size):
+def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags, window_size):
     """[summary]
 
     Args:
@@ -185,8 +184,11 @@ def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags,
 
         index_onsets = np.minimum(
             convo_offsets - half_window - 1,
-            np.maximum(convo_onsets + half_window + 1,
-                       np.round_(onsets, 0, onsets) + lag_amount))
+            np.maximum(
+                convo_onsets + half_window + 1,
+                np.round_(onsets, 0, onsets) + lag_amount,
+            ),
+        )
 
         # index_onsets = np.round_(onsets, 0, onsets) + lag_amount
 
@@ -214,7 +216,7 @@ def build_XY(args, datum, brain_signal):
     Returns:
         [type]: [description]
     """
-    X = np.stack(datum.embeddings).astype('float64')
+    X = np.stack(datum.embeddings).astype("float64")
 
     word_onsets = datum.adjusted_onset.values
     convo_onsets = datum.convo_onset.values
@@ -223,8 +225,9 @@ def build_XY(args, datum, brain_signal):
     lags = np.array(args.lags)
     brain_signal = brain_signal.reshape(-1, 1)
 
-    Y = build_Y(word_onsets, convo_onsets, convo_offsets, brain_signal, lags,
-                args.window_size)
+    Y = build_Y(
+        word_onsets, convo_onsets, convo_offsets, brain_signal, lags, args.window_size
+    )
 
     return X, Y
 
@@ -251,7 +254,9 @@ def encoding_mp_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag)
         np.random.shuffle(Ytra)
         np.random.shuffle(Ytes)
 
-    PY_hat = cv_lm_003_prod_comp(Xtra, Ytra, fold_tra, Xtes, fold_tes, args.fold_num,lag)
+    PY_hat = cv_lm_003_prod_comp(
+        Xtra, Ytra, fold_tra, Xtes, fold_tes, args.fold_num, lag
+    )
     rp, _, _ = encColCorr(Ytes, PY_hat)
 
     return rp
@@ -276,14 +281,20 @@ def run_save_permutation_pr(args, prod_X, prod_Y, filename):
 def run_regression(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes):
     perm_prod = []
     for i in range(args.npermutations):
-        result = encoding_mp_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, -1)
-        if args.model_mod and 'best-lag' in args.model_mod:
+        result = encoding_mp_prod_comp(
+            args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, -1
+        )
+        if args.model_mod and "best-lag" in args.model_mod:
             best_lag = np.argmax(np.array(result))
-            print('switch to best-lag: ' + str(best_lag))
-            perm_prod.append(encoding_mp_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, best_lag))
+            print("switch to best-lag: " + str(best_lag))
+            perm_prod.append(
+                encoding_mp_prod_comp(
+                    args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, best_lag
+                )
+            )
         else:
             perm_prod.append(result)
-    
+
     return perm_prod
 
 
@@ -298,30 +309,39 @@ def run_save_permutation(args, prod_X, prod_Y, folds, fold_num, filename):
     """
     if prod_X.shape[0]:
         if args.parallel:
-            print(f'Running {args.npermutations} in parallel')
+            print(f"Running {args.npermutations} in parallel")
             with Pool(16) as pool:
                 perm_prod = pool.map(
-                    partial(encode_lags_numba,
-                            args=args,
-                            prod_X=prod_X,
-                            prod_Y=prod_Y,
-                            folds=folds,
-                            fold_num=fold_num), range(args.npermutations))
+                    partial(
+                        encode_lags_numba,
+                        args=args,
+                        prod_X=prod_X,
+                        prod_Y=prod_Y,
+                        folds=folds,
+                        fold_num=fold_num,
+                    ),
+                    range(args.npermutations),
+                )
         else:
             perm_prod = []
             for i in range(args.npermutations):
                 result = encode_lags_numba(args, prod_X, prod_Y, folds, fold_num, -1)
                 if args.model_mod:
-                    assert 'best-lag' in args.model_mod, f'Model modification Error'
+                    assert "best-lag" in args.model_mod, f"Model modification Error"
                     best_lag = np.argmax(np.array(result))
-                    print('switch to best-lag: ' + str(best_lag))
-                    perm_prod.append(encode_lags_numba(args, prod_X, prod_Y, folds, fold_num, best_lag))
+                    print("switch to best-lag: " + str(best_lag))
+                    perm_prod.append(
+                        encode_lags_numba(
+                            args, prod_X, prod_Y, folds, fold_num, best_lag
+                        )
+                    )
                 else:
                     perm_prod.append(result)
-        with open(filename, 'w') as csvfile:
-            print('writing file')
+        with open(filename, "w") as csvfile:
+            print("writing file")
             csvwriter = csv.writer(csvfile)
             csvwriter.writerows(perm_prod)
+
 
 def load_header(conversation_dir, subject_id):
     """[summary]
@@ -333,10 +353,10 @@ def load_header(conversation_dir, subject_id):
     Returns:
         list: labels
     """
-    misc_dir = os.path.join(conversation_dir, subject_id, 'misc')
-    header_file = os.path.join(misc_dir, subject_id + '_header.mat')
+    misc_dir = os.path.join(conversation_dir, subject_id, "misc")
+    header_file = os.path.join(misc_dir, subject_id + "_header.mat")
     if not os.path.exists(header_file):
-        print(f'[WARN] no header found in {misc_dir}')
+        print(f"[WARN] no header found in {misc_dir}")
         return
     header = mat73.loadmat(header_file)
     labels = header.header.label
@@ -350,14 +370,15 @@ def create_output_directory(args):
     # folder_name = folder_name + '-pca_' + str(args.reduce_to) + 'd'
     # full_output_dir = os.path.join(args.output_dir, folder_name)
 
-    folder_name = '-'.join([args.output_prefix, str(args.sid)])
-    folder_name = folder_name.strip('-')
+    folder_name = "-".join([args.output_prefix, str(args.sid)])
+    folder_name = folder_name.strip("-")
     if args.model_mod:
-        parent_folder_name = '-'.join([args.output_parent_dir, args.model_mod])
+        parent_folder_name = "-".join([args.output_parent_dir, args.model_mod])
     else:
         parent_folder_name = args.output_parent_dir
-    full_output_dir = os.path.join(os.getcwd(), 'results', args.project_id,
-                                parent_folder_name, folder_name)
+    full_output_dir = os.path.join(
+        os.getcwd(), "results", args.project_id, parent_folder_name, folder_name
+    )
 
     os.makedirs(full_output_dir, exist_ok=True)
 
@@ -377,11 +398,11 @@ def encoding_regression_pr(args, datum, elec_signal, name):
     X, Y = build_XY(args, datum, elec_signal)
 
     # Split into production and comprehension
-    prod_X = X[datum.speaker == 'Speaker1', :]
-    comp_X = X[datum.speaker != 'Speaker1', :]
+    prod_X = X[datum.speaker == "Speaker1", :]
+    comp_X = X[datum.speaker != "Speaker1", :]
 
-    prod_Y = Y[datum.speaker == 'Speaker1', :]
-    comp_Y = Y[datum.speaker != 'Speaker1', :]
+    prod_Y = Y[datum.speaker == "Speaker1", :]
+    comp_Y = Y[datum.speaker != "Speaker1", :]
 
     # Run permutation and save results
     prod_corr = run_save_permutation_pr(args, prod_X, prod_Y, None)
@@ -390,19 +411,21 @@ def encoding_regression_pr(args, datum, elec_signal, name):
     return (prod_corr, comp_corr)
 
 
-def get_folds(args, datum, X, Y, fold_num = 5):
-    if args.project_id != 'tfs' or 'single-conv' in args.datum_mod: # single conversation (kfolds)
-        skf = KFold(n_splits = fold_num, shuffle = False)
+def get_folds(args, datum, X, Y, fold_num=5):
+    if (
+        args.project_id != "tfs" or "single-conv" in args.datum_mod
+    ):  # single conversation (kfolds)
+        skf = KFold(n_splits=fold_num, shuffle=False)
         folds = [t[1] for t in skf.split(np.arange(X.shape[0]))]
-    else: # multiple conversations (groupkfolds)
-        grpkfold = GroupKFold(n_splits = fold_num)
-        folds = [t[1] for t in grpkfold.split(X, Y, datum['conversation_id'])]
+    else:  # multiple conversations (groupkfolds)
+        grpkfold = GroupKFold(n_splits=fold_num)
+        folds = [t[1] for t in grpkfold.split(X, Y, datum["conversation_id"])]
     fold_cat = np.zeros(datum.shape[0])
-    for i in range(0,len(folds)):
+    for i in range(0, len(folds)):
         for row in folds[i]:
-            fold_cat[row] = i # turns into fold category
-    fold_cat_prod = fold_cat[datum.speaker == 'Speaker1']
-    fold_cat_comp = fold_cat[datum.speaker != 'Speaker1']
+            fold_cat[row] = i  # turns into fold category
+    fold_cat_prod = fold_cat[datum.speaker == "Speaker1"]
+    fold_cat_comp = fold_cat[datum.speaker != "Speaker1"]
 
     return (fold_cat_prod, fold_cat_comp)
 
@@ -420,10 +443,10 @@ def write_encoding_results(args, cor_results, elec_name, mode):
         None
     """
     trial_str = append_jobid_to_string(args, mode)
-    filename = os.path.join(args.full_output_dir, elec_name + trial_str + '.csv')
+    filename = os.path.join(args.full_output_dir, elec_name + trial_str + ".csv")
 
-    with open(filename, 'w') as csvfile:
-        print('writing file')
+    with open(filename, "w") as csvfile:
+        print("writing file")
         csvwriter = csv.writer(csvfile)
         csvwriter.writerows(cor_results)
 
@@ -440,53 +463,59 @@ def encoding_regression(args, datum, elec_signal, name):
     fold_num = 5
 
     # Split into production and comprehension
-    prod_X = X[datum.speaker == 'Speaker1', :]
-    comp_X = X[datum.speaker != 'Speaker1', :]
+    prod_X = X[datum.speaker == "Speaker1", :]
+    comp_X = X[datum.speaker != "Speaker1", :]
 
-    prod_Y = Y[datum.speaker == 'Speaker1', :]
-    comp_Y = Y[datum.speaker != 'Speaker1', :]
+    prod_Y = Y[datum.speaker == "Speaker1", :]
+    comp_Y = Y[datum.speaker != "Speaker1", :]
 
-    print(f'{args.sid} {name} Prod: {len(prod_X)} Comp: {len(comp_X)}')
-    
+    print(f"{args.sid} {name} Prod: {len(prod_X)} Comp: {len(comp_X)}")
+
     # Run permutation and save results
-    trial_str = append_jobid_to_string(args, 'prod')
-    filename = os.path.join(args.full_output_dir, name + trial_str + '.csv')
+    trial_str = append_jobid_to_string(args, "prod")
+    filename = os.path.join(args.full_output_dir, name + trial_str + ".csv")
     run_save_permutation(args, prod_X, prod_Y, fold_cat_prod, fold_num, filename)
-    
-    trial_str = append_jobid_to_string(args, 'comp')
-    filename = os.path.join(args.full_output_dir, name + trial_str + '.csv')
+
+    trial_str = append_jobid_to_string(args, "comp")
+    filename = os.path.join(args.full_output_dir, name + trial_str + ".csv")
     run_save_permutation(args, comp_X, comp_Y, fold_cat_comp, fold_num, filename)
 
     return
 
 
 def setup_environ(args):
-    """Update args with project specific directories and other flags
-    """
-    PICKLE_DIR = os.path.join(os.getcwd(), 'data', args.project_id,
-                              str(args.sid), 'pickles')
+    """Update args with project specific directories and other flags"""
+    PICKLE_DIR = os.path.join(
+        os.getcwd(), "data", args.project_id, str(args.sid), "pickles"
+    )
     path_dict = dict(PICKLE_DIR=PICKLE_DIR)
 
-    stra = 'cnxt_' + str(args.context_length)
-    if args.emb_type == 'glove50':
-        stra = ''
+    stra = "cnxt_" + str(args.context_length)
+    if args.emb_type == "glove50":
+        stra = ""
         args.layer_idx = 1
     if args.emb_type == "blenderbot-small":
-        stra = ''
+        stra = ""
 
-    args.emb_file = '_'.join([
-        str(args.sid), args.pkl_identifier, args.emb_type, stra,
-        f'layer_{args.layer_idx:02d}', 'embeddings.pkl'
-    ])
-    args.load_emb_file = args.emb_file.replace('__', '_')
+    args.emb_file = "_".join(
+        [
+            str(args.sid),
+            args.pkl_identifier,
+            args.emb_type,
+            stra,
+            f"layer_{args.layer_idx:02d}",
+            "embeddings.pkl",
+        ]
+    )
+    args.load_emb_file = args.emb_file.replace("__", "_")
 
-    args.signal_file = '_'.join(
-        [str(args.sid), args.pkl_identifier, 'signal.pkl'])
-    args.electrode_file = '_'.join([str(args.sid), 'electrode_names.pkl'])
-    args.stitch_file = '_'.join(
-        [str(args.sid), args.pkl_identifier, 'stitch_index.pkl'])
+    args.signal_file = "_".join([str(args.sid), args.pkl_identifier, "signal.pkl"])
+    args.electrode_file = "_".join([str(args.sid), "electrode_names.pkl"])
+    args.stitch_file = "_".join(
+        [str(args.sid), args.pkl_identifier, "stitch_index.pkl"]
+    )
 
-    args.output_dir = os.path.join(os.getcwd(), 'results')
+    args.output_dir = os.path.join(os.getcwd(), "results")
     args.full_output_dir = create_output_directory(args)
 
     args.best_lag = -1
@@ -505,10 +534,10 @@ def append_jobid_to_string(args, speech_str):
     Returns:
         string: concatenated string
     """
-    speech_str = '_' + speech_str
+    speech_str = "_" + speech_str
 
     if args.job_id:
-        trial_str = '_'.join([speech_str, f'{args.job_id:02d}'])
+        trial_str = "_".join([speech_str, f"{args.job_id:02d}"])
     else:
         trial_str = speech_str
 
