@@ -3,11 +3,11 @@ import glob
 import os
 from functools import partial
 from multiprocessing import Pool
-from urllib.parse import _NetlocResultMixinBytes
 
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
+from tfsenc_config import setup_environ
 from tfsenc_load_signal import load_electrode_data
 from tfsenc_parser import parse_arguments
 from tfsenc_phase_shuffle import phase_randomize_1d
@@ -15,13 +15,11 @@ from tfsenc_read_datum import read_datum
 from tfsenc_utils import (
     append_jobid_to_string,
     build_XY,
-    create_output_directory,
     encoding_regression,
     encoding_regression_pr,
     get_folds,
     load_header,
     run_regression,
-    setup_environ,
     write_encoding_results,
 )
 from utils import load_pickle, main_timer, write_config

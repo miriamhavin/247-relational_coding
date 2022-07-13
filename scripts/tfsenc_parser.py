@@ -1,4 +1,5 @@
 import argparse
+import sys
 
 
 def parse_arguments():
@@ -51,6 +52,53 @@ def parse_arguments():
 
     parser.add_argument("--bad-convos", nargs="*", type=int, default=[])
 
+    # If running the code in debug mode
+    gettrace = getattr(sys, "gettrace", None)
+
+    # TODO: Maybe move this to a test_config.ini file and use configparser()
+    if gettrace():
+        sys.argv = [
+            "scripts/tfsenc_main.py",
+            "--project-id",
+            "podcast",
+            "--pkl-identifier",
+            "full",
+            "--sid",
+            "661",
+            "--conversation-id",
+            "0",
+            "--electrodes",
+            "1",
+            "2",
+            "3",
+            "4",
+            "5",
+            "--emb-type",
+            "gpt2-xl",
+            "--context-length",
+            "1024",
+            "--align-with",
+            "gpt2-xl",
+            "--window-size",
+            "200",
+            "--word-value",
+            "all",
+            "--lags",
+            "-100",
+            "-50",
+            "0",
+            "50",
+            "100",
+            "--min-word-freq",
+            "0",
+            "--layer-idx",
+            "1",
+            "--normalize",
+            "--output-parent-dir",
+            "hg-podcast-full-661-gpt2-xl-all",
+            "--output-prefix",
+            "hg-200ms-all",
+        ]
     args = parser.parse_args()
 
     if not args.sid and args.electrodes:

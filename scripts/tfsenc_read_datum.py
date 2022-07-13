@@ -385,12 +385,15 @@ def read_datum(args, stitch):
     Returns:
         DataFrame: processed and filtered datum
     """
-    file_name = os.path.join(args.PICKLE_DIR, args.load_emb_file)
-    df = load_datum(file_name)
+    emb_df = load_datum(args.load_emb_file)
+    base_df = load_datum(args.base_df)
+
+    df = pd.concat([base_df, emb_df], axis=1)
     print(f"After loading: Datum loads with {len(df)} words")
 
     df = process_datum(args, df, stitch)
     print(f"After processing: Datum now has {len(df)} words")
+
     df = filter_datum(args, df)
     print(f"After filtering: Datum now has {len(df)} words")
 

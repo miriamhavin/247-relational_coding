@@ -7,8 +7,8 @@ def create_output_directory(args):
     # folder_name = folder_name + '-pca_' + str(args.reduce_to) + 'd'
     # full_output_dir = os.path.join(args.output_dir, folder_name)
 
-    folder_name = "-".join([args.output_prefix, str(args.sid)])
-    folder_name = folder_name.strip("-")
+    folder_name = "-".join([args.output_prefix, str(args.sid)]).strip("-")
+
     if args.model_mod:
         parent_folder_name = "-".join([args.output_parent_dir, args.model_mod])
     else:
@@ -24,30 +24,28 @@ def create_output_directory(args):
 
 def setup_environ(args):
     """Update args with project specific directories and other flags"""
-    
-    PICKLE_DIR = os.path.join(
-        os.getcwd(), "data", args.project_id, str(args.sid), "pickles"
-    )
-    path_dict = dict(PICKLE_DIR=PICKLE_DIR)
 
-    stra = "cnxt_" + str(args.context_length)
+    args.emb_type = args.emb_type.split("/")[-1]
+
+    INPUT_DIR = os.path.join(
+        os.getcwd(), "data", args.project_id, str(args.sid)
+    )
+
+    args.PICKLE_DIR = os.path.join(INPUT_DIR, "pickles")
+    EMB_DIR = os.path.join(args.PICKLE_DIR, "embeddings")
+    MODEL_EMB_DIR = os.path.join(EMB_DIR, args.emb_type, args.pkl_identifier)
+
+    # FIXME: Not really sure what this is
     if args.emb_type == "glove50":
-        stra = ""
         args.layer_idx = 1
-    if args.emb_type == "blenderbot-small":
-        stra = ""
 
-    args.emb_file = "_".join(
-        [
-            str(args.sid),
-            args.pkl_identifier,
-            args.emb_type,
-            stra,
-            f"layer_{args.layer_idx:02d}",
-            "embeddings.pkl",
-        ]
+    args.base_df_path = os.path.join(MODEL_EMB_DIR, "base_df.pkl")
+
+    args.emb_df_path = os.path.join(
+        MODEL_EMB_DIR,
+        f"cnxt_{args.context_length:04d}",
+        f"layer_{args.layer_idx:02d}.pkl",
     )
-    args.load_emb_file = args.emb_file.replace("__", "_")
 
     args.signal_file = "_".join(
         [str(args.sid), args.pkl_identifier, "signal.pkl"]
@@ -62,5 +60,4 @@ def setup_environ(args):
 
     args.best_lag = -1
 
-    vars(args).update(path_dict)
     return args

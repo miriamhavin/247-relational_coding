@@ -132,9 +132,7 @@ def cv_lm_003_prod_comp(Xtra, Ytra, fold_tra, Xtes, fold_tes, fold_num, lag):
         if lag != -1:
             B = model.named_steps["linearregression"].coef_
             assert lag < B.shape[0], f"Lag index out of range"
-            B = np.repeat(
-                B[lag, :][np.newaxis, :], B.shape[0], 0
-            )  # best-lag model
+            B = np.repeat(B[lag, :][np.newaxis, :], B.shape[0], 0)  # best-lag model
             model.named_steps["linearregression"].coef_ = B
 
             # old best-lag model
@@ -163,9 +161,7 @@ def cv_lm_003_prod_comp(Xtra, Ytra, fold_tra, Xtes, fold_tes, fold_num, lag):
 
 
 @jit(nopython=True)
-def build_Y(
-    onsets, convo_onsets, convo_offsets, brain_signal, lags, window_size
-):
+def build_Y(onsets, convo_onsets, convo_offsets, brain_signal, lags, window_size):
     """[summary]
 
     Args:
@@ -258,9 +254,7 @@ def encode_lags_numba(args, X, Y, folds, fold_num, lag):
     return rp
 
 
-def encoding_mp_prod_comp(
-    args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag
-):
+def encoding_mp_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag):
     if args.shuffle:
         np.random.shuffle(Ytra)
         np.random.shuffle(Ytes)
@@ -336,13 +330,9 @@ def run_save_permutation(args, prod_X, prod_Y, folds, fold_num, filename):
         else:
             perm_prod = []
             for i in range(args.npermutations):
-                result = encode_lags_numba(
-                    args, prod_X, prod_Y, folds, fold_num, -1
-                )
+                result = encode_lags_numba(args, prod_X, prod_Y, folds, fold_num, -1)
                 if args.model_mod:
-                    assert (
-                        "best-lag" in args.model_mod
-                    ), f"Model modification Error"
+                    assert "best-lag" in args.model_mod, f"Model modification Error"
                     best_lag = np.argmax(np.array(result))
                     print("switch to best-lag: " + str(best_lag))
                     perm_prod.append(
@@ -437,9 +427,7 @@ def write_encoding_results(args, cor_results, elec_name, mode):
         None
     """
     trial_str = append_jobid_to_string(args, mode)
-    filename = os.path.join(
-        args.full_output_dir, elec_name + trial_str + ".csv"
-    )
+    filename = os.path.join(args.full_output_dir, elec_name + trial_str + ".csv")
 
     with open(filename, "w") as csvfile:
         print("writing file")
@@ -470,15 +458,11 @@ def encoding_regression(args, datum, elec_signal, name):
     # Run permutation and save results
     trial_str = append_jobid_to_string(args, "prod")
     filename = os.path.join(args.full_output_dir, name + trial_str + ".csv")
-    run_save_permutation(
-        args, prod_X, prod_Y, fold_cat_prod, fold_num, filename
-    )
+    run_save_permutation(args, prod_X, prod_Y, fold_cat_prod, fold_num, filename)
 
     trial_str = append_jobid_to_string(args, "comp")
     filename = os.path.join(args.full_output_dir, name + trial_str + ".csv")
-    run_save_permutation(
-        args, comp_X, comp_Y, fold_cat_comp, fold_num, filename
-    )
+    run_save_permutation(args, comp_X, comp_Y, fold_cat_comp, fold_num, filename)
 
     return
 
