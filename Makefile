@@ -105,7 +105,7 @@ ALIGN_WITH := glove50
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
 LAYER_IDX := 1
 
-# Choose whether to PCA (0 for no pca)
+# Choose whether to PCA (0 or comment out for no pca)
 PCA_TO := 50
 
 # Specify the minimum word frequency (0 for 247, 5 for podcast)

@@ -304,7 +304,7 @@ def main():
     # Locate and read datum
     stitch_index = return_stitch_index(args)
     datum = read_datum(args, stitch_index)
-
+    breakpoint()
     # Processing significant electrodes or individual subjects
     electrode_info = process_subjects(args)
     parallel_encoding(args, electrode_info, datum, stitch_index)

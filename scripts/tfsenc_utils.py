@@ -127,7 +127,10 @@ def cv_lm_003_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag):
         Ytesf -= np.mean(Ytraf, axis=0)
 
         # Fit model
-        model = make_pipeline(PCA(50, whiten=True), LinearRegression())
+        if args.pca_to == 0:
+            model = make_pipeline(LinearRegression())
+        else:
+            model = make_pipeline(PCA(args.pca_to, whiten=True), LinearRegression())
         model.fit(Xtraf, Ytraf)
 
         if lag != -1:
