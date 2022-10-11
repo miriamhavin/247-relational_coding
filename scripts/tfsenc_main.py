@@ -13,12 +13,9 @@ from tfsenc_parser import parse_arguments
 from tfsenc_phase_shuffle import phase_randomize_1d
 from tfsenc_read_datum import read_datum
 from tfsenc_utils import (
-    append_jobid_to_string,
     build_XY,
-    encoding_regression,
-    encoding_regression_pr,
-    get_folds,
-    load_header,
+    get_groupkfolds,
+    get_kfolds,
     run_regression,
     write_encoding_results,
 )
@@ -228,24 +225,38 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     if len(elec_datum) == 0:  # datum has no words, meaning no signal
         print(f"{args.sid} {elec_name} No Signal")
         return (args.sid, elec_name, 0, 0)
-    elif (
-        args.project_id == "tfs"
-        and elec_datum.conversation_id.nunique() < args.fold_num
-    ):  # num of convos less than num of folds
-        print(f"{args.sid} {elec_name} has less conversations than the number of folds")
-        return (args.sid, elec_name, 1, 1)
 
     # Build design matrices
     X, Y = build_XY(args, elec_datum, elec_signal)
-
-    # Get folds
-    fold_cat_prod, fold_cat_comp = get_folds(args, elec_datum, X, Y, args.fold_num)
 
     # Split into production and comprehension
     prod_X = X[elec_datum.speaker == "Speaker1", :]
     comp_X = X[elec_datum.speaker != "Speaker1", :]
     prod_Y = Y[elec_datum.speaker == "Speaker1", :]
     comp_Y = Y[elec_datum.speaker != "Speaker1", :]
+
+    # get folds
+    if args.project_id == "podcast":  # podcast
+        fold_cat_prod = []
+        fold_cat_comp = get_kfolds(comp_X, args.fold_num)
+    elif "single-conv" in args.datum_mod or args.conversation_id:  # 1 conv
+        fold_cat_prod = get_kfolds(prod_X, args.fold_num)
+        fold_cat_comp = get_kfolds(comp_X, args.fold_num)
+    elif (
+        args.project_id == "tfs"
+        and elec_datum.conversation_id.nunique() < args.fold_num
+    ):  # num of convos less than num of folds (special case for 7170)
+        print(f"{args.sid} {elec_name} has less conversations than the number of folds")
+        return (args.sid, elec_name, 1, 1)
+    else:
+        # Get groupkfolds
+        fold_cat_prod, fold_cat_comp = get_groupkfolds(elec_datum, X, Y, args.fold_num)
+        if (
+            len(np.unique(fold_cat_prod)) < args.fold_num
+            or len(np.unique(fold_cat_comp)) < args.fold_num
+        ):  # need both prod/comp words in all folds
+            print(f"{args.sid} {elec_name} failed groupkfold")
+            return (args.sid, elec_name, 1, 1)
 
     elec_name = str(sid) + "_" + elec_name
     print(f"{args.sid} {elec_name} Prod: {len(prod_X)} Comp: {len(comp_X)}")
@@ -266,28 +277,6 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
         comp_results = run_regression(args, *comp_train, *comp_test)
         write_encoding_results(args, comp_results, elec_name, "comp")
 
-    # # Perform encoding/regression (old code)
-    # if args.phase_shuffle:
-    #     if args.project_id == 'podcast':
-    #         with Pool() as pool:
-    #             corr = pool.map(
-    #                 partial(dumdum1,
-    #                         args=args,
-    #                         datum=elec_datum,
-    #                         signal=elec_signal,
-    #                         name=elec_name), range(args.npermutations))
-    #     else:
-    #         corr = []
-    #         for i in range(args.npermutations):
-    #             corr.append(dumdum1(i, args, elec_datum, elec_signal,
-    #                                 elec_name))
-
-    #     prod_corr, comp_corr = map(list, zip(*corr))
-    #     write_output(args, prod_corr, elec_name, 'prod')
-    #     write_output(args, comp_corr, elec_name, 'comp')
-    # else:
-    #     encoding_regression(args, elec_datum, elec_signal, elec_name)
-
     return (sid, elec_name, len(prod_X), len(comp_X))
 
 
@@ -305,8 +294,8 @@ def parallel_encoding(args, electrode_info, datum, stitch_index, parallel=True):
         None
     """
 
-    if args.emb_type == "gpt2-xl" and args.sid == 676:
-        parallel = False
+    # if args.emb_type == "gpt2-xl" and args.sid == 676:
+    #     parallel = False
     if parallel:
         print("Running all electrodes in parallel")
         summary_file = os.path.join(args.full_output_dir, "summary.csv")  # summary file
