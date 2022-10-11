@@ -467,19 +467,19 @@ plot_layers:
 # Miscellaneous
 # -----------------------------------------------------------------------------
 
-SP := 1
+# SP := 1
 
-sig-test:
-	rm -f results/figures/*
-	python scripts/sig_test.py \
-		--sid 676 \
-		--formats \
-			'results/tfs/625-676/kw-tfs-full-676-glove50-lag10-25/kw-200ms-all-676/*_%s.csv' \
-		--labels glove \
-		--keys prod comp \
-		--values $(LAGS) \
-		$(SIG_FN) \
-		--sig-percents $(SP)
+# sig-test:
+# 	rm -f results/figures/*
+# 	python scripts/sig_test.py \
+# 		--sid 676 \
+# 		--formats \
+# 			'results/tfs/625-676/kw-tfs-full-676-glove50-lag10-25/kw-200ms-all-676/*_%s.csv' \
+# 		--labels glove \
+# 		--keys prod comp \
+# 		--values $(LAGS) \
+# 		$(SIG_FN) \
+# 		--sig-percents $(SP)
 
 
 # make sure the lags and the formats are in the same order
@@ -492,7 +492,7 @@ LAGS_FINAL := -99999999 # select all the lags that are concatenated (quardra)
 
 
 concat-lags:
-	python scripts/concat_lags.py \
+	python scripts/tfsenc_concat.py \
 		--formats \
 			'results/tfs/625-676/kw-tfs-full-676-gpt2-xl-ctx-128-lag10-25/kw-200ms-all-676/' \
 			'results/tfs/625-676/kw-tfs-full-676-gpt2-xl-ctx-128-lag60-10k/kw-200ms-all-676/' \
