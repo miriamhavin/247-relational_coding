@@ -15,18 +15,17 @@ PRJCT_ID := tfs
 # 625 Electrode IDs
 SID := 625
 E_LIST := $(shell seq 1 105)
-E_LIST := $(shell seq 1 1)
 BC := 
 
 # 676 Electrode IDs
-# SID := 676
-# E_LIST := $(shell seq 1 125)
-# BC := --bad-convos 38 39
+SID := 676
+E_LIST := $(shell seq 1 125)
+BC := --bad-convos 38 39
 
 # 717 Electrode IDs
-# SID := 7170
-# E_LIST := $(shell seq 1 256)
-# BC :=
+SID := 7170
+E_LIST := $(shell seq 1 256)
+BC :=
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
@@ -128,8 +127,8 @@ NM := l2
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
-CMD := sbatch submit1.sh
 CMD := python
+CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
 # datum

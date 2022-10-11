@@ -128,8 +128,10 @@ def cv_lm_003_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag):
 
         # Fit model
         if args.pca_to == 0:
+            print("No PCA")
             model = make_pipeline(LinearRegression())
         else:
+            print(f"PCA to {args.pca_to}")
             model = make_pipeline(PCA(args.pca_to, whiten=True), LinearRegression())
         model.fit(Xtraf, Ytraf)
 
