@@ -26,18 +26,21 @@ def setup_environ(args):
     """Update args with project specific directories and other flags"""
 
     args.emb_type = args.emb_type.split("/")[-1]
+    args.align_with = [model.split("/")[-1] for model in args.align_with]
 
-    INPUT_DIR = os.path.join(
-        os.getcwd(), "data", args.project_id, str(args.sid)
-    )
+    if "glove50" in args.align_with:
+        args.align_with[args.align_with.index("glove50")] = "glove"
+
+    INPUT_DIR = os.path.join(os.getcwd(), "data", args.project_id, str(args.sid))
 
     args.PICKLE_DIR = os.path.join(INPUT_DIR, "pickles")
     EMB_DIR = os.path.join(args.PICKLE_DIR, "embeddings")
     MODEL_EMB_DIR = os.path.join(EMB_DIR, args.emb_type, args.pkl_identifier)
 
-    # FIXME: Not really sure what this is
     if args.emb_type == "glove50":
+        args.emb_type = "glove"
         args.layer_idx = 1
+        args.context_length = 1
 
     args.base_df_path = os.path.join(MODEL_EMB_DIR, "base_df.pkl")
 
@@ -47,9 +50,7 @@ def setup_environ(args):
         f"layer_{args.layer_idx:02d}.pkl",
     )
 
-    args.signal_file = "_".join(
-        [str(args.sid), args.pkl_identifier, "signal.pkl"]
-    )
+    args.signal_file = "_".join([str(args.sid), args.pkl_identifier, "signal.pkl"])
     args.electrode_file = "_".join([str(args.sid), "electrode_names.pkl"])
     args.stitch_file = "_".join(
         [str(args.sid), args.pkl_identifier, "stitch_index.pkl"]

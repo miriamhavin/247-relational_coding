@@ -35,45 +35,6 @@ def return_stitch_index(args):
     return stitch_index
 
 
-# def process_datum(args, df):
-#     df['is_nan'] = df['embeddings'].apply(lambda x: np.isnan(x).all())
-
-#     # drop empty embeddings
-#     df = df[~df['is_nan']]
-
-#     # use columns where token is root
-#     if 'gpt2-xl' in [args.align_with, args.emb_type]:
-#         df = df[df['gpt2-xl_token_is_root']]
-#     elif 'bert' in [args.align_with, args.emb_type]:
-#         df = df[df['bert_token_is_root']]
-#     else:
-#         pass
-
-#     df = df[~df['glove50_embeddings'].isna()]
-
-#     if args.emb_type == 'glove50':
-#         df['embeddings'] = df['glove50_embeddings']
-
-#     return df
-
-
-# def load_processed_datum(args):
-#     conversations = sorted(
-#         glob.glob(
-#             os.path.join(os.getcwd(), 'data', str(args.sid), 'conv_embeddings',
-#                          '*')))
-#     all_datums = []
-#     for conversation in conversations:
-#         datum = load_pickle(conversation)
-#         df = pd.DataFrame.from_dict(datum)
-#         df = process_datum(args, df)
-#         all_datums.append(df)
-
-#     concatenated_datum = pd.concat(all_datums, ignore_index=True)
-
-#     return concatenated_datum
-
-
 def process_subjects(args):
     """Process electrodes for subjects (requires electrode list or sig elec file)
 

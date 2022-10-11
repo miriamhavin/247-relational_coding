@@ -181,19 +181,19 @@ def process_datum(args, df, stitch):
     df = df[df.adjusted_onset.notna()]
     df = add_convo_onset_offset(args, df, stitch)
 
-    if args.emb_type == "glove50":
+    if args.emb_type == "glove":
         df = df.dropna(subset=["embeddings"])
     else:
         df = drop_nan_embeddings(df)
         df = remove_punctuation(df)
-    # df = df[~df['glove50_embeddings'].isna()]
 
+    # df = df[~df['glove50_embeddings'].isna()]
     # if encoding is on glove embeddings copy them into 'embeddings' column
-    if args.emb_type == "glove50":
-        try:
-            df["embeddings"] = df["glove50_embeddings"]
-        except KeyError:
-            pass
+    # if args.emb_type == "glove":
+    #     try:
+    #         df["embeddings"] = df["glove50_embeddings"]
+    #     except KeyError:
+    #         pass
 
     if not args.normalize:
         df = normalize_embeddings(args, df)
@@ -211,20 +211,13 @@ def filter_datum(args, df):
     Returns:
         DataFrame: filtered datum
     """
-    # FIXME: Move away from glove50/glove confusion
-    # stick with one convention
-    if args.emb_type == "glove50":
-        emb_type_trimmed = "glove"
-    else:
-        emb_type_trimmed = args.emb_type.split("/")[-1]
-
     align_with_trimmed = [model.split("/")[-1] for model in args.align_with]
 
     # filter based on embedding type argument
-    common = df[f"in_{emb_type_trimmed}"]
+    common = df[f"in_{args.emb_type}"]
 
     # filter based on align with arguments
-    for model in align_with_trimmed:
+    for model in args.align_with:
         common = common & df[f"in_{model}"]
 
     if args.exclude_nonwords:  # filter based on exclude_nonwords argument
@@ -434,10 +427,13 @@ def read_datum(args, stitch):
     Returns:
         DataFrame: processed and filtered datum
     """
-    emb_df = load_datum(args.load_emb_file)
-    base_df = load_datum(args.base_df)
+    emb_df = load_datum(args.emb_df_path)
+    base_df = load_datum(args.base_df_path)
 
-    df = pd.concat([base_df, emb_df], axis=1)
+    if args.emb_type == "glove":
+        df = emb_df
+    else:
+        df = pd.concat([base_df, emb_df], axis=1)
     print(f"After loading: Datum loads with {len(df)} words")
 
     df = process_datum(args, df, stitch)

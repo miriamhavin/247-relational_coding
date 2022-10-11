@@ -15,12 +15,13 @@ PRJCT_ID := tfs
 # 625 Electrode IDs
 SID := 625
 E_LIST := $(shell seq 1 105)
+E_LIST := $(shell seq 1 1)
 BC := 
 
 # 676 Electrode IDs
-SID := 676
-E_LIST := $(shell seq 1 125)
-BC := --bad-convos 38 39
+# SID := 676
+# E_LIST := $(shell seq 1 125)
+# BC := --bad-convos 38 39
 
 # 717 Electrode IDs
 # SID := 7170
@@ -62,20 +63,7 @@ SIG_FN :=
 #
 
 ### podcast significant electrode list (if provided, override electrode IDs)
-# SIG_FN := --sig-elec-file test.csv
-# SIG_FN := --sig-elec-file 129-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH.csv
-# SIG_FN := --sig-elec-file 160-phase-5000-sig-elec-glove50d-perElec-FDR-01-LH_newVer.csv
 # SIG_FN := --sig-elec-file podcast_160.csv
-
-### tfs significant electrode list (only used for plotting)(for encoding, use electrode IDs)
-# SIG_FN := 
-# SIG_FN := --sig-elec-file test.csv
-# SIG_FN := --sig-elec-file colton625.csv colton625.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-prod.csv
-# SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
-# SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
-# SIG_FN := --sig-elec-file 717_21-conv-elec-189.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-625-sig-1.0-comp.csv tfs-sig-file-625-sig-1.0-prod.csv tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-prod.csv # for plotting
 
 PKL_IDENTIFIER := full
 # {full | trimmed}
@@ -91,6 +79,7 @@ LAGS := -300000 -250000 -200000 200000 250000 300000 # lag300k-50k
 LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150k-30k
 LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60k-10k
 LAGS := {-10000..10000..25} # lag10k-25
+LAGS := {-2000..2000..25} # lag2k-25
 
 # Conversation ID (Choose 0 to run for all conversations)
 CONVERSATION_IDX := 0
@@ -98,9 +87,9 @@ CONVERSATION_IDX := 0
 # Choose which set of embeddings to use
 # {glove50 | gpt2-xl | blenderbot-small}
 EMB := blenderbot
-EMB := glove50
 EMB := gpt2-xl
 EMB := blenderbot-small
+EMB := glove50
 CNXT_LEN := 1024
 
 # Choose the window size to average for each point
@@ -108,22 +97,22 @@ WS := 200
 
 # Choose which set of embeddings to align with (intersection of embeddings)
 ALIGN_WITH := blenderbot-small
-ALIGN_WITH := glove50
 ALIGN_WITH := gpt2-xl
 ALIGN_WITH := glove50 gpt2-xl blenderbot-small
+ALIGN_WITH := glove50
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := $(shell seq 1 16)
+LAYER_IDX := 1
 
-# Choose whether to PCA (not used in encoding for now)
-# PCA_TO := 50
+# Choose whether to PCA (0 for no pca)
+PCA_TO := 50
 
 # Specify the minimum word frequency (0 for 247, 5 for podcast)
 MWF := 0
 
-# Specify the number of folds (usually 5)
-FN := 5
+# Specify the number of folds (usually 10)
+FN := 10
 
 # TODO: explain this parameter.
 WV := all
@@ -133,14 +122,14 @@ WV := all
 # PSH := --phase-shuffle
 
 # Choose whether to normalize the embeddings
-# NM := l2
+NM := l2
 # {l1 | l2 | max}
 
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
-CMD := python
 CMD := echo
 CMD := sbatch submit1.sh
+CMD := python
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -177,7 +166,7 @@ actually predicted by gpt2} (only used for podcast glove)
 # DM := gpt2-xl-pred
 DM := lag2k-25-incorrect
 DM := lag10k-25-all
-DM := lag2k-25-incorrect
+DM := lag2k-25-all
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -206,7 +195,7 @@ link-data:
 # the output folder name
 run-encoding:
 	mkdir -p logs
-	$(CMD) code/$(FILE).py \
+	$(CMD) scripts/$(FILE).py \
 		--project-id $(PRJCT_ID) \
 		--pkl-identifier $(PKL_IDENTIFIER) \
 		--datum-emb-fn $(DS) \
@@ -239,7 +228,7 @@ run-encoding-layers:
 	mkdir -p logs
 	for context in $(CNXT_LEN); do\
 		for layer in $(LAYER_IDX); do\
-			$(CMD) code/$(FILE).py \
+			$(CMD) scripts/$(FILE).py \
 				--project-id $(PRJCT_ID) \
 				--pkl-identifier $(PKL_IDENTIFIER) \
 				--datum-emb-fn $(DS) \
@@ -277,7 +266,7 @@ run-encoding-slurm:
 	mkdir -p logs
 	for elec in $(E_LIST); do \
 		# for jobid in $(shell seq 1 1); do \
-			$(CMD) code/$(FILE).py \
+			$(CMD) scripts/$(FILE).py \
 				--project-id $(PRJCT_ID) \
 				--pkl-identifier $(PKL_IDENTIFIER) \
 				--sid $(SID) \
@@ -307,7 +296,7 @@ run-encoding-slurm:
 # 	mkdir -p logs
 # 	for elec in $(E_LIST); do \
 # 		# for jobid in $(shell seq 1 1); do \
-# 			$(CMD) code/$(FILE).py \
+# 			$(CMD) scripts/$(FILE).py \
 # 				--project-id $(PRJCT_ID) \
 # 				--pkl-identifier $(PKL_IDENTIFIER) \
 # 				--sig-elec-file bobbi.csv \
@@ -331,7 +320,7 @@ run-encoding-slurm:
 
 
 # pca-on-embedding:
-# 	python code/tfsenc_pca.py \
+# 	python scripts/tfsenc_pca.py \
 # 			--sid $(SID) \
 # 			--emb-type $(EMB) \
 # 			--context-length $(CNXT_LEN) \
@@ -342,7 +331,7 @@ run-encoding-slurm:
 
 run-erp:
 	mkdir -p logs
-	$(CMD) code/tfserp_main.py \
+	$(CMD) scripts/tfserp_main.py \
 		--project-id $(PRJCT_ID) \
 		--pkl-identifier $(PKL_IDENTIFIER) \
 		--datum-emb-fn $(DS) \
@@ -436,7 +425,7 @@ The number of sig elec files should also equal # of sid * # of keys
 
 plot-new:
 	rm -f results/figures/*
-	python code/tfsplt_new.py \
+	python scripts/tfsplt_new.py \
 		--sid 717 \
 		--formats \
 			'results/tfs/bbot-layers-7170-good/kw-tfs-full-7170-blenderbot-small-lag10k-25-all-14/kw-200ms-all-7170/*_%s.csv' \
@@ -463,7 +452,7 @@ CONDS := all flip
 
 plot_layers:
 	rm -f results/figures/*
-	python code/tfsplt_layer.py \
+	python scripts/tfsplt_layer.py \
 		--sid 625 \
 		--layer-num 16 \
 		--top-dir results/tfs/bbot-layers-625 \
@@ -482,7 +471,7 @@ SP := 1
 
 sig-test:
 	rm -f results/figures/*
-	python code/sig_test.py \
+	python scripts/sig_test.py \
 		--sid 676 \
 		--formats \
 			'results/tfs/625-676/kw-tfs-full-676-glove50-lag10-25/kw-200ms-all-676/*_%s.csv' \
@@ -503,7 +492,7 @@ LAGS_FINAL := -99999999 # select all the lags that are concatenated (quardra)
 
 
 concat-lags:
-	python code/concat_lags.py \
+	python scripts/concat_lags.py \
 		--formats \
 			'results/tfs/625-676/kw-tfs-full-676-gpt2-xl-ctx-128-lag10-25/kw-200ms-all-676/' \
 			'results/tfs/625-676/kw-tfs-full-676-gpt2-xl-ctx-128-lag60-10k/kw-200ms-all-676/' \
@@ -519,5 +508,5 @@ concat-lags:
 
 
 # plot-autocor:
-# 	$(CMD) code/test.py
+# 	$(CMD) scripts/test.py
 

@@ -121,10 +121,10 @@ def cv_lm_003_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag):
         Xtraf, Xtesf = Xtra[fold_tra != i], Xtes[fold_tes == i]
         Ytraf, Ytesf = Ytra[fold_tra != i], Ytes[fold_tes == i]
 
-        Xtraf -= np.mean(Xtra, axis=0)
-        Xtesf -= np.mean(Xtes, axis=0)
-        Ytraf -= np.mean(Ytra, axis=0)
-        Ytesf -= np.mean(Ytes, axis=0)
+        Xtraf -= np.mean(Xtraf, axis=0)
+        Xtesf -= np.mean(Xtraf, axis=0)
+        Ytraf -= np.mean(Ytraf, axis=0)
+        Ytesf -= np.mean(Ytraf, axis=0)
 
         # Fit model
         model = make_pipeline(PCA(50, whiten=True), LinearRegression())
@@ -140,9 +140,9 @@ def cv_lm_003_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag):
         foldYhat = model.predict(Xtesf)
 
         Ynew[fold_tes == i, :] = Ytesf.reshape(-1, nChans)
-        YHAT[fold_tes != i, :] = foldYhat.reshape(-1, nChans)
+        YHAT[fold_tes == i, :] = foldYhat.reshape(-1, nChans)
 
-    return YHAT
+    return (YHAT, Ynew)
 
 
 # @jit(nopython=True)
