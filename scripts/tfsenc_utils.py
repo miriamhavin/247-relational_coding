@@ -111,6 +111,11 @@ def cv_lm_003_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag):
     else:
         print("running regression with best_lag")
 
+    if args.pca_to == 0:
+        print(f"No PCA, emb_dim = {Xtes.shape[1]}")
+    else:
+        print(f"PCA from {Xtes.shape[1]} to {args.pca_to}")
+
     nSamps = Xtes.shape[0]
     nChans = Ytra.shape[1] if Ytra.shape[1:] else 1
 
@@ -127,11 +132,9 @@ def cv_lm_003_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag):
         Ytesf -= np.mean(Ytraf, axis=0)
 
         # Fit model
-        if args.pca_to == 0:
-            print("No PCA")
+        if args.pca_to == 0 or "nopca" in args.datum_mod:
             model = make_pipeline(LinearRegression())
         else:
-            print(f"PCA to {args.pca_to}")
             model = make_pipeline(PCA(args.pca_to, whiten=True), LinearRegression())
         model.fit(Xtraf, Ytraf)
 

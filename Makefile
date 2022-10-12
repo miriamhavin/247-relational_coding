@@ -36,7 +36,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 625-mariano-prod-new-53.csv 625-mariano-comp-new-30.csv # for sig-test
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
 # SIG_FN := --sig-elec-file 7170-comp-sig.csv 7170-prod-sig.csv
-# SIG_FN := --sig-elec-file tfs-sig-file-676-sig-1.0-comp.csv tfs-sig-file-676-sig-1.0-prod.csv
+SIG_FN := --sig-elec-file tfs-sig-file-7170-sig-1.0-comp.csv tfs-sig-file-7170-sig-1.0-prod.csv
 
 
 # podcast electrode IDs
@@ -104,8 +104,8 @@ ALIGN_WITH := glove50
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
 LAYER_IDX := 1
 
-# Choose whether to PCA (0 or comment out for no pca)
-PCA_TO := 50
+# Choose whether to PCA (0 or for no pca)
+PCA_TO := 0
 
 # Specify the minimum word frequency (0 for 247, 5 for podcast)
 MWF := 0
@@ -159,13 +159,25 @@ outside of the conversation range (currently not used)
 #	{gpt2-pred: choose all words, for words incorrectly predicted by gpt2, use embeddings of the words \
 actually predicted by gpt2} (only used for podcast glove)
 
+# 3. {shift-emb, concat-emb}
+# {shift-emb: shifts embeddings (eg, from n-1 to n)}
+# {shift-emb1: shifts embeddings (eg, from n-1 to n)}
+# {shift-emb2: shifts embeddings 2 times (eg, from n-1 to n+1)}
+# ... etc
+# {shift-embn: shifts embeddings (eg, from n-1 to n-2)}
+# {shift-embn1: shifts embeddings (eg, from n-1 to n-2)}
+# {shift-embn2: shifts embeddings 2 times (eg, from n-1 to n-3)}
+# ... etc
+
+# {concat-emb: concat embeddings (eg, n-1 + n)}
+# {concat-emb2: concat embeddings (eg, n-1 + n + n+1)}
+# ... etc
+
 # 3. {everything else is purely for the result folder name}
 
-# DM := no-trim
-# DM := gpt2-xl-pred
 DM := lag2k-25-incorrect
 DM := lag10k-25-all
-DM := lag2k-25-all
+DM := lag2k-25-all-concat-emb4-nopca
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -425,11 +437,14 @@ The number of sig elec files should also equal # of sid * # of keys
 plot-new:
 	rm -f results/figures/*
 	python scripts/tfsplt_new.py \
-		--sid 717 \
+		--sid 7170 \
 		--formats \
-			'results/tfs/bbot-layers-7170-good/kw-tfs-full-7170-blenderbot-small-lag10k-25-all-14/kw-200ms-all-7170/*_%s.csv' \
-			'results/tfs/bbot-layers-7170-good/kw-tfs-full-7170-blenderbot-small-lag10k-25-all-flip-14/kw-200ms-all-7170/*_%s.csv' \
-		--labels bbot bbot-train-on-key \
+			'results/tfs/kw-tfs-full-7170-glove50-lag2k-25-all/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-7170-glove50-lag2k-25-all-concat-emb/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-7170-glove50-lag2k-25-all-concat-emb2/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-7170-glove50-lag2k-25-all-concat-emb3/*/*_%s.csv' \
+			'results/tfs/kw-tfs-full-7170-glove50-lag2k-25-all-concat-emb4/*/*_%s.csv' \
+		--labels glove glove-n+1 glove-n+2 glove-n+3 glove-n+4 \
 		--keys comp prod \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
@@ -439,7 +454,7 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/tfs-7170-bbot-layer14.pdf
+		--outfile results/figures/tfs-7170-glove-n-sig-pca.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 

@@ -117,10 +117,10 @@ def load_electrode_data(args, sid, elec_id, stitch, z_score=False):
                 mat_signal = stats.zscore(mat_signal)
 
         elif len(file) == 0:  # conversation file does not exist
-            if args.sid != 7170:
-                raise SystemExit(
-                    f"Error: Conversation file does not exist for electrode {elec_id} at {convo}"
-                )
+            # if args.sid != 7170:
+            #     raise SystemExit(
+            #         f"Error: Conversation file does not exist for electrode {elec_id} at {convo}"
+            #     )
             missing_convos.append(os.path.basename(convo))  # append missing convo name
             mat_signal = create_nan_signal(stitch, convo_id)
 

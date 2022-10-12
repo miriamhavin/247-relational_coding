@@ -302,17 +302,8 @@ def mod_datum_by_preds(args, datum, emb_type):
     return datum
 
 
-def shift_emb(args, datum):
-    """Shift the embeddings based on datum_mod argument
-
-    Args:
-        args (namespace): commandline arguments
-        datum: processed and filtered datum
-
-    Returns:
-        DataFrame: datum with shifted embeddings
-    """
-    partial = args.datum_mod[args.datum_mod.find("shift-emb") + 9 :]
+def mod_datum_arg_parse(args, mode):
+    partial = args.datum_mod[args.datum_mod.find(mode) + len(mode) :]
 
     if partial.find("-") >= 0:
         partial = partial[: partial.find("-")]
@@ -324,22 +315,86 @@ def shift_emb(args, datum):
     step = -1
     if "n" in partial:
         step = 1
-        partial = partial[1:]
+        if partial == "n":
+            partial = "1"
+        else:
+            partial = partial[1:]
     assert partial.isdigit()
     shift_num = int(partial)
+    print(f"{mode} {shift_num} * {step * -1} steps ")
+
+    return (shift_num, step)
+
+
+def shift_emb(args, datum, mode="shift-emb"):
+    """Shift the embeddings based on datum_mod argument
+
+    Args:
+        args (namespace): commandline arguments
+        datum: processed and filtered datum
+        mode: concat-emb
+
+    Returns:
+        DataFrame: datum with shifted embeddings
+    """
+    shift_num, step = mod_datum_arg_parse(args, mode)
 
     before_shift_num = len(datum.index)
     for i in np.arange(shift_num):
         datum["embeddings"] = datum.embeddings.shift(step)
-        datum = datum[datum.conversation_id.shift(step) == datum.conversation_id]
         if (
             "blenderbot-small" in args.emb_type.lower()
             or "bert" in args.emb_type.lower()
         ):
-            datum = datum[datum.production.shift(step) == datum.production]
-    print(
-        f"Shifting {shift_num} times resulted in {before_shift_num - len(datum.index)} less words"
-    )
+            datum = datum[
+                (
+                    datum.production.shift(step) == datum.production
+                    and datum.conversation_id.shift(step) == datum.conversation_id
+                )
+            ]
+        else:
+            datum = datum[datum.conversation_id.shift(step) == datum.conversation_id]
+    print(f"Shifting resulted in {before_shift_num - len(datum.index)} less words")
+    return datum
+
+
+def concat_emb(args, datum, mode="concat-emb"):
+    """Concatenate the embeddings based on datum_mod argument
+
+    Args:
+        args (namespace): commandline arguments
+        datum: processed and filtered datum
+        mode: concat-emb
+
+    Returns:
+        DataFrame: datum with shifted embeddings
+    """
+    shift_num, step = mod_datum_arg_parse(args, mode)
+
+    before_shift_num = len(datum.index)
+    datum["embeddings_shifted"] = datum.embeddings
+    for i in np.arange(shift_num):
+        datum["embeddings_shifted"] = datum.embeddings_shifted.shift(step)
+        if (
+            "blenderbot-small" in args.emb_type.lower()
+            or "bert" in args.emb_type.lower()
+        ):
+            datum = datum[
+                (
+                    datum.production.shift(step) == datum.production
+                    and datum.conversation_id.shift(step) == datum.conversation_id
+                )
+            ]
+        else:
+            datum = datum[datum.conversation_id.shift(step) == datum.conversation_id]
+
+        def concat(x):
+            return np.concatenate((x["embeddings"], x["embeddings_shifted"]))
+
+        datum["embeddings"] = datum.apply(concat, axis=1)
+
+    print(f"Concatenating resulted in {before_shift_num - len(datum.index)} less words")
+
     return datum
 
 
@@ -395,7 +450,9 @@ def mod_datum(args, datum):
         print(f"Running conversation {args.conversation_id} with {len(datum)} words")
 
     if "shift-emb" in args.datum_mod:  # shift embeddings to include word
-        datum = shift_emb(args, datum)
+        datum = shift_emb(args, datum, "shift-emb")
+    elif "concat-emb" in args.datum_mod:
+        datum = concat_emb(args, datum, "concat-emb")
     else:
         pass
 
