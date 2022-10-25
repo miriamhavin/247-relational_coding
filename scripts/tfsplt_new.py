@@ -108,9 +108,9 @@ def get_cmap_smap(args):
 
     cmap = plt.cm.get_cmap("jet")
 
-    if len(args.labels) > 10:
-        col_len = 17
-        colors = [cmap(i / col_len) for i in range(1, col_len)]
+    # if len(args.labels) > 10:
+    #     col_len = 17
+    #     colors = [cmap(i / col_len) for i in range(1, col_len)]
 
     # colors = [colorFader('#97baf7','#000308',i/col_len) for i in range(1,col_len)] # color gradient
 
@@ -458,7 +458,7 @@ def plot_electrodes_split_by_key(pdf, split_dir):
             ax.axhline(0, ls="dashed", alpha=0.3, c="k")
             ax.axvline(0, ls="dashed", alpha=0.3, c="k")
             ax.legend(loc="upper left", frameon=False)
-            ax.set_ylim(vmin - 0.05, vmax + 0.05)  # .35
+            ax.set_ylim(-0.05, 0.3)  # .35
             ax.set(
                 xlabel="Lag (s)",
                 ylabel="Correlation (r)",

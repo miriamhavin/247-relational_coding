@@ -174,7 +174,7 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     elec_signal, missing_convos = load_electrode_data(
         args, sid, elec_id, stitch_index, False
     )
-
+    breakpoint()
     # Modify datum based on signal
     if len(missing_convos) > 0:  # signal missing convos
         elec_datum = datum.loc[
@@ -200,7 +200,9 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     if args.project_id == "podcast":  # podcast
         fold_cat_prod = []
         fold_cat_comp = get_kfolds(comp_X, args.fold_num)
-    elif "single-conv" in args.datum_mod or args.conversation_id:  # 1 conv
+    elif (
+        "single-conv" in args.datum_mod or args.conversation_id or args.sid == 798
+    ):  # 1 conv
         fold_cat_prod = get_kfolds(prod_X, args.fold_num)
         fold_cat_comp = get_kfolds(comp_X, args.fold_num)
     elif (
@@ -237,7 +239,7 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     if len(comp_train[0]) > 0 and len(comp_test[0]) > 0:
         comp_results = run_regression(args, *comp_train, *comp_test)
         write_encoding_results(args, comp_results, elec_name, "comp")
-
+    breakpoint()
     return (sid, elec_name, len(prod_X), len(comp_X))
 
 
@@ -307,7 +309,7 @@ def main():
 
     # Processing significant electrodes or individual subjects
     electrode_info = process_subjects(args)
-    parallel_encoding(args, electrode_info, datum, stitch_index)
+    parallel_encoding(args, electrode_info, datum, stitch_index, False)
 
     return
 
