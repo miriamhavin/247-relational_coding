@@ -10,7 +10,6 @@ from scipy.io import loadmat
 from tfsenc_config import setup_environ
 from tfsenc_load_signal import load_electrode_data
 from tfsenc_parser import parse_arguments
-from tfsenc_phase_shuffle import phase_randomize_1d
 from tfsenc_read_datum import read_datum
 from tfsenc_utils import (
     build_XY,
@@ -79,76 +78,6 @@ def process_subjects(args):
         }
 
     return electrode_info
-
-
-# def process_sig_electrodes(args, datum):
-#     """Run encoding on select significant elctrodes specified by a file
-#     """
-#     # Read in the significant electrodes
-#     sig_elec_file = os.path.join(
-#         os.path.join(os.getcwd(), 'data', args.sig_elec_file))
-#     sig_elec_list = pd.read_csv(sig_elec_file)
-
-#     # Loop over each electrode
-#     for subject, elec_name in sig_elec_list.itertuples(index=False):
-
-#         assert isinstance(subject, int)
-#         CONV_DIR = '/projects/HASSON/247/data/conversations'
-#         if args.project_id == 'podcast':
-#             CONV_DIR = '/projects/HASSON/247/data/podcast'
-#         BRAIN_DIR_STR = 'preprocessed_all'
-
-#         fname = os.path.join(CONV_DIR, 'NY' + str(subject) + '*')
-#         subject_id = glob.glob(fname)
-#         assert len(subject_id), f'No data found in {fname}'
-#         subject_id = os.path.basename(subject_id[0])
-
-#         # Read subject's header
-#         labels = load_header(CONV_DIR, subject_id)
-#         assert labels is not None, 'Missing header'
-#         electrode_num = labels.index(elec_name) + 1
-
-#         # Read electrode data
-#         brain_dir = os.path.join(CONV_DIR, subject_id, BRAIN_DIR_STR)
-#         electrode_file = os.path.join(
-#             brain_dir, ''.join([
-#                 subject_id, '_electrode_preprocess_file_',
-#                 str(electrode_num), '.mat'
-#             ]))
-#         try:
-#             elec_signal = loadmat(electrode_file)['p1st']
-#             elec_signal = elec_signal.reshape(-1, 1)
-#         except FileNotFoundError:
-#             print(f'Missing: {electrode_file}')
-#             continue
-
-#         # Perform encoding/regression
-#         encoding_regression(args, datum, elec_signal,
-#                             str(subject) + '_' + elec_name)
-
-#     return
-
-
-# def dumdum1(iter_idx, args, datum, signal, name):
-#     seed = iter_idx + (os.getenv("SLURM_ARRAY_TASk_ID", 0) * 10000)
-#     np.random.seed(seed)
-#     new_signal = phase_randomize_1d(signal)
-#     (prod_corr, comp_corr) = encoding_regression_pr(args, datum, new_signal,
-#                                                     name)
-
-#     return (prod_corr, comp_corr)
-
-
-# def write_output(args, output_mat, name, output_str):
-
-#     output_dir = create_output_directory(args)
-
-#     if all(output_mat):
-#         trial_str = append_jobid_to_string(args, output_str)
-#         filename = os.path.join(output_dir, name + trial_str + '.csv')
-#         with open(filename, 'w') as csvfile:
-#             csvwriter = csv.writer(csvfile)
-#             csvwriter.writerows(output_mat)
 
 
 def single_electrode_encoding(electrode, args, datum, stitch_index):
@@ -281,13 +210,6 @@ def parallel_encoding(args, electrode_info, datum, stitch_index, parallel=True):
             single_electrode_encoding(electrode, args, datum, stitch_index)
 
     return None
-
-
-# def get_vector(x, glove):
-#     try:
-#         return glove.get_vector(x)
-#     except KeyError:
-#         return None
 
 
 @main_timer

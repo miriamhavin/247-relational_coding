@@ -211,15 +211,17 @@ def filter_datum(args, df):
     Returns:
         DataFrame: filtered datum
     """
-    # filter based on embedding type argument #HACK: no such column from pickling
-    common = True
+    common = np.repeat(True, len(df))  # create mask for filtering
+    # common = df[f"in_{args.emb_type}"]
 
     # filter based on align with arguments
     for model in args.align_with:
-        if model == args.emb_type:
+        if model == args.emb_type:  # FIXME: delete this later
             continue
         if model == "glove":  # when aligning with glove
-            common = common & df[f"{args.emb_type}_token_is_root"]  # also ensure word=token
+            common = (
+                common & df[f"{args.emb_type}_token_is_root"]
+            )  # also ensure word=token
         print(f"Aligning with {model}")
         common = common & df[f"in_{model}"]
 
@@ -231,8 +233,8 @@ def filter_datum(args, df):
         freq_mask = df.word_freq_overall >= args.min_word_freq
         common &= freq_mask
 
-    if type(common) != bool:
-        df = df[common]
+    df = df[common]
+
     return df
 
 
@@ -413,7 +415,6 @@ def trim_datum(args, datum):
         DataFrame: datum with trimmed words
     """
     half_window = round((args.window_size / 1000) * 512 / 2)
-    # lag = int(60000 / 1000 * 512) # trim edges with set length
     lag = int(args.lags[-1] / 1000 * 512)  # trim edges based on lag
     original_len = len(datum.index)
     datum = datum.loc[
