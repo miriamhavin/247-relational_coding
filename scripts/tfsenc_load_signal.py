@@ -2,11 +2,10 @@ import glob
 import os
 
 import numpy as np
-from scipy.io import loadmat
 from scipy import stats
+from scipy.io import loadmat
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
-
 
 # def trim_signal(signal):
 #     bin_size = 32  # 62.5 ms (62.5/1000 * 512)
@@ -23,7 +22,7 @@ from sklearn.preprocessing import PolynomialFeatures
 #     return signal
 
 
-def detrend_signal(mat_signal): # Detrending
+def detrend_signal(mat_signal):  # Detrending
     """Detrends a signal
 
     Args:
@@ -32,9 +31,9 @@ def detrend_signal(mat_signal): # Detrending
     Returns:
         mat_signal: detrended signal
     """
-    
+
     y = mat_signal
-    X = np.arange(len(y)).reshape(-1,1)
+    X = np.arange(len(y)).reshape(-1, 1)
     pf = PolynomialFeatures(degree=2)
     Xp = pf.fit_transform(X)
 
@@ -57,14 +56,14 @@ def create_nan_signal(stitch, convo_id):
         mat_signal: nans of a specific conversation size
     """
 
-    mat_len = stitch[convo_id]-stitch[convo_id-1] # mat file length
+    mat_len = stitch[convo_id] - stitch[convo_id - 1]  # mat file length
     mat_signal = np.empty((mat_len, 1))
     mat_signal.fill(np.nan)
 
     return mat_signal
 
 
-def load_electrode_data(args, sid, elec_id, stitch, z_score = False):
+def load_electrode_data(args, sid, elec_id, stitch, z_score=False):
     """Load and concat signal mat files for a specific electrode
 
     Args:
@@ -78,17 +77,22 @@ def load_electrode_data(args, sid, elec_id, stitch, z_score = False):
         elec_datum: modified datum based on the electrode signal
     """
 
-    if args.project_id == 'tfs':
-        DATA_DIR = '/projects/HASSON/247/data/conversations-car'
-        process_flag = 'preprocessed'
-        # process_flag = 'preprocessed_allElec' # all electrodes all convo for 7170
-    elif args.project_id == 'podcast':
-        DATA_DIR = '/projects/HASSON/247/data/podcast-data'
-        process_flag = 'preprocessed_all'
+    if args.project_id == "tfs":
+        DATA_DIR = "/projects/HASSON/247/data/conversations-car"
+        process_flag = "preprocessed"
+        if args.sid == 7170:
+            process_flag = "preprocessed_v2"  # second version of 7170
+        if args.sid == 798:
+            process_flag = 'preprocessed_allElec'
+    elif args.project_id == "podcast":
+        DATA_DIR = "/projects/HASSON/247/data/podcast-data"
+        process_flag = "preprocessed_all"
     else:
-        raise Exception('Invalid Project ID')
+        raise Exception("Invalid Project ID")
 
-    convos = sorted(glob.glob(os.path.join(DATA_DIR, str(sid), 'NY*Part*conversation*')))
+    convos = sorted(
+        glob.glob(os.path.join(DATA_DIR, str(sid), "NY*Part*conversation*"))
+    )
 
     all_signal = []
     missing_convos = []
@@ -96,33 +100,39 @@ def load_electrode_data(args, sid, elec_id, stitch, z_score = False):
         if args.conversation_id != 0 and convo_id != args.conversation_id:
             continue
 
-        file = glob.glob(os.path.join(convo, process_flag, '*_' + str(elec_id) + '.mat'))
+        file = glob.glob(
+            os.path.join(convo, process_flag, "*_" + str(elec_id) + ".mat")
+        )
 
-        if len(file) == 1: # conversation file exists
+        if len(file) == 1:  # conversation file exists
             file = file[0]
 
-            mat_signal = loadmat(file)['p1st']
+            mat_signal = loadmat(file)["p1st"]
             mat_signal = mat_signal.reshape(-1, 1)
 
             if mat_signal is None:
                 continue
 
-            mat_signal = detrend_signal(mat_signal) # detrend conversation signal
-            if z_score: # doing erp
+            mat_signal = detrend_signal(mat_signal)  # detrend conversation signal
+            if z_score:  # doing erp
                 mat_signal = stats.zscore(mat_signal)
 
-        elif len(file) == 0: # conversation file does not exist
-            if args.sid != 7170:
-                raise SystemExit(f'Error: Conversation file does not exist for electrode {elec_id} at {convo}')
-            missing_convos.append(os.path.basename(convo)) # append missing convo name
+        elif len(file) == 0:  # conversation file does not exist
+            # if args.sid != 7170:
+            #     raise SystemExit(
+            #         f"Error: Conversation file does not exist for electrode {elec_id} at {convo}"
+            #     )
+            missing_convos.append(os.path.basename(convo))  # append missing convo name
             mat_signal = create_nan_signal(stitch, convo_id)
 
-        else: # more than 1 conversation files
-            raise SystemExit(f'Error: More than 1 signal file exists for electrode {elec_id} at {convo}')
+        else:  # more than 1 conversation files
+            raise SystemExit(
+                f"Error: More than 1 signal file exists for electrode {elec_id} at {convo}"
+            )
 
-        all_signal.append(mat_signal) # append conversation signal
+        all_signal.append(mat_signal)  # append conversation signal
 
-    if args.project_id == 'tfs':
+    if args.project_id == "tfs":
         elec_signal = np.vstack(all_signal)
     else:
         elec_signal = np.array(all_signal)
