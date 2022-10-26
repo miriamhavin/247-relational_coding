@@ -211,13 +211,16 @@ def filter_datum(args, df):
     Returns:
         DataFrame: filtered datum
     """
-    align_with_trimmed = [model.split("/")[-1] for model in args.align_with]
-
-    # filter based on embedding type argument
-    common = df[f"in_{args.emb_type}"]
+    # filter based on embedding type argument #HACK: no such column from pickling
+    common = True
 
     # filter based on align with arguments
     for model in args.align_with:
+        if model == args.emb_type:
+            continue
+        if model == "glove":  # when aligning with glove
+            common = common & df[f"{args.emb_type}_token_is_root"]  # also ensure word=token
+        print(f"Aligning with {model}")
         common = common & df[f"in_{model}"]
 
     if args.exclude_nonwords:  # filter based on exclude_nonwords argument
@@ -228,7 +231,8 @@ def filter_datum(args, df):
         freq_mask = df.word_freq_overall >= args.min_word_freq
         common &= freq_mask
 
-    df = df[common]
+    if type(common) != bool:
+        df = df[common]
     return df
 
 
@@ -487,10 +491,7 @@ def read_datum(args, stitch):
     emb_df = load_datum(args.emb_df_path)
     base_df = load_datum(args.base_df_path)
 
-    if args.emb_type == "glove":
-        df = emb_df
-    else:
-        df = pd.concat([base_df, emb_df], axis=1)
+    df = pd.concat([base_df, emb_df], axis=1)
     print(f"After loading: Datum loads with {len(df)} words")
 
     df = process_datum(args, df, stitch)

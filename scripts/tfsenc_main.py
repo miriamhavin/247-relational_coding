@@ -174,7 +174,7 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     elec_signal, missing_convos = load_electrode_data(
         args, sid, elec_id, stitch_index, False
     )
-    breakpoint()
+
     # Modify datum based on signal
     if len(missing_convos) > 0:  # signal missing convos
         elec_datum = datum.loc[
@@ -239,7 +239,6 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     if len(comp_train[0]) > 0 and len(comp_test[0]) > 0:
         comp_results = run_regression(args, *comp_train, *comp_test)
         write_encoding_results(args, comp_results, elec_name, "comp")
-    breakpoint()
     return (sid, elec_name, len(prod_X), len(comp_X))
 
 
@@ -309,7 +308,7 @@ def main():
 
     # Processing significant electrodes or individual subjects
     electrode_info = process_subjects(args)
-    parallel_encoding(args, electrode_info, datum, stitch_index, False)
+    parallel_encoding(args, electrode_info, datum, stitch_index)
 
     return
 

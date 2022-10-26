@@ -18,9 +18,9 @@ E_LIST := $(shell seq 1 105)
 BC := 
 
 # 676 Electrode IDs
-SID := 676
-E_LIST := $(shell seq 1 125)
-BC := --bad-convos 38 39
+# SID := 676
+# E_LIST := $(shell seq 1 125)
+# BC := --bad-convos 38 39
 
 # 717 Electrode IDs
 SID := 7170
@@ -28,10 +28,9 @@ E_LIST := $(shell seq 1 256)
 BC :=
 
 # 798 Electrode IDs
-SID := 798
-E_LIST := $(shell seq 1 198)
-E_LIST := $(shell seq 60 60)
-BC :=
+# SID := 798
+# E_LIST := $(shell seq 1 198)
+# BC :=
 
 # Sig file will override whatever electrodes you choose
 SIG_FN := 
@@ -43,7 +42,7 @@ SIG_FN :=
 # SIG_FN := --sig-elec-file 676-mariano-prod-new-109.csv 676-mariano-comp-new-104.csv # for sig-test
 # SIG_FN := --sig-elec-file 7170-comp-sig.csv 7170-prod-sig.csv
 # SIG_FN := --sig-elec-file tfs-sig-file-7170-sig-1.0-comp.csv tfs-sig-file-7170-sig-1.0-prod.csv
-SIG_FN := --sig-elec-file tfs-sig-file-empty.csv tfs-sig-file-empty.csv tfs-sig-file-676-glove.csv tfs-sig-file-676-glove.csv tfs-sig-file-empty.csv tfs-sig-file-empty.csv tfs-sig-file-798-glove.csv tfs-sig-file-798-glove.csv 
+# SIG_FN := --sig-elec-file tfs-sig-file-7170-region-ifg.csv tfs-sig-file-7170-region-ifg.csv
 
 # podcast electrode IDs
 # SID := 777
@@ -94,8 +93,8 @@ CONVERSATION_IDX := 0
 EMB := blenderbot
 EMB := gpt2-xl
 EMB := blenderbot-small
-EMB := glove50
-CNXT_LEN := 1
+EMB := gpt2-xl
+CNXT_LEN := 1024
 
 # Choose the window size to average for each point
 WS := 200
@@ -104,11 +103,11 @@ WS := 200
 ALIGN_WITH := blenderbot-small
 ALIGN_WITH := gpt2-xl
 ALIGN_WITH := glove50 gpt2-xl blenderbot-small
-ALIGN_WITH := glove50
+ALIGN_WITH := glove50 gpt2-xl
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 1
+LAYER_IDX := 48
 
 # Choose whether to PCA (0 or for no pca)
 PCA_TO := 50
@@ -133,8 +132,8 @@ NM := l2
 # Choose the command to run: python runs locally, echo is for debugging, sbatch
 # is for running on SLURM all lags in parallel.
 CMD := echo
-CMD := sbatch submit1.sh
 CMD := python
+CMD := sbatch submit1.sh
 # {echo | python | sbatch submit1.sh}
 
 # datum
@@ -183,7 +182,7 @@ actually predicted by gpt2} (only used for podcast glove)
 
 DM := lag2k-25-incorrect
 DM := lag10k-25-all
-DM := lag2k-25-all-test
+DM := lag2k-25-all-aligned-shift-emb
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -443,29 +442,14 @@ The number of sig elec files should also equal # of sid * # of keys
 plot-new:
 	rm -f results/figures/*
 	python scripts/tfsplt_new.py \
-		--sid 625 676 7170 798 \
+		--sid 7170 \
 		--formats \
-			'results/tfs/kw-tfs-full-625-glove50-lag2k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-glove50-lag2k-25-all-concat-emb-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-glove50-lag2k-25-all-concat-emb2-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-glove50-lag2k-25-all-concat-emb3-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-625-glove50-lag2k-25-all-concat-emb4-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-lag2k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-lag2k-25-all-concat-emb-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-lag2k-25-all-concat-emb2-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-lag2k-25-all-concat-emb3-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-676-glove50-lag2k-25-all-concat-emb4-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-7170-glove50-lag2k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-7170-glove50-lag2k-25-all-concat-emb-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-7170-glove50-lag2k-25-all-concat-emb2-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-7170-glove50-lag2k-25-all-concat-emb3-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-7170-glove50-lag2k-25-all-concat-emb4-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-798-glove50-lag2k-25-all/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-798-glove50-lag2k-25-all-concat-emb-kfold-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-798-glove50-lag2k-25-all-concat-emb2-kfold-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-798-glove50-lag2k-25-all-concat-emb3-kfold-nopca/*/*_%s.csv' \
-			'results/tfs/kw-tfs-full-798-glove50-lag2k-25-all-concat-emb4-kfold-nopca/*/*_%s.csv' \
-		--labels glove glove-n+1 glove-n+2 glove-n+3 glove-n+4 glove glove-n+1 glove-n+2 glove-n+3 glove-n+4 glove glove-n+1 glove-n+2 glove-n+3 glove-n+4 glove glove-n+1 glove-n+2 glove-n+3 glove-n+4 \
+			'results/tfs/20221012-glove-concat/kw-tfs-full-7170-glove50-lag2k-25-all/*/*_%s.csv' \
+			'results/tfs/20221012-glove-concat/kw-tfs-full-7170-glove50-lag2k-25-all-concat-emb-nopca/*/*_%s.csv' \
+			'results/tfs/20221012-glove-concat/kw-tfs-full-7170-glove50-lag2k-25-all-concat-emb2-nopca/*/*_%s.csv' \
+			'results/tfs/20221012-glove-concat/kw-tfs-full-7170-glove50-lag2k-25-all-concat-emb3-nopca/*/*_%s.csv' \
+			'results/tfs/20221012-glove-concat/kw-tfs-full-7170-glove50-lag2k-25-all-concat-emb4-nopca/*/*_%s.csv' \
+		--labels glove glove-n+1 glove-n+2 glove-n+3 glove-n+4\
 		--keys comp prod \
 		$(SIG_FN) \
 		--fig-size $(FIG_SZ) \
@@ -475,7 +459,7 @@ plot-new:
 		$(LAG_TKS) \
 		$(LAG_TK_LABLS) \
 		$(PLT_PARAMS) \
-		--outfile results/figures/tfs-glove-n-best3.pdf
+		--outfile results/figures/tfs-7170-glove-n-ifg.pdf
 	rsync -av results/figures/ ~/tigress/247-encoding-results/
 
 
