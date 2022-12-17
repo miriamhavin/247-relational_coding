@@ -10,8 +10,6 @@ from utils import load_pickle
 # import gensim.downloader as api
 # import re
 
-NONWORDS = {"hm", "huh", "mhm", "mm", "oh", "uh", "uhuh", "um"}
-
 
 def remove_punctuation(df):
     return df[~df.token.isin(list(string.punctuation))]
@@ -187,8 +185,7 @@ def filter_datum(args, df):
         common = common & df[f"in_{model}"]
 
     if args.exclude_nonwords:  # filter based on exclude_nonwords argument
-        nonword_mask = df.word.str.lower().apply(lambda x: x in NONWORDS)
-        common &= ~nonword_mask
+        common &= ~df.is_nonword
 
     if args.min_word_freq > 0:  # filter based on min_word_freq argument
         freq_mask = df.word_freq_overall >= args.min_word_freq
