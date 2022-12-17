@@ -25,34 +25,6 @@ def drop_nan_embeddings(df):
     return df
 
 
-def adjust_onset_offset(args, df, stitch_index):
-    """[summary]
-
-    Args:
-        args ([type]): [description]
-        df ([type]): [description]
-        stitch_index ([list]): stitch index
-
-    Returns:
-        [type]: [description]
-    """
-    print("adjusting datum onset and offset")
-    stitch_index = stitch_index[:-1]
-
-    df["adjusted_onset"], df["onset"] = df["onset"], np.nan
-    df["adjusted_offset"], df["offset"] = df["offset"], np.nan
-
-    for _, conv in enumerate(df.conversation_id.unique()):
-        shift = stitch_index[conv - 1]
-        df.loc[df.conversation_id == conv, "onset"] = (
-            df.loc[df.conversation_id == conv, "adjusted_onset"] - shift
-        )
-        df.loc[df.conversation_id == conv, "offset"] = (
-            df.loc[df.conversation_id == conv, "adjusted_offset"] - shift
-        )
-    return df
-
-
 def make_input_from_tokens(token_list):
     """[summary]
 
@@ -166,17 +138,6 @@ def process_datum(args, df, stitch):
 
     df = df.loc[~df["conversation_id"].isin(args.bad_convos)]  # filter bad convos
     assert len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
-
-    if args.project_id == "tfs" and not all(
-        [item in df.columns for item in ["adjusted_onset", "adjusted_offset"]]
-    ):
-        df = adjust_onset_offset(
-            args, df, stitch
-        )  # not sure if needed (maybe as a failsafe?)
-    # TODO this was needed for podcast but destroys tfs
-    # else:
-    #     df['adjusted_onset'], df['onset'] = df['onset'], np.nan
-    #     df['adjusted_offset'], df['offset'] = df['offset'], np.nan
 
     df = df[df.adjusted_onset.notna()]
     df = add_convo_onset_offset(args, df, stitch)
