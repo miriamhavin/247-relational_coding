@@ -22,11 +22,32 @@ def create_output_directory(args):
     return full_output_dir
 
 
+def clean_lm_model_name(item):
+    """Remove unnecessary parts from the language model name.
+
+    Args:
+        item (str/list): full model name from HF Hub
+
+    Returns:
+        (str/list): pretty model name
+
+    Example:
+        clean_lm_model_name(EleutherAI/gpt-neo-1.3B) == 'gpt-neo-1.3B'
+    """    
+    if isinstance(item, str):
+        return item.split("/")[-1]
+
+    if isinstance(item, list):
+        return [clean_lm_model_name(i) for i in item]
+    
+    print('Invalid input. Please check.')
+
+
 def setup_environ(args):
     """Update args with project specific directories and other flags"""
 
-    args.emb_type = args.emb_type.split("/")[-1]
-    args.align_with = [model.split("/")[-1] for model in args.align_with]
+    args.emb_type = clean_lm_model_name(args.emb_type)
+    args.align_with = clean_lm_model_name(args.align_with)
 
     if "glove50" in args.align_with:
         args.align_with[args.align_with.index("glove50")] = "glove"
