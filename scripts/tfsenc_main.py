@@ -6,7 +6,6 @@ from multiprocessing import Pool, cpu_count
 
 import numpy as np
 import pandas as pd
-from scipy.io import loadmat
 from tfsenc_config import setup_environ
 from tfsenc_load_signal import load_electrode_data
 from tfsenc_parser import parse_arguments
