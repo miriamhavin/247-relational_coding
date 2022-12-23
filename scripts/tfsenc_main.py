@@ -2,11 +2,10 @@ import csv
 import glob
 import os
 from functools import partial
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 
 import numpy as np
 import pandas as pd
-from scipy.io import loadmat
 from tfsenc_config import setup_environ
 from tfsenc_load_signal import load_electrode_data
 from tfsenc_parser import parse_arguments
@@ -19,6 +18,13 @@ from tfsenc_utils import (
     write_encoding_results,
 )
 from utils import load_pickle, main_timer, write_config
+
+
+def get_cpu_count(min_cpus=2):
+    if os.getenv("SLURMD_NODENAME"):
+        min_cpus = cpu_count()
+
+    return min_cpus
 
 
 def return_stitch_index(args):
@@ -190,7 +196,7 @@ def parallel_encoding(args, electrode_info, datum, stitch_index, parallel=True):
     if parallel:
         print("Running all electrodes in parallel")
         summary_file = os.path.join(args.full_output_dir, "summary.csv")  # summary file
-        p = Pool(4)  # multiprocessing
+        p = Pool(processes=get_cpu_count())  # multiprocessing
         with open(summary_file, "w") as f:
             writer = csv.writer(f, delimiter=",", lineterminator="\r\n")
             writer.writerow(("sid", "electrode", "prod", "comp"))
