@@ -395,11 +395,6 @@ def mod_datum(args, datum):
     Returns:
         DataFrame: further filtered datum
     """
-    if args.conversation_id:  # picking single conversation
-        datum = datum[datum.conversation_id == args.conversation_id]
-        datum.convo_offset = datum["convo_offset"] - datum["convo_onset"]
-        datum.convo_onset = 0
-
     if "notrim" in args.datum_mod:  # no need for edge trimming
         pass
     else:
