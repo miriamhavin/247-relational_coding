@@ -413,6 +413,48 @@ def trim_datum(args, datum):
     return datum
 
 
+def rand_emb(df):
+
+    emb_max = df.embeddings.apply(max).max()
+    emb_min = df.embeddings.apply(min).min()
+
+    rand_emb = np.random.random((len(df), 50))
+    rand_emb = rand_emb * (emb_max - emb_min) + emb_min
+    df["embeddings"] = list(rand_emb)
+    print(f"Generated random embeddings for {len(df)} words")
+
+    return df
+
+
+def zeroshot_datum(df):
+    dfz = (
+        df[["word", "adjusted_onset"]]
+        .groupby("word")
+        .apply(lambda x: x.sample(1, random_state=42))
+    )
+    dfz.reset_index(level=1, inplace=True)
+    dfz.sort_values("adjusted_onset", inplace=True)
+    df = df.loc[dfz.level_1.values]
+    print(f"Zeroshot created datum with {len(df)} words")
+
+    return df
+
+
+def arb_emb(df):
+
+    df2 = zeroshot_datum(df)
+    df2 = df2.loc[:, ("word", "embeddings")]
+    df2.reset_index(drop=True, inplace=True)
+    df2 = rand_emb(df2)
+    df = df.drop("embeddings", axis=1, errors="ignore")
+
+    df = df.merge(df2, how="left", on="word")
+    df.sort_values(["conversation_id", "index"], inplace=True)
+    print(f"Arbitrary embeddings created for {len(df)} words")
+
+    return df
+
+
 def mod_datum(args, datum):
     """Filter the datum based on datum_mod argument
 
@@ -428,21 +470,31 @@ def mod_datum(args, datum):
     else:
         datum = trim_datum(args, datum)  # trim edges
 
+    ## Single convo
     if args.conversation_id:  # picking single conversation
         datum = datum[datum.conversation_id == args.conversation_id]
         datum.convo_offset = datum["convo_offset"] - datum["convo_onset"]
         datum.convo_onset = 0
         print(f"Running conversation {args.conversation_id} with {len(datum)} words")
 
-    if "shift-emb" in args.datum_mod:  # shift embeddings to include word
+    ## Embedding manipulation
+    if "shift-emb" in args.datum_mod:  # shift embeddings
         datum = shift_emb(args, datum, "shift-emb")
-    elif "concat-emb" in args.datum_mod:
+    elif "concat-emb" in args.datum_mod:  # concatenate embeddings
         datum = concat_emb(args, datum, "concat-emb")
+    elif "-rand" in args.datum_mod:  # random embeddings
+        datum = rand_emb(datum)
+    elif "-arb" in args.datum_mod:  # artibtrary embeddings
+        datum = arb_emb(datum)
     else:
         pass
 
-    if "-all" in args.datum_mod:
+    ## Token manipulation
+    if "-all" in args.datum_mod:  # all tokens
         pass
+
+    elif "-zeroshot" in args.datum_mod:  # zeroshot tokens
+        datum = zeroshot_datum(datum)
 
     else:  # modify datum based on predictions
         pred_type = args.emb_type
@@ -456,7 +508,7 @@ def mod_datum(args, datum):
     # else:
     #     raise Exception('Invalid Datum Modification')
 
-    datum = ave_emb(datum)
+    datum = ave_emb(datum)  # average embs per word
 
     assert len(datum.index) > 0, "Empty Datum"
     return datum

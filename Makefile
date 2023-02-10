@@ -148,9 +148,10 @@ CMD := python
 outside of the conversation range (currently not used)
 #	if 'no-trim' is not a substring of DM, datum will be trimmed based on maximum lag
 
-# 2. {all, correct, incorrect, pred}
+# 2. Token manipulation {-all, -zeroshot, -correct, -incorrect, -pred}
 #	for all emb_type:
 #	{all: choose all words}
+#   {zeroshot: zeroshot datum (unique set of words)}
 
 #	for emb_type other than glove:
 #	{correct: choose words correctly predicted by the model}
@@ -164,7 +165,10 @@ outside of the conversation range (currently not used)
 #	{gpt2-pred: choose all words, for words incorrectly predicted by gpt2, use embeddings of the words \
 actually predicted by gpt2} (only used for podcast glove)
 
-# 3. {shift-emb, concat-emb}
+# 3. Embedding manipulation {-rand, -arb, shift-emb, concat-emb}
+# {-rand: random datum (random embeddings)}
+# {-arb: arbitrary datum (arbitrary embeddings, same for same word)}
+
 # {shift-emb: shifts embeddings (eg, from n-1 to n)}
 # {shift-emb1: shifts embeddings (eg, from n-1 to n)}
 # {shift-emb2: shifts embeddings 2 times (eg, from n-1 to n+1)}
