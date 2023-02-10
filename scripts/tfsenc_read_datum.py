@@ -527,7 +527,9 @@ def read_datum(args, stitch):
     emb_df = load_datum(args.emb_df_path)
     base_df = load_datum(args.base_df_path)
 
-    df = pd.concat([base_df, emb_df], axis=1)
+    df = pd.merge(
+        base_df, emb_df, left_index=True, right_index=True
+    )  # TODO Needs testing
     print(f"After loading: Datum loads with {len(df)} words")
 
     df = process_datum(args, df, stitch)
