@@ -361,6 +361,34 @@ def concat_emb(args, datum, mode="concat-emb"):
     return datum
 
 
+def ave_emb(datum):
+    print("Averaging embeddings across tokens")
+
+    # calculate mean embeddings
+    def mean_emb(embs):
+        return np.array(embs.values.tolist()).mean(axis=0).tolist()
+
+    mean_embs = datum.groupby(["adjusted_onset", "word"], sort=False)[
+        "embeddings"
+    ].apply(lambda x: mean_emb(x))
+    mean_embs = pd.DataFrame(mean_embs)
+
+    # replace embeddings
+    idx = (
+        datum.groupby(["adjusted_onset", "word"], sort=False)["token_idx"].transform(
+            min
+        )
+        == datum["token_idx"]
+    )
+    datum = datum[idx]
+    mean_embs.set_index(datum.index, inplace=True)
+    datum.loc[:, "embeddings"] = mean_embs.embeddings
+
+    print(f"Datum length: {len(datum)}")
+
+    return datum
+
+
 def trim_datum(args, datum):
     """Trim the datum based on the largest lag size
 
@@ -427,6 +455,9 @@ def mod_datum(args, datum):
 
     # else:
     #     raise Exception('Invalid Datum Modification')
+
+    datum = ave_emb(datum)
+
     assert len(datum.index) > 0, "Empty Datum"
     return datum
 
