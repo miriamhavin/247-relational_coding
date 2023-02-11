@@ -206,53 +206,81 @@ def mod_datum_by_preds(args, datum, emb_type):
     Returns:
         DataFrame: further filtered datum
     """
-    if emb_type in args.load_emb_file:  # current datum has the correct emb_type
+    if emb_type in args.emb_df_path:  # current datum has the correct emb_type
         pass
     else:  # current datum does not have the correct emb_type, need to load a second datum
-
         # load second datum
         if emb_type == "gpt2-xl":
-            second_datum_name = (
-                str(args.sid) + "_full_gpt2-xl_cnxt_1024_layer_48_embeddings.pkl"
+            second_base_df_path = os.path.join(
+                args.PICKLE_DIR, "embeddings", "gpt2-xl", "full", "base_df.pkl"
             )
-        elif emb_type == "blenderbot-small":
-            second_datum_name = (
-                str(args.sid) + "_full_blenderbot-small_layer_16_embeddings.pkl"
+            second_emb_df_path = os.path.join(
+                args.PICKLE_DIR,
+                "embeddings",
+                "gpt2-xl",
+                "full",
+                "cnxt_1024",
+                "layer_48.pkl",
             )
-        second_datum_path = os.path.join(
-            args.PICKLE_DIR, second_datum_name
-        )  # second datum full path
-        second_datum = load_datum(second_datum_path)[
-            ["adjusted_onset", "top1_pred"]
-        ]  # load second datum
+        else:
+            raise Exception("Not implemented")  # TODO
+
+        second_base_df = load_datum(second_base_df_path)
+        second_emb_df = load_datum(second_emb_df_path)
+
+        second_datum = pd.merge(
+            second_base_df, second_emb_df, left_index=True, right_index=True
+        )
+        # second_base_df.reset_index(
+        #     drop=True, inplace=True
+        # )  # so concatenate can be aligned correctly
+        # second_datum = pd.concat([second_base_df, second_emb_df], axis=1)
+        if args.emb_type == "glove":
+            second_datum = second_datum[
+                second_datum["gpt2-xl_token_is_root"] & second_datum["in_glove"]
+            ]
+        second_datum = second_datum.loc[
+            :,
+            [
+                "adjusted_onset",
+                "word",
+                "top1_pred",
+                "top1_pred_prob",
+                "true_pred_prob",
+                "true_pred_rank",
+            ],
+        ]
 
         # merge second datum prediction columns to datum
         datum = datum.drop(
-            ["top1_pred"], axis=1, errors="ignore"
+            ["top1_pred", "top1_pred_prob", "true_pred_prob", "true_pred_rank"],
+            axis=1,
+            errors="ignore",
         )  # delete the current top predictions if any
         datum = datum[datum.adjusted_onset.notna()]
         second_datum = second_datum[second_datum.adjusted_onset.notna()]
-        datum = datum.merge(second_datum, how="inner", on="adjusted_onset")
+        datum = datum.merge(second_datum, how="inner", on=["adjusted_onset", "word"])
+    print(f"Using {emb_type} predictions")
 
     # modify datum based on correct or incorrect predictions
-    if (
-        "incorrect" in args.datum_mod
-    ):  # select words predicted by gpt2 incorrectly (top 1 pred)
-        datum = datum[
-            datum.word.str.lower() != datum.top1_pred.str.lower().str.strip()
-        ]  # incorrect
-        print(
-            f"Selected {len(datum.index)} incorrect words based on {emb_type} predictions"
-        )
-    elif (
-        "correct" in args.datum_mod
-    ):  # select words predicted by gpt2 correctly (top 1 pred)
-        datum = datum[
-            datum.word.str.lower() == datum.top1_pred.str.lower().str.strip()
-        ]  # correct
-        print(
-            f"Selected {len(datum.index)} correct words based on {emb_type} predictions"
-        )
+    if "incorrect" in args.datum_mod:  # select words predicted incorrectly
+        rank, _ = mod_datum_arg_parse(args, "incorrect", "5")
+        datum = datum[datum.true_pred_rank > rank]  # incorrect
+        print(f"Selected {len(datum.index)} top{rank} incorrect words")
+    elif "correct" in args.datum_mod:  # select words predicted correctly
+        rank, _ = mod_datum_arg_parse(args, "correct", "5")
+        datum = datum[datum.true_pred_rank <= rank]  # correct
+        print(f"Selected {len(datum.index)} top{rank} correct words")
+    elif "improb" in args.datum_mod:  # select low pred_prob words
+        percentile, _ = mod_datum_arg_parse(args, "improb", "30")
+        bot = datum.true_pred_prob.quantile(percentile / 100)
+        datum = datum[datum.true_pred_prob <= bot]
+        print(f"Selected {len(datum.index)} bot pred prob words")
+    elif "prob" in args.datum_mod:  # select high pred_prob words
+        percentile, _ = mod_datum_arg_parse(args, "prob", "30")
+        top = datum.true_pred_prob.quantile(1 - percentile / 100)
+        datum = datum[datum.true_pred_prob >= top]
+        print(f"Selected {len(datum.index)} top pred prob words")
 
     # elif args.datum_mod == emb_type + "-pred": # for incorrectly predicted words, replace with top 1 pred (only used for podcast glove)
     #     glove = api.load('glove-wiki-gigaword-50')
@@ -265,26 +293,25 @@ def mod_datum_by_preds(args, datum, emb_type):
     return datum
 
 
-def mod_datum_arg_parse(args, mode):
+def mod_datum_arg_parse(args, mode, default_val="1"):
     partial = args.datum_mod[args.datum_mod.find(mode) + len(mode) :]
 
-    if partial.find("-") >= 0:
+    if partial.find("-") >= 0:  # if there is another tag later
         partial = partial[: partial.find("-")]
     else:
         pass
-    if len(partial) == 0:
-        partial = "1"
+    if len(partial) == 0:  # no number provided
+        partial = default_val  # defaults to 1
 
     step = -1
     if "n" in partial:
         step = 1
         if partial == "n":
-            partial = "1"
+            partial = default_val
         else:
             partial = partial[1:]
     assert partial.isdigit()
     shift_num = int(partial)
-    print(f"{mode} {shift_num} * {step * -1} steps ")
 
     return (shift_num, step)
 
@@ -301,6 +328,7 @@ def shift_emb(args, datum, mode="shift-emb"):
         DataFrame: datum with shifted embeddings
     """
     shift_num, step = mod_datum_arg_parse(args, mode)
+    print(f"{mode} {shift_num} * {step * -1} steps ")
 
     before_shift_num = len(datum.index)
     for i in np.arange(shift_num):
@@ -333,6 +361,7 @@ def concat_emb(args, datum, mode="concat-emb"):
         DataFrame: datum with shifted embeddings
     """
     shift_num, step = mod_datum_arg_parse(args, mode)
+    print(f"{mode} {shift_num} * {step * -1} steps ")
 
     before_shift_num = len(datum.index)
     datum["embeddings_shifted"] = datum.embeddings
@@ -498,7 +527,7 @@ def mod_datum(args, datum):
 
     else:  # modify datum based on predictions
         pred_type = args.emb_type
-        if "gpt2-xl" in args.datum_mod:
+        if "gpt2-xl" in args.datum_mod:  # if prediction from a different model
             pred_type = "gpt2-xl"
         elif "blenerbot-small" in args.datum_mod:
             pred_type = "blenderbot-small"
@@ -529,7 +558,7 @@ def read_datum(args, stitch):
 
     df = pd.merge(
         base_df, emb_df, left_index=True, right_index=True
-    )  # TODO Needs testing
+    )  # TODO Needs testing (either bert_utterance or whisper)
     print(f"After loading: Datum loads with {len(df)} words")
 
     df = process_datum(args, df, stitch)
