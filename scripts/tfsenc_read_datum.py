@@ -117,7 +117,7 @@ def process_datum(args, df, stitch):
     df = df[df.adjusted_onset.notna()]
     df = add_convo_onset_offset(args, df, stitch)
 
-    if args.emb_type == "glove":
+    if args.emb_type == "glove50":
         df = df.dropna(subset=["embeddings"])
     else:
         df = drop_nan_embeddings(df)
@@ -125,7 +125,7 @@ def process_datum(args, df, stitch):
 
     # df = df[~df['glove50_embeddings'].isna()]
     # if encoding is on glove embeddings copy them into 'embeddings' column
-    # if args.emb_type == "glove":
+    # if args.emb_type == "glove50":
     #     try:
     #         df["embeddings"] = df["glove50_embeddings"]
     #     except KeyError:
@@ -152,9 +152,7 @@ def filter_datum(args, df):
 
     # filter based on align with arguments
     for model in args.align_with:
-        if model == args.emb_type:  # FIXME: delete this later
-            continue
-        if model == "glove":  # when aligning with glove
+        if model == "glove50":  # when aligning with glove
             common = (
                 common & df[f"{args.emb_type}_token_is_root"]
             )  # also ensure word=token
@@ -212,9 +210,9 @@ def mod_datum_by_preds(args, datum, emb_type):
         #     drop=True, inplace=True
         # )  # so concatenate can be aligned correctly
         # second_datum = pd.concat([second_base_df, second_emb_df], axis=1)
-        if args.emb_type == "glove":
+        if args.emb_type == "glove50":
             second_datum = second_datum[
-                second_datum["gpt2-xl_token_is_root"] & second_datum["in_glove"]
+                second_datum["gpt2-xl_token_is_root"] & second_datum["in_glove50"]
             ]
         second_datum = second_datum.loc[
             :,
