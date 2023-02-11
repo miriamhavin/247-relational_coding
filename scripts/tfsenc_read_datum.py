@@ -61,26 +61,6 @@ def add_convo_onset_offset(args, df, stitch_index):
     return df
 
 
-def add_signal_length(df, stitch):
-    """Add conversation signal length to datum
-
-    Args:
-        df (DataFrame): datum being processed
-        stitch (List): stitch index
-
-    Returns:
-        DataFrame: df with conversation signal length
-    """
-    signal_lengths = np.diff(stitch).tolist()
-
-    df["conv_signal_length"] = np.nan
-
-    for idx, conv in enumerate(df.conversation_id.unique()):
-        df.loc[df.conversation_id == conv, "conv_signal_length"] = signal_lengths[idx]
-
-    return df
-
-
 def normalize_embeddings(args, df):
     """Normalize the embeddings
     https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.normalize.html
@@ -130,8 +110,6 @@ def process_datum(args, df, stitch):
     Returns:
         DataFrame: processed datum
     """
-
-    df = add_signal_length(df, stitch)
 
     df = df.loc[~df["conversation_id"].isin(args.bad_convos)]  # filter bad convos
     assert len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
