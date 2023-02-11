@@ -186,9 +186,8 @@ def filter_datum(args, df):
     if args.exclude_nonwords:  # filter based on exclude_nonwords argument
         common &= ~df.is_nonword
 
-    if args.min_word_freq > 0:  # filter based on min_word_freq argument
-        freq_mask = df.word_freq_overall >= args.min_word_freq
-        common &= freq_mask
+    freq_mask = df.word_freq_overall >= args.min_word_freq
+    common &= freq_mask
 
     df = df[common]
 
