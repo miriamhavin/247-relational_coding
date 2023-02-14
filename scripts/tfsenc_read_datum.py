@@ -393,7 +393,6 @@ def ave_emb(datum):
     datum2 = datum.copy() # setting copy to avoid warning
     datum2.loc[:, "embeddings"] = mean_embs.embeddings
     datum = datum2 # reassign back to datum
-    print(f"Datum length: {len(datum)}")
 
     return datum
 
@@ -476,6 +475,7 @@ def mod_datum(args, datum):
     Returns:
         DataFrame: further filtered datum
     """
+    ## Trimming datum
     if "notrim" in args.datum_mod:  # no need for edge trimming
         pass
     else:
@@ -500,6 +500,10 @@ def mod_datum(args, datum):
     else:
         pass
 
+    if "glove" not in args.emb_type:
+        datum = ave_emb(datum)  # average embs per word
+
+
     ## Token manipulation
     if "-all" in args.datum_mod:  # all tokens
         pass
@@ -518,9 +522,6 @@ def mod_datum(args, datum):
 
     # else:
     #     raise Exception('Invalid Datum Modification')
-
-    if "glove" not in args.emb_type:
-        datum = ave_emb(datum)  # average embs per word
 
     assert len(datum.index) > 0, "Empty Datum"
     return datum
@@ -551,5 +552,7 @@ def read_datum(args, stitch):
     print(f"After filtering: Datum now has {len(df)} words")
 
     df = mod_datum(args, df)  # further filter datum based on datum_mod argument
+    print(f"Datum final length: {len(df)}")
+
 
     return df
