@@ -306,9 +306,9 @@ def shift_emb(args, datum, mode="shift-emb"):
     print(f"{mode} {shift_num} * {step * -1} steps ")
 
     before_shift_num = len(datum.index)
-    datum2 = datum.copy() # setting copy to avoid warning
+    datum2 = datum.copy()  # setting copy to avoid warning
     for i in np.arange(shift_num):
-        datum2.loc[:,"embeddings"] = datum2.embeddings.shift(step)
+        datum2.loc[:, "embeddings"] = datum2.embeddings.shift(step)
         if (
             "blenderbot-small" in args.emb_type.lower()
             or "bert" in args.emb_type.lower()
@@ -320,8 +320,10 @@ def shift_emb(args, datum, mode="shift-emb"):
                 )
             ]
         else:
-            datum2 = datum2[datum2.conversation_id.shift(step) == datum2.conversation_id]
-    datum = datum2 # reassign back to datum
+            datum2 = datum2[
+                datum2.conversation_id.shift(step) == datum2.conversation_id
+            ]
+    datum = datum2  # reassign back to datum
     print(f"Shifting resulted in {before_shift_num - len(datum.index)} less words")
 
     return datum
@@ -342,10 +344,10 @@ def concat_emb(args, datum, mode="concat-emb"):
     print(f"{mode} {shift_num} * {step * -1} steps ")
 
     before_shift_num = len(datum.index)
-    datum2 = datum.copy() # setting copy to avoid warning
-    datum2.loc[:,"embeddings_shifted"] = datum2.embeddings
+    datum2 = datum.copy()  # setting copy to avoid warning
+    datum2.loc[:, "embeddings_shifted"] = datum2.embeddings
     for i in np.arange(shift_num):
-        datum2.loc[:,"embeddings_shifted"] = datum2.embeddings_shifted.shift(step)
+        datum2.loc[:, "embeddings_shifted"] = datum2.embeddings_shifted.shift(step)
         if (
             "blenderbot-small" in args.emb_type.lower()
             or "bert" in args.emb_type.lower()
@@ -357,13 +359,15 @@ def concat_emb(args, datum, mode="concat-emb"):
                 )
             ]
         else:
-            datum2 = datum2[datum2.conversation_id.shift(step) == datum2.conversation_id]
+            datum2 = datum2[
+                datum2.conversation_id.shift(step) == datum2.conversation_id
+            ]
 
         def concat(x):
             return np.concatenate((x["embeddings"], x["embeddings_shifted"]))
 
-        datum2.loc[:,"embeddings"] = datum2.apply(concat, axis=1)
-    datum = datum2 # reassign back to datum
+        datum2.loc[:, "embeddings"] = datum2.apply(concat, axis=1)
+    datum = datum2  # reassign back to datum
     print(f"Concatenating resulted in {before_shift_num - len(datum.index)} less words")
 
     return datum
@@ -390,9 +394,9 @@ def ave_emb(datum):
     )
     datum = datum[idx]
     mean_embs.set_index(datum.index, inplace=True)
-    datum2 = datum.copy() # setting copy to avoid warning
+    datum2 = datum.copy()  # setting copy to avoid warning
     datum2.loc[:, "embeddings"] = mean_embs.embeddings
-    datum = datum2 # reassign back to datum
+    datum = datum2  # reassign back to datum
 
     return datum
 
@@ -428,9 +432,9 @@ def rand_emb(df):
 
     rand_emb = np.random.random((len(df), 50))
     rand_emb = rand_emb * (emb_max - emb_min) + emb_min
-    df2 = df.copy() # setting copy to avoid warning
+    df2 = df.copy()  # setting copy to avoid warning
     df2["embeddings"] = list(rand_emb)
-    df = df2 # reassign back to datum
+    df = df2  # reassign back to datum
     print(f"Generated random embeddings for {len(df)} words")
 
     return df
@@ -500,9 +504,8 @@ def mod_datum(args, datum):
     else:
         pass
 
-    if "glove" not in args.emb_type:
+    if "glove" not in args.emb_type and "glove50" not in args.align_with:
         datum = ave_emb(datum)  # average embs per word
-
 
     ## Token manipulation
     if "-all" in args.datum_mod:  # all tokens
@@ -553,6 +556,5 @@ def read_datum(args, stitch):
 
     df = mod_datum(args, df)  # further filter datum based on datum_mod argument
     print(f"Datum final length: {len(df)}")
-
 
     return df
