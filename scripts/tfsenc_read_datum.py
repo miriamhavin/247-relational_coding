@@ -152,7 +152,7 @@ def filter_datum(args, df):
 
     # filter based on align with arguments
     for model in args.align_with:
-        if model == "glove50":  # when aligning with glove
+        if model == "glove50" and args.emb_type != "glove50":  # when aligning with glove
             common = (
                 common & df[f"{args.emb_type}_token_is_root"]
             )  # also ensure word=token
