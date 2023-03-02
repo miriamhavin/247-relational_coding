@@ -8,6 +8,7 @@ import mat73
 import numpy as np
 from numba import jit, prange
 from scipy import stats
+from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import GroupKFold, KFold
@@ -65,16 +66,18 @@ def cv_lm_003_prod_comp(args, Xtra, Ytra, fold_tra, Xtes, Ytes, fold_tes, lag):
         Xtraf, Xtesf = Xtra[fold_tra != i], Xtes[fold_tes == i]
         Ytraf, Ytesf = Ytra[fold_tra != i], Ytes[fold_tes == i]
 
-        Xtraf -= np.mean(Xtraf, axis=0)
-        Xtesf -= np.mean(Xtraf, axis=0)
-        Ytraf -= np.mean(Ytraf, axis=0)
+        # Xtesf -= np.mean(Xtraf, axis=0)
+        # Xtraf -= np.mean(Xtraf, axis=0)
         Ytesf -= np.mean(Ytraf, axis=0)
+        Ytraf -= np.mean(Ytraf, axis=0)
 
         # Fit model
         if args.pca_to == 0 or "nopca" in args.datum_mod:
-            model = make_pipeline(LinearRegression())
+            model = make_pipeline(StandardScaler(), LinearRegression())
         else:
-            model = make_pipeline(PCA(args.pca_to, whiten=True), LinearRegression())
+            model = make_pipeline(
+                StandardScaler(), PCA(args.pca_to, whiten=True), LinearRegression()
+            )
         model.fit(Xtraf, Ytraf)
 
         if lag != -1:

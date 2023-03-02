@@ -33,14 +33,14 @@ def clean_lm_model_name(item):
 
     Example:
         clean_lm_model_name(EleutherAI/gpt-neo-1.3B) == 'gpt-neo-1.3B'
-    """    
+    """
     if isinstance(item, str):
         return item.split("/")[-1]
 
     if isinstance(item, list):
         return [clean_lm_model_name(i) for i in item]
-    
-    print('Invalid input. Please check.')
+
+    print("Invalid input. Please check.")
 
 
 def setup_environ(args):
@@ -49,9 +49,6 @@ def setup_environ(args):
     args.emb_type = clean_lm_model_name(args.emb_type)
     args.align_with = clean_lm_model_name(args.align_with)
 
-    if "glove50" in args.align_with:
-        args.align_with[args.align_with.index("glove50")] = "glove"
-
     INPUT_DIR = os.path.join(os.getcwd(), "data", args.project_id, str(args.sid))
 
     args.PICKLE_DIR = os.path.join(INPUT_DIR, "pickles")
@@ -59,7 +56,6 @@ def setup_environ(args):
     MODEL_EMB_DIR = os.path.join(EMB_DIR, args.emb_type, args.pkl_identifier)
 
     if args.emb_type == "glove50":
-        args.emb_type = "glove"
         args.layer_idx = 1
         args.context_length = 1
 

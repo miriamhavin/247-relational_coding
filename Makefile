@@ -103,7 +103,7 @@ WS := 200
 ALIGN_WITH := blenderbot-small
 ALIGN_WITH := gpt2-xl
 ALIGN_WITH := glove50 gpt2-xl blenderbot-small
-ALIGN_WITH := glove50 gpt2-xl
+ALIGN_WITH := $(EMB)
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
@@ -142,19 +142,24 @@ CMD := python
 
 
 ############## Datum Modifications ##############
+# Add specific tags concatenated by '-'. The available tags are as below:
 
 # 1. {no-trim}
 #	if 'no-trim' is a substring of DM, do not trim datum words that have any lag \
 outside of the conversation range (currently not used)
 #	if 'no-trim' is not a substring of DM, datum will be trimmed based on maximum lag
 
-# 2. {all, correct, incorrect, pred}
+# 2. Token manipulation {-all, -zeroshot, -correctn, -incorrectn, -probx, -improbx, -pred}
 #	for all emb_type:
 #	{all: choose all words}
+#   {zeroshot: zeroshot datum (unique set of words)}
 
 #	for emb_type other than glove:
-#	{correct: choose words correctly predicted by the model}
-#	{incorrect: choose words incorrectly predicted by the model}
+#	{correctn: choose words correctly predicted by the model (with rank <= n)}
+#	{incorrectn: choose words incorrectly predicted by the model (with rank > n)}
+#	{probx: choose words with high predictability (with true_pre_prob >= top x-th percentile)}
+#	{improbx: choose words with low predictability (with true_pred_prob <= bot x-th percentile)}
+#   If no n or x is provided, n defaults to 5, x defaults to 30
 
 #	for all emb_type, use predictions from another emb_type by concat 'emb_type' and 'pred_type':
 #	{gpt2-xl-corret: choose words correctly predicted by gpt2}
@@ -162,9 +167,12 @@ outside of the conversation range (currently not used)
 #	{blenderbot-small-correct: choose words correctly predicted by bbot decoder}
 #	{blenderbot-small-incorrect: choose words incorrectly predicted by bbot decoder}
 #	{gpt2-pred: choose all words, for words incorrectly predicted by gpt2, use embeddings of the words \
-actually predicted by gpt2} (only used for podcast glove)
+actually predicted by gpt2} (only used for glove embeddings)
 
-# 3. {shift-emb, concat-emb}
+# 3. Embedding manipulation {-rand, -arb, shift-emb, concat-emb}
+# {-rand: random datum (random embeddings)}
+# {-arb: arbitrary datum (arbitrary embeddings, same for same word)}
+
 # {shift-emb: shifts embeddings (eg, from n-1 to n)}
 # {shift-emb1: shifts embeddings (eg, from n-1 to n)}
 # {shift-emb2: shifts embeddings 2 times (eg, from n-1 to n+1)}
@@ -182,7 +190,7 @@ actually predicted by gpt2} (only used for podcast glove)
 
 DM := lag2k-25-incorrect
 DM := lag10k-25-all
-DM := lag2k-25-all-test
+DM := lag2k-25-improb
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
