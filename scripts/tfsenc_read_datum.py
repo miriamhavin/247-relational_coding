@@ -114,21 +114,26 @@ def process_datum(args, df, stitch):
         DataFrame: processed datum
     """
 
+    # filter bad convos
     df = df.loc[
         ~df["conversation_id"].isin(args.bad_convos)
-    ]  # filter bad convos
+    ]
     assert (
         len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
     )
 
+    # filter not-needed words
     df = df[
         df.adjusted_onset.notna()
         & df.adjusted_offset.notna()
         & df.onset.notna()
         & df.offset.notna()
     ]
+
+    # add convo on/offset
     df = add_convo_onset_offset(args, df, stitch)
 
+    # drop na embeddings
     if args.emb_type == "glove50":
         df = df.dropna(subset=["embeddings"])
     else:
