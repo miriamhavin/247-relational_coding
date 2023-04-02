@@ -22,7 +22,7 @@ from utils import load_pickle, main_timer, write_config
 
 def get_cpu_count(min_cpus=2):
     if os.getenv("SLURMD_NODENAME"):
-        min_cpus = cpu_count()
+        min_cpus = len(os.sched_getaffinity(0))
 
     return min_cpus
 
