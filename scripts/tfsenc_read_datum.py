@@ -208,6 +208,7 @@ def normalize_embeddings(args, df):
     Returns:
         [type]: [description]
     """
+    print("Normalize Embeddings")
     k = np.array(df.embeddings.tolist())
 
     try:
@@ -359,7 +360,7 @@ def process_conversations(args, df, stitch):
     return df
 
 
-def filter_datum(args, df, stitch):
+def filter_datum(args, df):
     """Process/clean/filter datum based on args
 
     Args:
@@ -375,7 +376,7 @@ def filter_datum(args, df, stitch):
     if "notrim" in args.datum_mod:  # no need for edge trimming
         pass
     else:
-        datum = trim_datum(args, datum)  # trim edges
+        df = trim_datum(args, df)  # trim edges
 
     # create mask for further filtering
     common = np.repeat(True, len(df))
@@ -575,7 +576,7 @@ def mod_datum(args, datum):
 
     # Normalize Embeddings
     if args.normalize:
-        df = normalize_embeddings(args, df)
+        datum = normalize_embeddings(args, datum)
 
     assert len(datum.index) > 0, "Empty Datum"
     return datum
