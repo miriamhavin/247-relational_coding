@@ -40,6 +40,48 @@ def return_stitch_index(args):
     return stitch_index
 
 
+def skip_elecs_done(args, electrode_info):
+    # fine elecs done
+    elecs_done = [
+        os.path.basename(file)
+        for file in glob.glob(os.path.join(args.full_output_dir, "*_*.csv"))
+    ]
+    elecs_done = sorted(elecs_done)
+    elecs_num = len(electrode_info)
+
+    while len(elecs_done) > 0:
+
+        elec_done = elecs_done[0]
+        skip = False
+
+        # check if elec is actually done
+        if "comp" in elec_done:  # has comp
+            if args.project_id == "podcast":  # podcast
+                skip = True
+            elif (
+                elecs_done[1].replace("prod", "comp") == elec_done
+            ):  # tfs, has prod
+                skip = True
+                elecs_done.pop(1)
+        elecs_done.pop(0)
+
+        if skip:  # skip elec
+            elec_done = elec_done.replace("_comp.csv", "")
+            print(f"Skipping elec {elec_done}")
+            sid_string = elec_done[: elec_done.find("_")]
+            if sid_string.isdigit():  # actually a sid
+                elec_done = elec_done.replace(f"{sid_string}_", "")
+            electrode_info = {
+                key: val
+                for key, val in electrode_info.items()
+                if (val != elec_done or key[0] != int(sid_string))
+            }
+            elecs_num -= 1
+
+    assert elecs_num == len(electrode_info), "Wrong number of elecs skipped"
+    return electrode_info
+
+
 def process_subjects(args):
     """Process electrodes for subjects (requires electrode list or sig elec file)
 
@@ -200,20 +242,9 @@ def parallel_encoding(args, electrode_info, datum, stitch_index, parallel=True):
         p = Pool(processes=get_cpu_count())  # multiprocessing
         
         # Skipping elecs already done
-        if os.path.exists(summary_file): # previous job
+        if os.path.exists(summary_file):  # previous job
             print("Previously ran the same job, checking for elecs done")
-            elecs_done = [os.path.basename(file) for file in glob.glob(os.path.join(args.full_output_dir,"*_*.csv"))]
-            elecs_done = sorted(elecs_done)
-            while len(elecs_done) > 0:
-                if "comp" in elecs_done[0]: # has comp
-                    if elecs_done[1].replace("prod","comp") == elecs_done[0]: # has prod
-                        elec_done = elecs_done.pop(1)
-                        elec_done = elec_done.replace("_prod.csv","")
-                        if str(args.sid) in elec_done:
-                            elec_done = elec_done.replace(f"{args.sid}_","")
-                        print(f"Skipping {elec_done}")
-                        electrode_info = {key:val for key, val in electrode_info.items() if val != elec_done}
-                elecs_done.pop(0)
+            electrode_info = skip_elecs_done(args, electrode_info)
         
         with open(summary_file, "w") as f:
             writer = csv.writer(f, delimiter=",", lineterminator="\r\n")
