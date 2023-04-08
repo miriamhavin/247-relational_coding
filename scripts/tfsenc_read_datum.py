@@ -63,28 +63,6 @@ def add_convo_onset_offset(args, df, stitch_index):
     return df
 
 
-def normalize_embeddings(args, df):
-    """Normalize the embeddings
-    https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.normalize.html
-
-    Args:
-        args ([type]): [description]
-        df ([type]): [description]
-
-    Returns:
-        [type]: [description]
-    """
-    k = np.array(df.embeddings.tolist())
-
-    try:
-        k = normalize(k, norm=args.normalize, axis=1)
-        df["embeddings"] = k.tolist()
-    except ValueError:
-        print("Error in normalization")
-
-    return df
-
-
 def load_datum(file_name):
     """Read raw datum
 
@@ -99,73 +77,326 @@ def load_datum(file_name):
     return df
 
 
-def process_datum(args, df, stitch):
-    """Process the datum based on input arguments
+def shift_emb(args, datum, mode="shift-emb"):
+    """Shift the embeddings based on datum_mod argument
+
+    Args:
+        args (namespace): commandline arguments
+        datum: processed and filtered datum
+        mode: concat-emb
+
+    Returns:
+        DataFrame: datum with shifted embeddings
+    """
+    shift_num, step = mod_datum_arg_parse(args, mode)
+    print(f"{mode} {shift_num} * {step * -1} steps ")
+
+    before_shift_num = len(datum.index)
+    datum2 = datum.copy()  # setting copy to avoid warning
+    for i in np.arange(shift_num):
+        datum2.loc[:, "embeddings"] = datum2.embeddings.shift(step)
+        if (
+            "blenderbot-small" in args.emb_type.lower()
+            or "bert" in args.emb_type.lower()
+        ):
+            datum2 = datum2[
+                (
+                    datum2.production.shift(step) == datum2.production
+                    and datum2.conversation_id.shift(step)
+                    == datum2.conversation_id
+                )
+            ]
+        else:
+            datum2 = datum2[
+                datum2.conversation_id.shift(step) == datum2.conversation_id
+            ]
+    datum = datum2  # reassign back to datum
+    print(
+        f"Shifting resulted in {before_shift_num - len(datum.index)} less words"
+    )
+
+    return datum
+
+
+def concat_emb(args, datum, mode="concat-emb"):
+    """Concatenate the embeddings based on datum_mod argument
+
+    Args:
+        args (namespace): commandline arguments
+        datum: processed and filtered datum
+        mode: concat-emb
+
+    Returns:
+        DataFrame: datum with shifted embeddings
+    """
+    shift_num, step = mod_datum_arg_parse(args, mode)
+    print(f"{mode} {shift_num} * {step * -1} steps ")
+
+    before_shift_num = len(datum.index)
+    datum2 = datum.copy()  # setting copy to avoid warning
+    datum2.loc[:, "embeddings_shifted"] = datum2.embeddings
+    for i in np.arange(shift_num):
+        datum2.loc[:, "embeddings_shifted"] = datum2.embeddings_shifted.shift(
+            step
+        )
+        if (
+            "blenderbot-small" in args.emb_type.lower()
+            or "bert" in args.emb_type.lower()
+        ):
+            datum2 = datum2[
+                (
+                    datum2.production.shift(step) == datum2.production
+                    and datum2.conversation_id.shift(step)
+                    == datum2.conversation_id
+                )
+            ]
+        else:
+            datum2 = datum2[
+                datum2.conversation_id.shift(step) == datum2.conversation_id
+            ]
+
+        def concat(x):
+            return np.concatenate((x["embeddings"], x["embeddings_shifted"]))
+
+        datum2.loc[:, "embeddings"] = datum2.apply(concat, axis=1)
+    datum = datum2  # reassign back to datum
+    print(
+        f"Concatenating resulted in {before_shift_num - len(datum.index)} less words"
+    )
+
+    return datum
+
+
+def rand_emb(df):
+
+    emb_max = df.embeddings.apply(max).max()
+    emb_min = df.embeddings.apply(min).min()
+
+    rand_emb = np.random.random((len(df), 50))
+    rand_emb = rand_emb * (emb_max - emb_min) + emb_min
+    df2 = df.copy()  # setting copy to avoid warning
+    df2["embeddings"] = list(rand_emb)
+    df = df2  # reassign back to datum
+    print(f"Generated random embeddings for {len(df)} words")
+
+    return df
+
+
+def arb_emb(df):
+
+    df2 = zeroshot_datum(df)
+    df2 = df2.loc[:, ("word", "embeddings")]
+    df2.reset_index(drop=True, inplace=True)
+    df2 = rand_emb(df2)
+    df = df.drop("embeddings", axis=1, errors="ignore")
+
+    df = df.merge(df2, how="left", on="word")
+    df.sort_values(["conversation_id", "index"], inplace=True)
+    print(f"Arbitrary embeddings created for {len(df)} words")
+
+    return df
+
+
+def normalize_embeddings(args, df):
+    """Normalize the embeddings
+    https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.normalize.html
+
+    Args:
+        args ([type]): [description]
+        df ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    print("Normalize Embeddings")
+    k = np.array(df.embeddings.tolist())
+
+    try:
+        k = normalize(k, norm=args.normalize, axis=1)
+        df["embeddings"] = k.tolist()
+    except ValueError:
+        print("Error in normalization")
+
+    return df
+
+
+def ave_emb(datum):
+    print("Averaging embeddings across tokens")
+
+    # calculate mean embeddings
+    def mean_emb(embs):
+        return np.array(embs.values.tolist()).mean(axis=0).tolist()
+
+    mean_embs = datum.groupby(["adjusted_onset", "word"], sort=False)[
+        "embeddings"
+    ].apply(lambda x: mean_emb(x))
+    mean_embs = pd.DataFrame(mean_embs)
+
+    # replace embeddings
+    idx = (
+        datum.groupby(["adjusted_onset", "word"], sort=False)[
+            "token_idx"
+        ].transform(min)
+        == datum["token_idx"]
+    )
+    datum = datum[idx]
+    mean_embs.set_index(datum.index, inplace=True)
+    datum2 = datum.copy()  # setting copy to avoid warning
+    datum2.loc[:, "embeddings"] = mean_embs.embeddings
+    datum = datum2  # reassign back to datum
+
+    return datum
+
+
+def trim_datum(args, datum):
+    """Trim the datum based on the largest lag size
+
+    Args:
+        args (namespace): commandline arguments
+        datum: processed and filtered datum
+
+    Returns:
+        DataFrame: datum with trimmed words
+    """
+    half_window = round((args.window_size / 1000) * 512 / 2)
+    lag = int(args.lags[-1] / 1000 * 512)  # trim edges based on lag
+    original_len = len(datum.index)
+    datum = datum.loc[
+        (
+            (datum["adjusted_onset"] - lag)
+            >= (datum["convo_onset"] + half_window + 1)
+        )
+        & (
+            (datum["adjusted_onset"] + lag)
+            <= (datum["convo_offset"] - half_window - 1)
+        )
+    ]
+    new_datum_len = len(datum.index)
+    print(
+        f"Trimming resulted in {new_datum_len} ({round(new_datum_len/original_len*100,5)}%) words"
+    )
+    return datum
+
+
+def zeroshot_datum(df):
+    dfz = (
+        df[["word", "adjusted_onset"]]
+        .groupby("word")
+        .apply(lambda x: x.sample(1, random_state=42))
+    )
+    dfz.reset_index(level=1, inplace=True)
+    dfz.sort_values("adjusted_onset", inplace=True)
+    df = df.loc[dfz.level_1.values]
+    print(f"Zeroshot created datum with {len(df)} words")
+
+    return df
+
+
+def process_embeddings(args, df):
+    """Process the datum embeddings based on input arguments
 
     Args:
         args (namespace): commandline arguments
         df : raw datum as a DataFrame
-        stitch: stitch index
-
-    Raises:
-        Exception: args.word_value should be one of ['top', 'bottom', 'all']
 
     Returns:
-        DataFrame: processed datum
+        DataFrame: processed datum with correct embeddings
     """
-
-    # filter bad convos
-    df = df.loc[
-        ~df["conversation_id"].isin(args.bad_convos)
-    ]
-    assert (
-        len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
-    )
-
-    # filter not-needed words
-    df = df[
-        df.adjusted_onset.notna()
-        & df.adjusted_offset.notna()
-        & df.onset.notna()
-        & df.offset.notna()
-    ]
-
-    # add convo on/offset
-    df = add_convo_onset_offset(args, df, stitch)
-
-    # drop na embeddings
+    
+    # drop NaN / None embeddings
     if args.emb_type == "glove50":
         df = df.dropna(subset=["embeddings"])
     else:
         df = drop_nan_embeddings(df)
         df = remove_punctuation(df)
 
-    # df = df[~df['glove50_embeddings'].isna()]
-    # if encoding is on glove embeddings copy them into 'embeddings' column
-    # if args.emb_type == "glove50":
-    #     try:
-    #         df["embeddings"] = df["glove50_embeddings"]
-    #     except KeyError:
-    #         pass
+    # TODO: add prediction embeddings (force to glove)
 
-    if args.normalize:
-        df = normalize_embeddings(args, df)
+    # Embedding manipulation
+    if "shift-emb" in args.datum_mod:  # shift embeddings
+        datum = shift_emb(args, datum, "shift-emb")
+    elif "concat-emb" in args.datum_mod:  # concatenate embeddings
+        datum = concat_emb(args, datum, "concat-emb")
+    elif "-rand" in args.datum_mod:  # random embeddings
+        datum = rand_emb(datum)
+    elif "-arb" in args.datum_mod:  # artibtrary embeddings
+        datum = arb_emb(datum)
+    else:
+        pass
 
     return df
 
 
+def process_conversations(args, df, stitch):
+    """Select conversations for the datum
+    
+    Args:
+        args (namespace): commandline arguments
+        df: processed datum
+        stitch: stitch index
+
+    Returns:
+        DataFrame: processed datum with correct conversations
+    """
+    # filter bad convos (specifically for 676)
+    df = df.loc[
+        ~df["conversation_id"].isin(args.bad_convos)
+    ]
+    assert (
+        len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
+    )
+    
+    # add conversation onset/offset (should not need later)
+    df = add_convo_onset_offset(args, df, stitch)
+
+    # Single convo
+    if args.conversation_id:  # picking single conversation
+        datum = datum[datum.conversation_id == args.conversation_id]
+        datum.convo_offset = datum["convo_offset"] - datum["convo_onset"]
+        datum.convo_onset = 0
+        print(
+            f"Running conversation {args.conversation_id} with {len(datum)} words"
+        )
+    return df
+
+
 def filter_datum(args, df):
-    """Filter the datum based on embedding types, non_words, min_word_freq arguments
+    """Process/clean/filter datum based on args
 
     Args:
         args (namespace): commandline arguments
         df: processed datum
+        stitch: stitch index
 
     Returns:
         DataFrame: filtered datum
     """
-    common = np.repeat(True, len(df))  # create mask for filtering
-    # common = df[f"in_{args.emb_type}"]
+
+    ## Trimming datum
+    if "notrim" in args.datum_mod:  # no need for edge trimming
+        pass
+    else:
+        df = trim_datum(args, df)  # trim edges
+
+    # create mask for further filtering
+    common = np.repeat(True, len(df))
+
+    # get rid of tokens without onset/offset
+    common &= df.adjusted_onset.notna()
+    common &= df.adjusted_offset.notna()
+    common &= df.onset.notna()
+    common &= df.offset.notna()
+
+    # get rid of tokens without proper speaker
+    speaker_mask = df.speaker.str.contains("Speaker")
+    common &= speaker_mask
+
+    # filter based on arguments: nonwords, word_freq
+    if args.exclude_nonwords:
+        common &= ~df.is_nonword
+
+    freq_mask = df.word_freq_overall >= args.min_word_freq
+    common &= freq_mask
 
     # filter based on align with arguments
     for model in args.align_with:
@@ -177,15 +408,6 @@ def filter_datum(args, df):
             )  # also ensure word=token
         print(f"Aligning with {model}")
         common = common & df[f"in_{model}"]
-
-    if args.exclude_nonwords:  # filter based on exclude_nonwords argument
-        common &= ~df.is_nonword
-
-    freq_mask = df.word_freq_overall >= args.min_word_freq
-    common &= freq_mask
-
-    speaker_mask = df.speaker.str.contains("Speaker")
-    common &= speaker_mask
 
     df = df[common]
 
@@ -316,198 +538,6 @@ def mod_datum_arg_parse(args, mode, default_val="1"):
     return (shift_num, step)
 
 
-def shift_emb(args, datum, mode="shift-emb"):
-    """Shift the embeddings based on datum_mod argument
-
-    Args:
-        args (namespace): commandline arguments
-        datum: processed and filtered datum
-        mode: concat-emb
-
-    Returns:
-        DataFrame: datum with shifted embeddings
-    """
-    shift_num, step = mod_datum_arg_parse(args, mode)
-    print(f"{mode} {shift_num} * {step * -1} steps ")
-
-    before_shift_num = len(datum.index)
-    datum2 = datum.copy()  # setting copy to avoid warning
-    for i in np.arange(shift_num):
-        datum2.loc[:, "embeddings"] = datum2.embeddings.shift(step)
-        if (
-            "blenderbot-small" in args.emb_type.lower()
-            or "bert" in args.emb_type.lower()
-        ):
-            datum2 = datum2[
-                (
-                    datum2.production.shift(step) == datum2.production
-                    and datum2.conversation_id.shift(step)
-                    == datum2.conversation_id
-                )
-            ]
-        else:
-            datum2 = datum2[
-                datum2.conversation_id.shift(step) == datum2.conversation_id
-            ]
-    datum = datum2  # reassign back to datum
-    print(
-        f"Shifting resulted in {before_shift_num - len(datum.index)} less words"
-    )
-
-    return datum
-
-
-def concat_emb(args, datum, mode="concat-emb"):
-    """Concatenate the embeddings based on datum_mod argument
-
-    Args:
-        args (namespace): commandline arguments
-        datum: processed and filtered datum
-        mode: concat-emb
-
-    Returns:
-        DataFrame: datum with shifted embeddings
-    """
-    shift_num, step = mod_datum_arg_parse(args, mode)
-    print(f"{mode} {shift_num} * {step * -1} steps ")
-
-    before_shift_num = len(datum.index)
-    datum2 = datum.copy()  # setting copy to avoid warning
-    datum2.loc[:, "embeddings_shifted"] = datum2.embeddings
-    for i in np.arange(shift_num):
-        datum2.loc[:, "embeddings_shifted"] = datum2.embeddings_shifted.shift(
-            step
-        )
-        if (
-            "blenderbot-small" in args.emb_type.lower()
-            or "bert" in args.emb_type.lower()
-        ):
-            datum2 = datum2[
-                (
-                    datum2.production.shift(step) == datum2.production
-                    and datum2.conversation_id.shift(step)
-                    == datum2.conversation_id
-                )
-            ]
-        else:
-            datum2 = datum2[
-                datum2.conversation_id.shift(step) == datum2.conversation_id
-            ]
-
-        def concat(x):
-            return np.concatenate((x["embeddings"], x["embeddings_shifted"]))
-
-        datum2.loc[:, "embeddings"] = datum2.apply(concat, axis=1)
-    datum = datum2  # reassign back to datum
-    print(
-        f"Concatenating resulted in {before_shift_num - len(datum.index)} less words"
-    )
-
-    return datum
-
-
-def ave_emb(datum):
-    print("Averaging embeddings across tokens")
-
-    # calculate mean embeddings
-    def mean_emb(embs):
-        return np.array(embs.values.tolist()).mean(axis=0).tolist()
-
-    mean_embs = datum.groupby(["adjusted_onset", "word"], sort=False)[
-        "embeddings"
-    ].apply(lambda x: mean_emb(x))
-    mean_embs = pd.DataFrame(mean_embs)
-
-    # replace embeddings
-    idx = (
-        datum.groupby(["adjusted_onset", "word"], sort=False)[
-            "token_idx"
-        ].transform(min)
-        == datum["token_idx"]
-    )
-    datum = datum[idx]
-    mean_embs.set_index(datum.index, inplace=True)
-    datum2 = datum.copy()  # setting copy to avoid warning
-    datum2.loc[:, "embeddings"] = mean_embs.embeddings
-    datum = datum2  # reassign back to datum
-
-    return datum
-
-
-def trim_datum(args, datum):
-    """Trim the datum based on the largest lag size
-
-    Args:
-        args (namespace): commandline arguments
-        datum: processed and filtered datum
-
-    Returns:
-        DataFrame: datum with trimmed words
-    """
-    half_window = round((args.window_size / 1000) * 512 / 2)
-    lag = int(args.lags[-1] / 1000 * 512)  # trim edges based on lag
-    original_len = len(datum.index)
-    datum = datum.loc[
-        (
-            (datum["adjusted_onset"] - lag)
-            >= (datum["convo_onset"] + half_window + 1)
-        )
-        & (
-            (datum["adjusted_onset"] + lag)
-            <= (datum["convo_offset"] - half_window - 1)
-        )
-    ]
-    new_datum_len = len(datum.index)
-    print(
-        f"Trimming resulted in {new_datum_len} ({round(new_datum_len/original_len*100,5)}%) words"
-    )
-    return datum
-
-
-def rand_emb(df):
-
-    emb_max = df.embeddings.apply(max).max()
-    emb_min = df.embeddings.apply(min).min()
-
-    rand_emb = np.random.random((len(df), 50))
-    rand_emb = rand_emb * (emb_max - emb_min) + emb_min
-    df2 = df.copy()  # setting copy to avoid warning
-    df2["embeddings"] = list(rand_emb)
-    df = df2  # reassign back to datum
-    print(f"Generated random embeddings for {len(df)} words")
-
-    return df
-
-
-def zeroshot_datum(df):
-    dfz = (
-        df[["word", "adjusted_onset"]]
-        .groupby("word")
-        .apply(lambda x: x.sample(1, random_state=42))
-    )
-    dfz.reset_index(level=1, inplace=True)
-    dfz.sort_values("adjusted_onset", inplace=True)
-    df = df.loc[dfz.level_1.values]
-    print(f"Zeroshot created datum with {len(df)} words")
-
-    return df
-
-
-def arb_emb(df):
-
-    df2 = zeroshot_datum(df)
-    df2 = df2.loc[:, ("word", "embeddings")]
-    df2.reset_index(drop=True, inplace=True)
-    df2 = rand_emb(df2)
-    df = df.drop("embeddings", axis=1, errors="ignore")
-
-    df = df.merge(df2, how="left", on="word")
-    df.sort_values(["conversation_id", "index"], inplace=True)
-    print(f"Arbitrary embeddings created for {len(df)} words")
-
-    return df
-
-
 def mod_datum(args, datum):
     """Filter the datum based on datum_mod argument
 
@@ -518,35 +548,6 @@ def mod_datum(args, datum):
     Returns:
         DataFrame: further filtered datum
     """
-    ## Trimming datum
-    if "notrim" in args.datum_mod:  # no need for edge trimming
-        pass
-    else:
-        datum = trim_datum(args, datum)  # trim edges
-
-    ## Single convo
-    if args.conversation_id:  # picking single conversation
-        datum = datum[datum.conversation_id == args.conversation_id]
-        datum.convo_offset = datum["convo_offset"] - datum["convo_onset"]
-        datum.convo_onset = 0
-        print(
-            f"Running conversation {args.conversation_id} with {len(datum)} words"
-        )
-
-    ## Embedding manipulation
-    if "shift-emb" in args.datum_mod:  # shift embeddings
-        datum = shift_emb(args, datum, "shift-emb")
-    elif "concat-emb" in args.datum_mod:  # concatenate embeddings
-        datum = concat_emb(args, datum, "concat-emb")
-    elif "-rand" in args.datum_mod:  # random embeddings
-        datum = rand_emb(datum)
-    elif "-arb" in args.datum_mod:  # artibtrary embeddings
-        datum = arb_emb(datum)
-    else:
-        pass
-
-    if "glove" not in args.emb_type and "glove50" not in args.align_with:
-        datum = ave_emb(datum)  # average embs per word
 
     ## Token manipulation
     if "-all" in args.datum_mod:  # all tokens
@@ -568,6 +569,14 @@ def mod_datum(args, datum):
 
     # else:
     #     raise Exception('Invalid Datum Modification')
+
+    # Average Embeddings per word
+    if "glove" not in args.emb_type and "glove50" not in args.align_with:
+        datum = ave_emb(datum)  # average embs per word
+
+    # Normalize Embeddings
+    if args.normalize:
+        datum = normalize_embeddings(args, datum)
 
     assert len(datum.index) > 0, "Empty Datum"
     return datum
@@ -591,7 +600,8 @@ def read_datum(args, stitch):
     )  # TODO Needs testing (either bert_utterance or whisper)
     print(f"After loading: Datum loads with {len(df)} words")
 
-    df = process_datum(args, df, stitch)
+    df = process_conversations(args, df, stitch)
+    df = process_embeddings(args, df)
     print(f"After processing: Datum now has {len(df)} words")
 
     df = filter_datum(args, df)
