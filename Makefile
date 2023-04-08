@@ -104,6 +104,7 @@ ALIGN_WITH := blenderbot-small
 ALIGN_WITH := gpt2-xl
 ALIGN_WITH := glove50 gpt2-xl blenderbot-small
 ALIGN_WITH := $(EMB)
+ALIGN_WITH := 
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
@@ -129,16 +130,28 @@ WV := all
 NM := l2
 # {l1 | l2 | max}
 
-# Choose the command to run: python runs locally, echo is for debugging, sbatch
-# is for running on SLURM all lags in parallel.
-CMD := echo
-CMD := sbatch submit1.sh
-CMD := python
-# {echo | python | sbatch submit1.sh}
+############## Embedding Modification ##############
+# {-rand: random datum (random embeddings)}
+# {-arb: arbitrary datum (arbitrary embeddings, same for same word)}
 
-# datum
-# DS := podcast-datum-glove-50d.csv
-# DS := podcast-datum-gpt2-xl-c_1024-previous-pca_50d.csv
+# {shift-emb: shifts embeddings (eg, from n-1 to n)}
+# {shift-emb1: shifts embeddings (eg, from n-1 to n)}
+# {shift-emb2: shifts embeddings 2 times (eg, from n-1 to n+1)}
+# ... etc
+# {shift-embn: shifts embeddings (eg, from n-1 to n-2)}
+# {shift-embn1: shifts embeddings (eg, from n-1 to n-2)}
+# {shift-embn2: shifts embeddings 2 times (eg, from n-1 to n-3)}
+# ... etc
+
+# {concat-emb: concat embeddings (eg, n-1 + n)}
+# {concat-emb2: concat embeddings (eg, n-1 + n + n+1)}
+# ... etc
+
+# {glove50: force glove embeddings for glove50 pred}
+
+EM := shift-emb
+EM := 
+EM := glove50
 
 
 ############## Datum Modifications ##############
@@ -169,28 +182,12 @@ outside of the conversation range (currently not used)
 #	{gpt2-pred: choose all words, for words incorrectly predicted by gpt2, use embeddings of the words \
 actually predicted by gpt2} (only used for glove embeddings)
 
-# 3. Embedding manipulation {-rand, -arb, shift-emb, concat-emb}
-# {-rand: random datum (random embeddings)}
-# {-arb: arbitrary datum (arbitrary embeddings, same for same word)}
-
-# {shift-emb: shifts embeddings (eg, from n-1 to n)}
-# {shift-emb1: shifts embeddings (eg, from n-1 to n)}
-# {shift-emb2: shifts embeddings 2 times (eg, from n-1 to n+1)}
-# ... etc
-# {shift-embn: shifts embeddings (eg, from n-1 to n-2)}
-# {shift-embn1: shifts embeddings (eg, from n-1 to n-2)}
-# {shift-embn2: shifts embeddings 2 times (eg, from n-1 to n-3)}
-# ... etc
-
-# {concat-emb: concat embeddings (eg, n-1 + n)}
-# {concat-emb2: concat embeddings (eg, n-1 + n + n+1)}
-# ... etc
-
 # 3. {everything else is purely for the result folder name}
 
 DM := lag2k-25-incorrect
 DM := lag10k-25-all
 DM := lag2k-25-improb
+
 
 ############## Model Modification ##############
 # {best-lag: run encoding using the best lag (lag model with highest correlation)}
@@ -199,6 +196,13 @@ DM := lag2k-25-improb
 MM := best-lag
 MM := pc-flip-best-lag
 MM := 
+
+# Choose the command to run: python runs locally, echo is for debugging, sbatch
+# is for running on SLURM all lags in parallel.
+CMD := echo
+CMD := sbatch submit1.sh
+CMD := python
+# {echo | python | sbatch submit1.sh}
 
 #TODO: move paths to makefile
 
@@ -238,13 +242,14 @@ run-encoding:
 		--pca-to $(PCA_TO) \
 		--layer-idx $(LAYER_IDX) \
 		--datum-mod $(DM) \
+		--emb-mod $(EM) \
 		--model-mod $(MM) \
 		$(BC) \
 		$(SIG_FN) \
 		$(SH) \
 		$(PSH) \
 		--normalize $(NM)\
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM) \
+		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM)-$(EM) \
 		--output-prefix $(USR)-$(WS)ms-$(WV);\
 
 
@@ -270,13 +275,14 @@ run-encoding-layers:
 				--pca-to $(PCA_TO) \
 				--layer-idx $$layer \
 				--datum-mod $(DM) \
+				--emb-mod $(EM) \
 				--model-mod $(MM) \
 				$(BC) \
 				$(SIG_FN) \
 				$(SH) \
 				$(PSH) \
 				--normalize $(NM)\
-				--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM)-1024-$$layer \
+				--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM)-$(EM)-1024-$$layer \
 				--output-prefix $(USR)-$(WS)ms-$(WV);\
 		done; \
 	done;

@@ -93,7 +93,6 @@ def process_subjects(args):
     """
     ds = load_pickle(os.path.join(args.PICKLE_DIR, args.electrode_file))
     df = pd.DataFrame(ds)
-    df["subject"] = df.subject.astype("int64")
 
     if args.sig_elec_file:  # sig elec files for 1 or more sid (used for 777)
         sig_elec_file = os.path.join(
@@ -102,6 +101,7 @@ def process_subjects(args):
         sig_elec_list = pd.read_csv(sig_elec_file).rename(
             columns={"electrode": "electrode_name"}
         )
+        df["subject"] = df.subject.astype("int64")
         sid_sig_elec_list = pd.merge(
             df, sig_elec_list, how="inner", on=["subject", "electrode_name"]
         )

@@ -47,6 +47,7 @@ def parse_arguments():
     parser.add_argument("--output-parent-dir", type=str, default="test")
     parser.add_argument("--pkl-identifier", type=str, default=None)
 
+    parser.add_argument("--emb-mod", type=str, default="")
     parser.add_argument("--datum-mod", type=str, default="all")
     parser.add_argument("--model-mod", nargs="?", type=str, default=None)
 

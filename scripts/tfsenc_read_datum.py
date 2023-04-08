@@ -213,7 +213,9 @@ def normalize_embeddings(args, df):
 
     try:
         k = normalize(k, norm=args.normalize, axis=1)
+        df2 = df.copy()  # setting copy to avoid warning
         df["embeddings"] = k.tolist()
+        df = df2  # reassign back to datum
     except ValueError:
         print("Error in normalization")
 
@@ -292,6 +294,31 @@ def zeroshot_datum(df):
     return df
 
 
+def load_glove_embeddings(args):
+
+    glove_base_df_path = os.path.join(
+        args.PICKLE_DIR, "embeddings", "glove50", "full", "base_df.pkl"
+    )
+    glove_emb_df_path = os.path.join(
+        args.PICKLE_DIR,
+        "embeddings",
+        "glove50",
+        "full",
+        "cnxt_0001",
+        "layer_01.pkl",
+    )
+
+    glove_base_df = load_datum(glove_base_df_path)
+    glove_emb_df = load_datum(glove_emb_df_path)
+    glove_df = pd.merge(
+        glove_base_df, glove_emb_df, left_index=True, right_index=True
+    )
+    glove_df = glove_df[glove_df[f"in_{args.emb_type}"]]
+    glove_df = glove_df.loc[:, ["adjusted_onset", "word", "embeddings"]]
+
+    return glove_df
+
+
 def process_embeddings(args, df):
     """Process the datum embeddings based on input arguments
 
@@ -302,7 +329,7 @@ def process_embeddings(args, df):
     Returns:
         DataFrame: processed datum with correct embeddings
     """
-    
+
     # drop NaN / None embeddings
     if args.emb_type == "glove50":
         df = df.dropna(subset=["embeddings"])
@@ -310,17 +337,31 @@ def process_embeddings(args, df):
         df = drop_nan_embeddings(df)
         df = remove_punctuation(df)
 
-    # TODO: add prediction embeddings (force to glove)
+    # add prediction embeddings (force to glove)
+    if "glove" in args.emb_mod:
+        mask = df[f"in_glove50"] & df[f"{args.emb_type}_token_is_root"]
+        df = df[mask]
+        df.drop(
+            ["embeddings"],
+            axis=1,
+            errors="ignore",
+            inplace=True,
+        )  # delete current embeddings
+
+        glove_df = load_glove_embeddings(args)
+        df = df[df.adjusted_onset.notna()]
+        glove_df = glove_df[glove_df.adjusted_onset.notna()]
+        df = df.merge(glove_df, how="inner", on=["adjusted_onset", "word"])
 
     # Embedding manipulation
-    if "shift-emb" in args.datum_mod:  # shift embeddings
-        datum = shift_emb(args, datum, "shift-emb")
-    elif "concat-emb" in args.datum_mod:  # concatenate embeddings
-        datum = concat_emb(args, datum, "concat-emb")
-    elif "-rand" in args.datum_mod:  # random embeddings
-        datum = rand_emb(datum)
-    elif "-arb" in args.datum_mod:  # artibtrary embeddings
-        datum = arb_emb(datum)
+    if "shift-emb" in args.emb_mod:  # shift embeddings
+        df = shift_emb(args, df, "shift-emb")
+    elif "concat-emb" in args.emb_mod:  # concatenate embeddings
+        df = concat_emb(args, df, "concat-emb")
+    elif "-rand" in args.emb_mod:  # random embeddings
+        df = rand_emb(df)
+    elif "-arb" in args.emb_mod:  # artibtrary embeddings
+        df = arb_emb(df)
     else:
         pass
 
@@ -329,7 +370,7 @@ def process_embeddings(args, df):
 
 def process_conversations(args, df, stitch):
     """Select conversations for the datum
-    
+
     Args:
         args (namespace): commandline arguments
         df: processed datum
@@ -339,13 +380,11 @@ def process_conversations(args, df, stitch):
         DataFrame: processed datum with correct conversations
     """
     # filter bad convos (specifically for 676)
-    df = df.loc[
-        ~df["conversation_id"].isin(args.bad_convos)
-    ]
+    df = df.loc[~df["conversation_id"].isin(args.bad_convos)]
     assert (
         len(stitch) - len(args.bad_convos) == df.conversation_id.nunique() + 1
     )
-    
+
     # add conversation onset/offset (should not need later)
     df = add_convo_onset_offset(args, df, stitch)
 
@@ -414,7 +453,7 @@ def filter_datum(args, df):
     return df
 
 
-def mod_datum_by_preds(args, datum, emb_type):
+def mod_datum_by_preds(args, datum):
     """Filter the datum based on the predictions of a potentially different model
 
     Args:
@@ -425,64 +464,8 @@ def mod_datum_by_preds(args, datum, emb_type):
     Returns:
         DataFrame: further filtered datum
     """
-    if emb_type in args.emb_df_path:  # current datum has the correct emb_type
-        pass
-    else:  # current datum does not have the correct emb_type, need to load a second datum
-        # load second datum
-        if emb_type == "gpt2-xl":
-            second_base_df_path = os.path.join(
-                args.PICKLE_DIR, "embeddings", "gpt2-xl", "full", "base_df.pkl"
-            )
-            second_emb_df_path = os.path.join(
-                args.PICKLE_DIR,
-                "embeddings",
-                "gpt2-xl",
-                "full",
-                "cnxt_1024",
-                "layer_48.pkl",
-            )
-        else:
-            raise Exception("Not implemented")  # TODO
 
-        second_base_df = load_datum(second_base_df_path)
-        second_emb_df = load_datum(second_emb_df_path)
-
-        second_datum = pd.merge(
-            second_base_df, second_emb_df, left_index=True, right_index=True
-        )
-        # second_base_df.reset_index(
-        #     drop=True, inplace=True
-        # )  # so concatenate can be aligned correctly
-        # second_datum = pd.concat([second_base_df, second_emb_df], axis=1)
-        if args.emb_type == "glove50":
-            second_datum = second_datum[
-                second_datum["gpt2-xl_token_is_root"]
-                & second_datum["in_glove50"]
-            ]
-        second_datum = second_datum.loc[
-            :,
-            [
-                "adjusted_onset",
-                "word",
-                "top1_pred",
-                "top1_pred_prob",
-                "true_pred_prob",
-                "true_pred_rank",
-            ],
-        ]
-
-        # merge second datum prediction columns to datum
-        datum = datum.drop(
-            ["top1_pred", "top1_pred_prob", "true_pred_prob", "true_pred_rank"],
-            axis=1,
-            errors="ignore",
-        )  # delete the current top predictions if any
-        datum = datum[datum.adjusted_onset.notna()]
-        second_datum = second_datum[second_datum.adjusted_onset.notna()]
-        datum = datum.merge(
-            second_datum, how="inner", on=["adjusted_onset", "word"]
-        )
-    print(f"Using {emb_type} predictions")
+    print(f"Using {args.emb_type} predictions")
 
     # modify datum based on correct or incorrect predictions
     if "incorrect" in args.datum_mod:  # select words predicted incorrectly
@@ -557,21 +540,13 @@ def mod_datum(args, datum):
         datum = zeroshot_datum(datum)
 
     else:  # modify datum based on predictions
-        pred_type = args.emb_type
-        if "gpt2-xl" in args.datum_mod:  # if prediction from a different model
-            pred_type = "gpt2-xl"
-        elif "blenerbot-small" in args.datum_mod:
-            pred_type = "blenderbot-small"
-        assert (
-            "glove" not in pred_type
-        ), "Glove embeddings does not have predictions"
-        datum = mod_datum_by_preds(args, datum, pred_type)
+        datum = mod_datum_by_preds(args, datum)
 
     # else:
     #     raise Exception('Invalid Datum Modification')
 
     # Average Embeddings per word
-    if "glove" not in args.emb_type and "glove50" not in args.align_with:
+    if datum[f"{args.emb_type}_token_is_root"].sum() < len(datum):
         datum = ave_emb(datum)  # average embs per word
 
     # Normalize Embeddings
