@@ -16,8 +16,8 @@ def remove_punctuation(df):
 
 def drop_nan_embeddings(df):
     """Drop rows containing all nan's for embedding"""
-    df["is_nan"] = df["embeddings"].apply(lambda x: np.isnan(x).all())
-    df = df[~df["is_nan"]]
+    is_nan = df["embeddings"].apply(lambda x: np.isnan(x).all())
+    df = df[~is_nan]
 
     return df
 
