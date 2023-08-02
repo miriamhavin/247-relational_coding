@@ -202,7 +202,7 @@ def normalize_embeddings(args, df):
     try:
         k = normalize(k, norm=args.normalize, axis=1)
         df2 = df.copy()  # setting copy to avoid warning
-        df["embeddings"] = k.tolist()
+        df2["embeddings"] = k.tolist()
         df = df2  # reassign back to datum
     except ValueError:
         print("Error in normalization")
@@ -330,6 +330,7 @@ def process_embeddings(args, df):
         glove_df = load_glove_embeddings(args)
         df = df[df.adjusted_onset.notna()]
         glove_df = glove_df[glove_df.adjusted_onset.notna()]
+        breakpoint()
         df = df.merge(glove_df, how="inner", on=["adjusted_onset", "word"])
 
     # Embedding manipulation
@@ -474,7 +475,6 @@ def mod_datum_by_preds(args, datum):
 
 
 def mod_datum_arg_parse(arg, mode, default_val="1"):
-
     partial = arg[arg.find(mode) + len(mode) :]
 
     if partial.find("-") >= 0:  # if there is another tag later
@@ -522,8 +522,9 @@ def mod_datum(args, datum):
     #     raise Exception('Invalid Datum Modification')
 
     # Average Embeddings per word
-    if datum[f"{args.emb_type}_token_is_root"].sum() < len(datum):
-        datum = ave_emb(datum)  # average embs per word
+    if "glove" not in args.emb_type and "glove" not in args.emb_mod:
+        if datum[f"{args.emb_type}_token_is_root"].sum() < len(datum):
+            datum = ave_emb(datum)  # average embs per word
 
     # Normalize Embeddings
     if args.normalize:
