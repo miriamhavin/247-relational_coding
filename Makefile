@@ -83,8 +83,8 @@ LAGS := -300000 -250000 -200000 200000 250000 300000 # lag300k-50k
 LAGS := -150000 -120000 -90000 90000 120000 150000 # lag150k-30k
 LAGS := -60000 -50000 -40000 -30000 -20000 20000 30000 40000 50000 60000 # lag60k-10k
 LAGS := {-10000..10000..25} # lag10k-25
-LAGS := {-2000..2000..25} # lag2k-25
 LAGS := {-5000..5000..25} # lag5k-25
+LAGS := {-2000..2000..25} # lag2k-25
 
 # Conversation ID (Choose 0 to run for all conversations)
 CONVERSATION_IDX := 0
@@ -94,8 +94,9 @@ CONVERSATION_IDX := 0
 EMB := blenderbot
 EMB := gpt2-xl
 EMB := blenderbot-small
-EMB := gpt2-xl
+EMB := glove50
 CNXT_LEN := 1024
+CNXT_LEN := 1
 
 # Choose the window size to average for each point
 WS := 200
@@ -109,7 +110,7 @@ ALIGN_WITH :=
 
 # Choose layer of embeddings to use
 # {1 for glove, 48 for gpt2, 8 for blenderbot encoder, 16 for blenderbot decoder}
-LAYER_IDX := 48
+LAYER_IDX := 0
 
 # Choose whether to PCA (0 or for no pca)
 PCA_TO := 50
@@ -151,8 +152,8 @@ NM := l2
 # {glove50: force glove embeddings for glove50 pred}
 
 EM := shift-emb
-EM := 
 EM := glove50
+EM := 
 
 
 ############## Datum Modifications ##############
@@ -187,7 +188,7 @@ actually predicted by gpt2} (only used for glove embeddings)
 
 DM := lag2k-25-incorrect
 DM := lag10k-25-all
-DM := lag2k-25-improb
+DM := lag2k-25-all
 
 
 ############## Model Modification ##############
@@ -225,33 +226,7 @@ link-data:
 run-encoding:
 	mkdir -p logs
 	$(CMD) scripts/$(FILE).py \
-		--project-id $(PRJCT_ID) \
-		--pkl-identifier $(PKL_IDENTIFIER) \
-		--datum-emb-fn $(DS) \
-		--sid $(SID) \
-		--conversation-id $(CONVERSATION_IDX) \
-		--electrodes $(E_LIST) \
-		--emb-type $(EMB) \
-		--context-length $(CNXT_LEN) \
-		--align-with $(ALIGN_WITH) \
-		--window-size $(WS) \
-		--word-value $(WV) \
-		--npermutations $(NPERM) \
-		--lags $(LAGS) \
-		--min-word-freq $(MWF) \
-		--fold-num $(FN) \
-		--pca-to $(PCA_TO) \
-		--layer-idx $(LAYER_IDX) \
-		--datum-mod $(DM) \
-		--emb-mod $(EM) \
-		--model-mod $(MM) \
-		$(BC) \
-		$(SIG_FN) \
-		$(SH) \
-		$(PSH) \
-		--normalize $(NM)\
-		--output-parent-dir $(DT)-$(PRJCT_ID)-$(PKL_IDENTIFIER)-$(SID)-$(EMB)-$(DM)-$(EM) \
-		--output-prefix $(USR)-$(WS)ms-$(WV);\
+		--config-file config.yml
 
 
 run-encoding-layers:

@@ -6,10 +6,9 @@ from multiprocessing import Pool, cpu_count
 
 import numpy as np
 import pandas as pd
-from tfsenc_config import setup_environ
-from tfsenc_load_signal import load_electrode_data
-from tfsenc_parser import parse_arguments
+from tfsenc_config import parse_arguments, setup_environ, write_config
 from tfsenc_read_datum import read_datum
+from tfsenc_load_signal import load_electrode_data
 from tfsenc_utils import (
     build_XY,
     get_groupkfolds,
@@ -18,7 +17,7 @@ from tfsenc_utils import (
     write_encoding_results,
 )
 from collections import Counter
-from utils import load_pickle, main_timer, write_config
+from utils import load_pickle, main_timer
 
 
 def get_cpu_count(min_cpus=2):
@@ -258,14 +257,15 @@ def parallel_encoding(args, electrode_info, datum, stitch_index, parallel=True):
 
 @main_timer
 def main():
+
     # Read command line arguments
-    args = parse_arguments()
+    args, yml_args = parse_arguments()
 
     # Setup paths to data
     args = setup_environ(args)
 
     # Saving configuration to output directory
-    write_config(vars(args))
+    write_config(args, yml_args)
 
     # Locate and read datum
     stitch_index = return_stitch_index(args)

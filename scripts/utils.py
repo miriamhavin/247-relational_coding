@@ -1,5 +1,3 @@
-import json
-import os
 import pickle
 from datetime import datetime
 
@@ -32,15 +30,3 @@ def load_pickle(file):
         datum = pickle.load(fh)
 
     return datum
-
-
-def write_config(dictionary):
-    """Write configuration to a file
-    Args:
-        CONFIG (dict): configuration
-    """
-    json_object = json.dumps(dictionary, sort_keys=True, indent=4)
-
-    config_file = os.path.join(dictionary["full_output_dir"], "config.json")
-    with open(config_file, "w") as outfile:
-        outfile.write(json_object)
