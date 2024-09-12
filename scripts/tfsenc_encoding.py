@@ -162,18 +162,23 @@ def encoding_regression(args, X, Y, folds):
         Ytest -= np.mean(Ytrain, axis=0)
         Ytrain -= np.mean(Ytrain, axis=0)
 
-        if args.pca_to:  # pca + ols
-            print(f"Running PCA (from {Xtest.shape[1]} to {args.pca_to}) + OLS")
-            model = make_pipeline(
-                StandardScaler(), PCA(args.pca_to, whiten=True), RidgeCV(alphas=[0])
-            )
+        if not args.ridge:  # ols
+            if args.pca_to == 0:
+                print(f"Running OLS, emb_dim = {Xtrain.shape[1]}")
+                model = make_pipeline(StandardScaler(), LinearRegression())
+                # model = make_pipeline(StandardScaler(), RidgeCV(alphas=[0]))
+            else:  # pca + ols
+                print(f"Running PCA (from {Xtest.shape[1]} to {args.pca_to}) + OLS")
+                model = make_pipeline(
+                    StandardScaler(), PCA(args.pca_to, whiten=True), LinearRegression()
+                )
         else:  # ridge cv
             alphas = np.logspace(0, 20, 10)
             if Xtrain.shape[0] < Xtrain.shape[1]:
                 print(f"Running KernelRidgeCV, emb_dim = {Xtrain.shape[1]}")
                 model = make_pipeline(StandardScaler(), KernelRidgeCV(alphas=alphas))
             else:
-                print(f"Running RidgeCV, , emb_dim = {Xtrain.shape[1]}")
+                print(f"Running RidgeCV, emb_dim = {Xtrain.shape[1]}")
                 model = make_pipeline(StandardScaler(), RidgeCV(alphas=alphas))
         torch.cuda.empty_cache()
         model.fit(Xtrain, Ytrain)
@@ -208,7 +213,10 @@ def run_encoding(args, X, Y, folds):
     # New correlation
     corr_datum = correlation_score(Y_new, Y_hat)
     corrs.append(corr_datum)
-    corrs = torch.stack(corrs)
+    if torch.is_tensor(corr_datum):  # torch tensor
+        corrs = torch.stack(corrs)
+    else:
+        corrs = np.stack(corrs)
 
     return corrs
 
@@ -225,8 +233,9 @@ def write_encoding_results(args, results, filename):
         None
     """
     filename = os.path.join(args.output_dir, filename)
-    results = results.cpu().numpy()
+    if torch.is_tensor(results):
+        results = results.cpu().numpy()
     results_df = pd.DataFrame(results)
-    results_df.to_csv(filename, index=False)
+    results_df.to_csv(filename, index=False, header=False)
 
     return

@@ -13,28 +13,3 @@ detrend_signal: True # detrend signal with polynomial
 fold_correlation: True # save correlation per fold
 comp: True # Run encoding for words in comprehension
 prod: True # Run encoding for words in production
-
-
-###############################
-##### Flexible Parameters #####
-###############################
-
-# Subject
-sid: 798
-conv_ids: np.arange(1, 16)
-elecs: np.arange(1, 199)
-sig_elec_file:
-
-# Embeddings
-emb: glove50
-context_length: 1
-layer_idx: 0
-
-# Embedding modifications: none, rand, emb, shift-emb, concat-emb
-emb_mod: none
-# Leave empty for ridge
-pca_to: 50
-
-# Lags
-lags: np.arange(-2000,2001,25)
-output_dir_name: lag2k-25-all-erp

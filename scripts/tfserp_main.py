@@ -80,7 +80,6 @@ def single_electrode_erp(electrode, args, datum, stitch_index):
 
     write_erp_results(args, comp_erp, f"{elec_name}_comp.csv")
     write_erp_results(args, prod_erp, f"{elec_name}_prod.csv")
-    breakpoint()
 
     return
 

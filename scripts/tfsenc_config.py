@@ -68,18 +68,22 @@ def parse_arguments():
     """
     # parse yaml config file
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config-file", nargs="?", type=str, default="config.yml")
+    parser.add_argument("--config-file", nargs="*", type=str, default="[config.yml]")
     args = parser.parse_args()
-    with open(args.config_file, "r") as file:
-        yml_args = yaml.safe_load(file)
+
+    all_yml_args = {}
+    for config_file in args.config_file:
+        with open(config_file, "r") as file:
+            yml_args = yaml.safe_load(file)
+            all_yml_args = all_yml_args | yml_args
 
     # get username
     user_id = getpass.getuser()
-    yml_args["user_id"] = user_id
-    yml_args["git_hash"] = get_git_hash()
+    all_yml_args["user_id"] = user_id
+    all_yml_args["git_hash"] = get_git_hash()
 
     # clean up args
-    args = argparse.Namespace(**yml_args)
+    args = argparse.Namespace(**all_yml_args)
     try:  # eval lists
         args.elecs = eval(args.elecs)
         args.conv_ids = eval(args.conv_ids)
@@ -93,7 +97,7 @@ def parse_arguments():
     else:
         args.emb = clean_lm_model_name(args.emb)
 
-    return args, yml_args
+    return args, all_yml_args
 
 
 def setup_environ(args):
@@ -142,8 +146,9 @@ def setup_environ(args):
     args.output_dir = os.path.join(OUTPUT_DIR, RESULT_PARENT_DIR, RESULT_CHILD_DIR)
     os.makedirs(args.output_dir, exist_ok=True)
 
-    print("set backend to cuda")
-    backend = set_backend("torch_cuda", on_error="warn")
+    if args.ridge:
+        print("set backend to cuda")
+        backend = set_backend("torch_cuda", on_error="warn")
 
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # HACK
 
