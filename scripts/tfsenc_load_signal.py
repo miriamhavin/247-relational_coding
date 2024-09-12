@@ -49,7 +49,7 @@ def create_nan_signal(stitch, convo_id):
     return mat_signal
 
 
-def load_electrode_data(args, sid, elec_id, stitch, z_score=False):
+def load_electrode_data(args, elec_id, stitch, z_score=False):
     """Load and concat signal mat files for a specific electrode
 
     Args:

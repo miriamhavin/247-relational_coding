@@ -170,10 +170,10 @@ def encoding_regression(args, X, Y, folds):
         else:  # ridge cv
             alphas = np.logspace(0, 20, 10)
             if Xtrain.shape[0] < Xtrain.shape[1]:
-                print(f"Running KernelRidgeCV, emb_dim = {Xrain.shape[1]}")
+                print(f"Running KernelRidgeCV, emb_dim = {Xtrain.shape[1]}")
                 model = make_pipeline(StandardScaler(), KernelRidgeCV(alphas=alphas))
             else:
-                print(f"Running RidgeCV, , emb_dim = {Xrain.shape[1]}")
+                print(f"Running RidgeCV, , emb_dim = {Xtrain.shape[1]}")
                 model = make_pipeline(StandardScaler(), RidgeCV(alphas=alphas))
         torch.cuda.empty_cache()
         model.fit(Xtrain, Ytrain)

@@ -120,7 +120,8 @@ def setup_environ(args):
     args.electrode_file_path = os.path.join(
         PICKLE_DIR, ("_".join([str(args.sid), "electrode_names.pkl"]))
     )
-    args.sig_elec_file_path = os.path.join(DATA_DIR, args.sig_elec_file)
+    if args.sig_elec_file is not None:
+        args.sig_elec_file_path = os.path.join(DATA_DIR, args.sig_elec_file)
     args.stitch_file_path = os.path.join(
         PICKLE_DIR, ("_".join([str(args.sid), "full_stitch_index.pkl"]))
     )
@@ -137,7 +138,7 @@ def setup_environ(args):
     # output directory paths
     OUTPUT_DIR = os.path.join(os.getcwd(), "results", args.project_id)
     RESULT_PARENT_DIR = f"{args.user_id[0:2]}-{args.project_id}-{args.sid}-{args.emb}-{args.output_dir_name}"
-    RESULT_CHILD_DIR = f"{args.user_id[0:2]}-{args.window_size}-{args.sid}"
+    RESULT_CHILD_DIR = f"{args.user_id[0:2]}-{args.window_size}ms-{args.sid}"
     args.output_dir = os.path.join(OUTPUT_DIR, RESULT_PARENT_DIR, RESULT_CHILD_DIR)
     os.makedirs(args.output_dir, exist_ok=True)
 

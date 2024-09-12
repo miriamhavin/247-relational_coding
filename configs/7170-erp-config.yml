@@ -20,34 +20,15 @@ prod: True # Run encoding for words in production
 ###############################
 
 # Subject
-sid: 625
-conv_ids: np.arange(1, 55)
-elecs: np.arange(1, 106)
+sid: 7170
+conv_ids: np.arange(1, 25)
+elecs: np.arange(1, 256)
 sig_elec_file:
 
-# sid: 676
-# conv_ids: np.arange(1, 79)
-# elecs: np.arange(1, 126)
-# sig_elec_file: 
-
-# sid: 7170
-# conv_ids: np.arange(1, 25)
-# elecs: np.arange(1, 256)
-# sig_elec_file:
-
-# sid: 798
-# conv_ids: np.arange(1, 16)
-# elecs: np.arange(1, 199)
-# sig_elec_file:
-
-
 # Embeddings
-# emb: glove50
-# context_length: 1
-# layer_idx: 0
-emb: gpt2-xl
-context_length: 1024
-layer_idx: 48
+emb: glove50
+context_length: 1
+layer_idx: 0
 
 # Embedding modifications: none, rand, emb, shift-emb, concat-emb
 emb_mod: none
@@ -56,4 +37,4 @@ pca_to: 50
 
 # Lags
 lags: np.arange(-2000,2001,25)
-output_dir_name: lag2k-25-all
+output_dir_name: lag2k-25-all-erp
