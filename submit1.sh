@@ -1,9 +1,12 @@
 #!/bin/bash
-#SBATCH --time=15:10:00
-#SBATCH --mem=64GB
+#SBATCH --time=1:10:00
+#SBATCH --mem=80GB
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=4
+#SBATCH --gres=gpu:1
+##SBATCH --constraint=gpu80
+##SBATCH --cpus-per-task=4
 #SBATCH -o 'logs/%A.log'
+
 
 if [[ "$HOSTNAME" == *"tiger"* ]]
 then

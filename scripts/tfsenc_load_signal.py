@@ -7,20 +7,6 @@ from scipy.io import loadmat
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 
-# def trim_signal(signal):
-#     bin_size = 32  # 62.5 ms (62.5/1000 * 512)
-#     signal_length = signal.shape[0]
-
-#     if signal_length < bin_size:
-#         print("Ignoring conversation: Small signal")
-#         return None
-
-#     cutoff_portion = signal_length % bin_size
-#     if cutoff_portion:
-#         signal = signal[:-cutoff_portion, :]
-
-#     return signal
-
 
 def detrend_signal(mat_signal):  # Detrending
     """Detrends a signal
@@ -76,59 +62,39 @@ def load_electrode_data(args, sid, elec_id, stitch, z_score=False):
         elec_signal: concatenated signal for a specific electrode
         elec_datum: modified datum based on the electrode signal
     """
-
-    if args.project_id == "tfs":
-        DATA_DIR = "/projects/HASSON/247/data/conversations-car"
-        process_flag = "preprocessed"
-        if args.sid == 7170:
-            process_flag = "preprocessed_v2"  # second version of 7170
-        if args.sid == 798:
-            process_flag = 'preprocessed_allElec'
-    elif args.project_id == "podcast":
-        DATA_DIR = "/projects/HASSON/247/data/podcast-data"
-        process_flag = "preprocessed_all"
-    else:
-        raise Exception("Invalid Project ID")
-
-    convos = sorted(
-        glob.glob(os.path.join(DATA_DIR, str(sid), "NY*Part*conversation*"))
-    )
+    convos = sorted(glob.glob(args.elec_signal_file_path))
 
     all_signal = []
     missing_convos = []
-    for convo_id, convo in enumerate(convos, 1):
-        if args.conversation_id != 0 and convo_id != args.conversation_id:
+    for convo_id, convo in enumerate(convos, start=1):
+
+        if convo_id not in args.conv_ids:  # skip convo
             continue
 
         file = glob.glob(
-            os.path.join(convo, process_flag, "*_" + str(elec_id) + ".mat")
+            os.path.join(
+                convo, args.elec_signal_process_flag, "*_" + str(elec_id) + ".mat"
+            )
         )
+        assert (
+            len(file) < 2
+        ), f"More than 1 signal file exists for electrode {elec_id} at {convo}"
 
-        if len(file) == 1:  # conversation file exists
+        if len(file) == 1:  # conversation mat file exists
             file = file[0]
-
             mat_signal = loadmat(file)["p1st"]
             mat_signal = mat_signal.reshape(-1, 1)
 
             if mat_signal is None:
                 continue
-
-            mat_signal = detrend_signal(mat_signal)  # detrend conversation signal
-            if z_score:  # doing erp
+            if args.detrend_signal:  # detrend conversation signal
+                mat_signal = detrend_signal(mat_signal)
+            if z_score:  # z-score when doing erp
                 mat_signal = stats.zscore(mat_signal)
 
-        elif len(file) == 0:  # conversation file does not exist
-            # if args.sid != 7170:
-            #     raise SystemExit(
-            #         f"Error: Conversation file does not exist for electrode {elec_id} at {convo}"
-            #     )
+        elif len(file) == 0:  # conversation mat file does not exist
             missing_convos.append(os.path.basename(convo))  # append missing convo name
             mat_signal = create_nan_signal(stitch, convo_id)
-
-        else:  # more than 1 conversation files
-            raise SystemExit(
-                f"Error: More than 1 signal file exists for electrode {elec_id} at {convo}"
-            )
 
         all_signal.append(mat_signal)  # append conversation signal
 

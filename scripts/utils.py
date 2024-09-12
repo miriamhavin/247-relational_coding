@@ -20,10 +20,10 @@ def load_pickle(file):
     """Load the datum pickle and returns as a dataframe
 
     Args:
-        file (string): labels pickle from 247-decoding/tfs_pickling.py
+        filename (string): labels pickle from 247-decoding/tfs_pickling.py
 
     Returns:
-        DataFrame: pickle contents returned as dataframe
+        Dictionary: pickle contents returned as dataframe
     """
     print(f"Loading {file}")
     with open(file, "rb") as fh:
