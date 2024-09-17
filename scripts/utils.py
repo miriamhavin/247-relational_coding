@@ -1,5 +1,11 @@
+import subprocess
 import pickle
 from datetime import datetime
+
+
+def get_git_hash() -> str:
+    """Get git hash as string"""
+    return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
 
 
 def main_timer(func):

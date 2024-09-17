@@ -2,9 +2,9 @@ import os
 import yaml
 import argparse
 import getpass
-import subprocess
 import numpy as np
 from himalaya.backend import set_backend
+from utils import get_git_hash
 
 ELEC_SIGNAL_PREPROCESS_MAP = {
     "podcast": dict.fromkeys(
@@ -32,11 +32,6 @@ ELEC_SIGNAL_FOLDER_MAP = {
     "podcast": "/projects/HASSON/247/data/podcast-data",
     "tfs": "/projects/HASSON/247/data/conversations-car",
 }
-
-
-def get_git_hash() -> str:
-    """Get git hash as string"""
-    return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
 
 
 def clean_lm_model_name(item):
