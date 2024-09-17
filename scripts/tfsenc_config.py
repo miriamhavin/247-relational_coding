@@ -3,6 +3,7 @@ import yaml
 import argparse
 import getpass
 import numpy as np
+import torch
 from himalaya.backend import set_backend
 from utils import get_git_hash
 
@@ -141,9 +142,12 @@ def setup_environ(args):
     args.output_dir = os.path.join(OUTPUT_DIR, RESULT_PARENT_DIR, RESULT_CHILD_DIR)
     os.makedirs(args.output_dir, exist_ok=True)
 
-    if args.ridge:
+    if torch.cuda.is_available():
         print("set backend to cuda")
         backend = set_backend("torch_cuda", on_error="warn")
+    else:
+        print("set backend to cpu numpy")
+        backend = set_backend("numpy", on_error="warn")
 
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # HACK
 

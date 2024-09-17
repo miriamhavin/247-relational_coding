@@ -165,8 +165,10 @@ def encoding_regression(args, X, Y, folds):
         if not args.ridge:  # ols
             if args.pca_to == 0:
                 print(f"Running OLS, emb_dim = {Xtrain.shape[1]}")
-                model = make_pipeline(StandardScaler(), LinearRegression())
-                # model = make_pipeline(StandardScaler(), RidgeCV(alphas=[0]))
+                if args.himalaya:
+                    model = make_pipeline(StandardScaler(), RidgeCV(alphas=[1e-9]))
+                else:
+                    model = make_pipeline(StandardScaler(), LinearRegression())
             else:  # pca + ols
                 print(f"Running PCA (from {Xtest.shape[1]} to {args.pca_to}) + OLS")
                 model = make_pipeline(

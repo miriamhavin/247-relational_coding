@@ -146,7 +146,7 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
         if len(np.unique(prod_data[2])) < args.cv_fold_num:
             print(f"{args.sid} {elec_name} failed prod groupkfold")
         else:
-            run_encoding(args, *prod_data)
+            result = run_encoding(args, *prod_data)
             write_encoding_results(args, result, f"{elec_name}_prod.csv")
 
     return (sid, elec_name, len(prod_data[0]), len(comp_data[0]))
