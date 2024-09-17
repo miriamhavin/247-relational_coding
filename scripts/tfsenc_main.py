@@ -152,7 +152,7 @@ def single_electrode_encoding(electrode, args, datum, stitch_index):
     return (sid, elec_name, len(prod_data[0]), len(comp_data[0]))
 
 
-def electrodes_encoding(args, electrode_info, datum, stitch_index):
+def electrodes_encoding(args, electrode_info, datum, stitch_index, parallel=False):
     """Doing encoding for all electrodes
 
     Args:
@@ -167,11 +167,14 @@ def electrodes_encoding(args, electrode_info, datum, stitch_index):
         print("Previously ran the same job, checking for elecs done")
         electrode_info = skip_elecs_done(summary_file, electrode_info)
 
-    for electrode in electrode_info.items():
-        result = single_electrode_encoding(electrode, args, datum, stitch_index)
-        with open(summary_file, "a") as f:
-            writer = csv.writer(f, delimiter=",", lineterminator="\r\n")
-            writer.writerow(result)
+    if parallel:
+        pass  # TODO
+    else:
+        for electrode in electrode_info.items():
+            result = single_electrode_encoding(electrode, args, datum, stitch_index)
+            with open(summary_file, "a") as f:
+                writer = csv.writer(f, delimiter=",", lineterminator="\r\n")
+                writer.writerow(result)
 
     return None
 

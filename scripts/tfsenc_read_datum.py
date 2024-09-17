@@ -353,7 +353,7 @@ def filter_datum(args, df):
     common &= df.offset.notna()
 
     # get rid of tokens without proper speaker
-    speaker_mask = df.speaker.str.contains("Speaker")  # TODO
+    speaker_mask = df.speaker.str.contains("Speaker")  # HACK
     common &= speaker_mask
 
     # filter based on arguments: nonwords, word_freq

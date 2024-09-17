@@ -33,11 +33,13 @@ def build_Y(brain_signal, onsets, lags, window_size):
     Returns:
         [type]: [description]
     """
-    half_window = round((window_size / 1000) * 512 / 2)  # convert to signal fs
+    FS = 512  # frame rate
+    MS = 1000  # convert from seconds to milliseconds
+    half_window = round((window_size / MS) * FS / 2)  # convert to signal fs
     Y1 = np.zeros((len(onsets), len(lags)))
 
     for lag in prange(len(lags)):
-        lag_amount = int(lags[lag] / 1000 * 512)  # convert fo signal fs
+        lag_amount = int(lags[lag] / MS * FS)  # convert fo signal fs
         index_onsets = np.round_(onsets, 0, onsets) + lag_amount  # lag onsets
         starts = index_onsets - half_window - 1  # lag window onset
         stops = index_onsets + half_window  # lag window offset
@@ -98,7 +100,7 @@ def encoding_setup(args, elec_name, elec_datum, elec_signal):
     if args.project_id == "podcast":  # podcast
         fold_cat_comp = get_kfolds(comp_X, args.cv_fold_num)
         fold_cat_prod = []
-    elif len(args.conv_ids) < args.cv_fold_num * 2:  # small num of convos, also 798
+    elif len(args.conv_ids) < args.cv_fold_num:  # small num of convos (< 10)
         print(
             f"{args.sid} {elec_name} has less convos than fold nums, doing kfold instead"
         )
@@ -200,17 +202,6 @@ def run_encoding(args, X, Y, folds):
 
     # train lm and predict
     Y_hat, Y_new, corrs = encoding_regression(args, X, Y, folds)
-
-    # # Old correlation
-    # rps = []
-    # # correlation for whole datum
-    # rp, _, _ = encoding_correlation(Y_new, Y_hat)
-    # rps.append(rp)
-
-    # # correlation per folds
-    # for i in np.unique(folds).astype(int):
-    #     rp_fold, _, _ = encoding_correlation(Y_new[folds == i], Y_hat[folds == i])
-    #     rps.append(rp_fold)
 
     # New correlation
     corr_datum = correlation_score(Y_new, Y_hat)

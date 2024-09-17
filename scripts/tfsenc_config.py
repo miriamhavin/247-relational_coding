@@ -110,7 +110,7 @@ def setup_environ(args):
     # input directory paths (pickles)
     DATA_DIR = os.path.join(os.getcwd(), "data")
     PICKLE_DIR = os.path.join(DATA_DIR, args.project_id, str(args.sid), "pickles")
-    EMB_DIR = os.path.join(PICKLE_DIR, "embeddings", args.emb, "full")  # TODO
+    EMB_DIR = os.path.join(PICKLE_DIR, "embeddings", args.emb, "full")
     args.base_df_path = os.path.join(EMB_DIR, "base_df.pkl")
     args.emb_df_path = os.path.join(
         EMB_DIR,
