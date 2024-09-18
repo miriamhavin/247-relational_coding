@@ -7,13 +7,10 @@ from multiprocessing import Pool, cpu_count
 import numpy as np
 import pandas as pd
 from tfsenc_config import parse_arguments, setup_environ, write_config
-from tfsenc_read_datum import read_datum
+from tfsenc_encoding import (encoding_setup, run_encoding,
+                             write_encoding_results)
 from tfsenc_load_signal import load_electrode_data
-from tfsenc_encoding import (
-    encoding_setup,
-    run_encoding,
-    write_encoding_results,
-)
+from tfsenc_read_datum import read_datum
 from utils import load_pickle, main_timer
 
 

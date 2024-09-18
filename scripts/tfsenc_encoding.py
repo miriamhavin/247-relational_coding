@@ -1,23 +1,20 @@
 import csv
 import os
+
 import numpy as np
 import pandas as pd
 import torch
+from himalaya.kernel_ridge import (ColumnKernelizer, Kernelizer, KernelRidgeCV,
+                                   MultipleKernelRidgeCV)
+from himalaya.ridge import ColumnTransformerNoStack, GroupRidgeCV, RidgeCV
+from himalaya.scoring import correlation_score, correlation_score_split
 from numba import jit, prange
 from scipy import stats
-from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import GroupKFold, KFold
 from sklearn.pipeline import make_pipeline
-from himalaya.ridge import GroupRidgeCV, RidgeCV, ColumnTransformerNoStack
-from himalaya.kernel_ridge import (
-    MultipleKernelRidgeCV,
-    KernelRidgeCV,
-    ColumnKernelizer,
-    Kernelizer,
-)
-from himalaya.scoring import correlation_score, correlation_score_split
+from sklearn.preprocessing import StandardScaler
 
 
 @jit(nopython=True)
