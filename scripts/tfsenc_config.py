@@ -1,25 +1,39 @@
+import argparse
+import getpass
 import os
 
+import numpy as np
+import torch
+import yaml
+from himalaya.backend import set_backend
+from utils import get_git_hash
 
-def create_output_directory(args):
-    # output_prefix_add = '-'.join(args.emb_file.split('_')[:-1])
+ELEC_SIGNAL_PREPROCESS_MAP = {
+    "podcast": dict.fromkeys(
+        [
+            "661",
+            "662",
+            "717",
+            "723",
+            "737",
+            "741",
+            "742",
+            "743",
+            "763",
+            "798",
+            "777",
+        ],
+        "preprocessed_all",
+    ),
+    "tfs": dict.fromkeys(["625", "676"], "preprocessed")
+    | dict.fromkeys(["7170"], "preprocessed_v2")
+    | dict.fromkeys(["798"], "preprocessed_allElec"),
+}
 
-    # folder_name = folder_name + '-pca_' + str(args.reduce_to) + 'd'
-    # full_output_dir = os.path.join(args.output_dir, folder_name)
-
-    folder_name = "-".join([args.output_prefix, str(args.sid)]).strip("-")
-
-    if args.model_mod:
-        parent_folder_name = "-".join([args.output_parent_dir, args.model_mod])
-    else:
-        parent_folder_name = args.output_parent_dir
-    full_output_dir = os.path.join(
-        os.getcwd(), "results", args.project_id, parent_folder_name, folder_name
-    )
-
-    os.makedirs(full_output_dir, exist_ok=True)
-
-    return full_output_dir
+ELEC_SIGNAL_FOLDER_MAP = {
+    "podcast": "/projects/HASSON/247/data/podcast-data",
+    "tfs": "/projects/HASSON/247/data/conversations-car",
+}
 
 
 def clean_lm_model_name(item):
@@ -43,39 +57,111 @@ def clean_lm_model_name(item):
     print("Invalid input. Please check.")
 
 
-def setup_environ(args):
-    """Update args with project specific directories and other flags"""
+def parse_arguments():
+    """Read arguments from yaml config file
 
-    args.emb_type = clean_lm_model_name(args.emb_type)
-    args.align_with = clean_lm_model_name(args.align_with)
+    Returns:
+        namespace: all arguments from yaml config file
+    """
+    # parse yaml config file
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config-file", nargs="*", type=str, default="[config.yml]")
+    args = parser.parse_args()
 
-    INPUT_DIR = os.path.join(os.getcwd(), "data", args.project_id, str(args.sid))
+    all_yml_args = {}
+    for config_file in args.config_file:
+        with open(config_file, "r") as file:
+            yml_args = yaml.safe_load(file)
+            all_yml_args = all_yml_args | yml_args
 
-    args.PICKLE_DIR = os.path.join(INPUT_DIR, "pickles")
-    EMB_DIR = os.path.join(args.PICKLE_DIR, "embeddings")
-    MODEL_EMB_DIR = os.path.join(EMB_DIR, args.emb_type, args.pkl_identifier)
+    # get username
+    user_id = getpass.getuser()
+    all_yml_args["user_id"] = user_id
+    all_yml_args["git_hash"] = get_git_hash()
 
-    if args.emb_type == "glove50":
+    # clean up args
+    args = argparse.Namespace(**all_yml_args)
+    try:  # eval lists
+        args.elecs = eval(args.elecs)
+        args.conv_ids = eval(args.conv_ids)
+        args.lags = eval(args.lags)
+    except:
+        print("List parameter failed to eval")
+
+    if args.emb == "glove50":  # for glove, fix layer and context len
         args.layer_idx = 1
         args.context_length = 1
+    else:
+        args.emb = clean_lm_model_name(args.emb)
 
-    args.base_df_path = os.path.join(MODEL_EMB_DIR, "base_df.pkl")
+    return args, all_yml_args
 
+
+def setup_environ(args):
+    """
+    Update args with project specific directories and other flags
+
+    Args:
+        args (namespace): arguments
+
+    Returns:
+        args (namespace): arguments plus directory paths
+    """
+
+    # input directory paths (pickles)
+    DATA_DIR = os.path.join(os.getcwd(), "data")
+    PICKLE_DIR = os.path.join(DATA_DIR, args.project_id, str(args.sid), "pickles")
+    EMB_DIR = os.path.join(PICKLE_DIR, "embeddings", args.emb, "full")
+    args.base_df_path = os.path.join(EMB_DIR, "base_df.pkl")
     args.emb_df_path = os.path.join(
-        MODEL_EMB_DIR,
+        EMB_DIR,
         f"cnxt_{args.context_length:04d}",
         f"layer_{args.layer_idx:02d}.pkl",
     )
-
-    args.signal_file = "_".join([str(args.sid), args.pkl_identifier, "signal.pkl"])
-    args.electrode_file = "_".join([str(args.sid), "electrode_names.pkl"])
-    args.stitch_file = "_".join(
-        [str(args.sid), args.pkl_identifier, "stitch_index.pkl"]
+    args.electrode_file_path = os.path.join(
+        PICKLE_DIR, ("_".join([str(args.sid), "electrode_names.pkl"]))
+    )
+    if args.sig_elec_file is not None:
+        args.sig_elec_file_path = os.path.join(DATA_DIR, args.sig_elec_file)
+    args.stitch_file_path = os.path.join(
+        PICKLE_DIR, ("_".join([str(args.sid), "full_stitch_index.pkl"]))
     )
 
-    args.output_dir = os.path.join(os.getcwd(), "results")
-    args.full_output_dir = create_output_directory(args)
+    # input directory paths (elec mat files)
+    ELEC_SIGNAL_DIR = ELEC_SIGNAL_FOLDER_MAP[args.project_id]
+    args.elec_signal_file_path = os.path.join(
+        ELEC_SIGNAL_DIR, str(args.sid), "NY*Part*conversation*"
+    )
+    args.elec_signal_process_flag = ELEC_SIGNAL_PREPROCESS_MAP[args.project_id][
+        str(args.sid)
+    ]
 
-    args.best_lag = -1
+    # output directory paths
+    OUTPUT_DIR = os.path.join(os.getcwd(), "results", args.project_id)
+    RESULT_PARENT_DIR = f"{args.user_id[0:2]}-{args.project_id}-{args.sid}-{args.emb}-{args.output_dir_name}"
+    RESULT_CHILD_DIR = f"{args.user_id[0:2]}-{args.window_size}ms-{args.sid}"
+    args.output_dir = os.path.join(OUTPUT_DIR, RESULT_PARENT_DIR, RESULT_CHILD_DIR)
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    if torch.cuda.is_available():
+        print("set backend to cuda")
+        backend = set_backend("torch_cuda", on_error="warn")
+    else:
+        print("set backend to cpu numpy")
+        backend = set_backend("numpy", on_error="warn")
+
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"  # HACK
 
     return args
+
+
+def write_config(args, yml_args):
+    """Write configuration to a file
+
+    Args:
+        args (namespace): configuration
+        yml_args (dict): original yml args
+    """
+    config_file_path = os.path.join(args.output_dir, "config.yml")
+    with open(config_file_path, "w") as outfile:
+        yaml.dump(yml_args, outfile, default_flow_style=False, sort_keys=False)

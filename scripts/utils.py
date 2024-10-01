@@ -1,7 +1,11 @@
-import json
-import os
 import pickle
+import subprocess
 from datetime import datetime
+
+
+def get_git_hash() -> str:
+    """Get git hash as string"""
+    return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
 
 
 def main_timer(func):
@@ -22,25 +26,13 @@ def load_pickle(file):
     """Load the datum pickle and returns as a dataframe
 
     Args:
-        file (string): labels pickle from 247-decoding/tfs_pickling.py
+        filename (string): labels pickle from 247-decoding/tfs_pickling.py
 
     Returns:
-        DataFrame: pickle contents returned as dataframe
+        Dictionary: pickle contents returned as dataframe
     """
     print(f"Loading {file}")
     with open(file, "rb") as fh:
         datum = pickle.load(fh)
 
     return datum
-
-
-def write_config(dictionary):
-    """Write configuration to a file
-    Args:
-        CONFIG (dict): configuration
-    """
-    json_object = json.dumps(dictionary, sort_keys=True, indent=4)
-
-    config_file = os.path.join(dictionary["full_output_dir"], "config.json")
-    with open(config_file, "w") as outfile:
-        outfile.write(json_object)
