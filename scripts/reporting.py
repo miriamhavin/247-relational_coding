@@ -62,6 +62,8 @@ def report_space(space, label, outdir, *, B_perm_cols=2000, B_mantel=5000, seed=
 
         resid = end_vecs - Ehat
         end_resid_rsm = _rsm(resid)
+        setattr(space, "end_pred_rsm", end_pred_rsm)
+        setattr(space, "end_resid_rsm", end_resid_rsm)
         row['r_start_vs_endResid_RSM'] = second_order_corr(start_rsm, end_resid_rsm)
         man_resid = mantel(
             Space(words, start_vecs, resid, start_rsm, end_resid_rsm, cross, diag),
