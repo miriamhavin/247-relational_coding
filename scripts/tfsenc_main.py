@@ -3,15 +3,16 @@ import glob
 import os
 from functools import partial
 from multiprocessing import Pool, cpu_count
-
+import os, numpy as np, pandas as pd
+from spaces import compute_space, pool_aligned, Space
 import numpy as np
 import pandas as pd
 from tfsenc_config import parse_arguments, setup_environ, write_config
-from tfsenc_encoding import (encoding_setup, run_encoding,
-                             write_encoding_results)
+from tfsenc_encoding import (encoding_setup, run_encoding, write_encoding_results, build_Y)
 from tfsenc_load_signal import load_electrode_data
 from tfsenc_read_datum import read_datum
 from utils import load_pickle, main_timer
+from reporting import report_space
 
 
 def return_stitch_index(args):
@@ -95,107 +96,83 @@ def skip_elecs_done(summary_file, electrode_info):
     return electrode_info
 
 
-def single_electrode_encoding(electrode, args, datum, stitch_index):
-    """Doing encoding for one electrode
+def run_single(df, feat, outdir, label, min_occ=10, remove_global_mean=False):
+    space = compute_space(df, feat, min_occ=min_occ, remove_global_mean=remove_global_mean)
+    report_space(space, label, outdir)
 
-    Args:
-        electrode (tuple): ((sid, elec_id), elec_name)
-        args (namespace): commandline arguments
-        datum (df): datum of words
-        stitch_index (list): stitch_index
+def run_all_electrodes(args, electrode_info, datum, stitch_index):
+    pooled = {'embedding': [], 'neural': []}
+    all_rows = []  # collect all one-row summaries here
 
-    Returns:
-        tuple in the format (sid, electrode name, production len, comprehension len)
-    """
-    # Get electrode info
-    (sid, elec_id), elec_name = electrode
+    for (sid, elec_id), elec_name in electrode_info.items():
+        if elec_name is None:
+            print(f"Electrode ID {elec_id} does not exist")
+            continue
 
-    if elec_name is None:
-        print(f"Electrode ID {elec_id} does not exist")
-        return (args.sid, None, 0, 0)
+        # --- load signals & filter datum
+        elec_signal, missing_convos = load_electrode_data(args, elec_id, stitch_index)
+        elec_datum = datum.loc[~datum["conversation_name"].isin(missing_convos)] if missing_convos else datum
+        if len(elec_datum) == 0:
+            print(f"{sid} {elec_name} No Signal")
+            continue
 
-    # Load signal Data
-    elec_signal, missing_convos = load_electrode_data(args, elec_id, stitch_index)
-    if len(missing_convos) > 0:  # modify datum based on missing signal
-        elec_datum = datum.loc[
-            ~datum["conversation_name"].isin(missing_convos)
-        ]  # filter missing convos
-    else:
-        elec_datum = datum
+        # --- build features
+        X = np.stack(elec_datum.embeddings).astype("float32")
+        Y = build_Y(
+            elec_signal.reshape(-1, 1),
+            elec_datum.adjusted_onset.values,
+            np.array(args.lags),
+            args.window_size,
+        ).astype("float32")
 
-    if len(elec_datum) == 0:  # datum has no words, meaning no signal
-        print(f"{args.sid} {elec_name} No Signal")
-        return (args.sid, elec_name, 0, 0)
+        elec_df = elec_datum.copy()
+        elec_df["embedding"] = list(X)
+        elec_df["neural"]    = list(Y)
 
-    # Set up encoding (prod/comp x, y, and folds)
-    comp_data, prod_data = encoding_setup(args, elec_name, elec_datum, elec_signal)
-    elec_name = str(sid) + "_" + elec_name
-    print(f"{args.sid} {elec_name} Comp: {len(comp_data[0])} Prod: {len(prod_data[0])}")
+        # --- compute spaces (no per-electrode save)
+        for mod, feat_col in [('embedding','embedding'), ('neural','neural')]:
+            feat  = np.stack(elec_df[feat_col].values)
+            space = compute_space(elec_df, feat, min_occ=args.min_occ, remove_global_mean=False)
+            df_row = report_space(space, f"{elec_name}_{mod}", outdir=None)
+            df_row = df_row.assign(scope='per_electrode',
+                                   sid=sid,
+                                   elec_id=elec_id,
+                                   electrode=str(elec_name),
+                                   modality=mod)
+            all_rows.append(df_row)
 
-    # Run encoding and save results
-    if args.comp and len(comp_data[0]) > 0:  # Comprehension
-        if len(np.unique(comp_data[2])) < args.cv_fold_num:
-            print(f"{args.sid} {elec_name} failed comp groupkfold")
-        else:
-            result = run_encoding(args, *comp_data)
-            write_encoding_results(args, result, f"{elec_name}_comp.csv")
-    if args.prod and len(prod_data[0]) > 0:  # Production
-        if len(np.unique(prod_data[2])) < args.cv_fold_num:
-            print(f"{args.sid} {elec_name} failed prod groupkfold")
-        else:
-            result = run_encoding(args, *prod_data)
-            write_encoding_results(args, result, f"{elec_name}_prod.csv")
+            if space.words.size:
+                pooled[mod].append((space.words, space.start_vecs, space.end_vecs))
 
-    return (sid, elec_name, len(prod_data[0]), len(comp_data[0]))
+    # --- pooled/global
+    for mod in ['embedding','neural']:
+        if pooled[mod]:
+            gspace = pool_aligned(pooled[mod], how='intersection')
+            gdf = report_space(gspace, f"global_{mod}", outdir=None)
+            gdf = gdf.assign(scope='global',
+                             sid=np.nan,
+                             elec_id=np.nan,
+                             electrode='GLOBAL',
+                             modality=mod)
+            all_rows.append(gdf)
 
+    # --- save one big CSV
+    big = pd.concat(all_rows, ignore_index=True) if all_rows else pd.DataFrame()
+    outpath = os.path.join(args.output_dir, "all_spaces_summary.csv")
+    big.to_csv(outpath, index=False)
+    print(f"[ALL] consolidated summary saved → {outpath}")
 
-def electrodes_encoding(args, electrode_info, datum, stitch_index, parallel=False):
-    """Doing encoding for all electrodes
-
-    Args:
-        args (namespace): commandline arguments
-        electrode_info (dict): dictionary of electrodes
-        datum (df): datum of words
-        stitch_index (list): stitch_index
-    """
-
-    summary_file = os.path.join(args.output_dir, "summary.csv")  # summary file
-    if os.path.exists(summary_file):  # previous job
-        print("Previously ran the same job, checking for elecs done")
-        electrode_info = skip_elecs_done(summary_file, electrode_info)
-
-    if parallel:
-        pass  # TODO
-    else:
-        for electrode in electrode_info.items():
-            result = single_electrode_encoding(electrode, args, datum, stitch_index)
-            with open(summary_file, "a") as f:
-                writer = csv.writer(f, delimiter=",", lineterminator="\r\n")
-                writer.writerow(result)
-
-    return None
-
+    return big
 
 @main_timer
 def main():
-
-    # Read command line arguments
     args, yml_args = parse_arguments()
-
-    # Setup paths to data
     args = setup_environ(args)
-
-    # Saving configuration to output directory
     write_config(args, yml_args)
-
-    # Locate and read datum
     stitch_index = return_stitch_index(args)
     datum = read_datum(args, stitch_index)
-
-    # Processing significant electrodes or individual subjects
     electrode_info = process_electrodes(args)
-    electrodes_encoding(args, electrode_info, datum, stitch_index)
-
+    run_all_electrodes(args, electrode_info, datum, stitch_index)
     return
 
 

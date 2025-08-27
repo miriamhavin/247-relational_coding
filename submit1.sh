@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --time=1:30:00
-#SBATCH --mem=80GB
+#SBATCH --time=1:10:00
+#SBATCH --mem=20GB
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:1
 ##SBATCH --constraint=gpu80

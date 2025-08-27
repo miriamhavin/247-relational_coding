@@ -16,7 +16,6 @@ from sklearn.model_selection import GroupKFold, KFold
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-
 @jit(nopython=True)
 def build_Y(brain_signal, onsets, lags, window_size):
     """[summary]
@@ -87,6 +86,19 @@ def encoding_setup(args, elec_name, elec_datum, elec_signal):
     X = X.astype("float32")
     Y = Y.astype("float32")
 
+    results = analyze_drift_and_relational(
+        elec_datum=elec_datum,   # DataFrame aligned to rows of X/Y
+        X=X,                     # embeddings/features (n_samples, d_model)
+        Y=Y,                     # brain features (n_samples, d_brain or 1D)
+        outdir=f"analysis_out/{args.sid}_{elec_name}",
+        electrode_name=f"{args.sid}_{elec_name}",
+        by_condition=True,       # separate comp/prod; set False if you want all together
+        speaker_col='speaker',
+        prod_speaker='Speaker1', # adapt if your production label differs
+        min_occ=10                # try 6–10 depending on your data density
+    )
+    return results
+
     # Split into production and comprehension
     prod_X = X[elec_datum.speaker == "Speaker1", :]
     comp_X = X[elec_datum.speaker != "Speaker1", :]
@@ -111,6 +123,11 @@ def encoding_setup(args, elec_name, elec_datum, elec_signal):
     # Oragnize
     comp_data = comp_X, comp_Y, fold_cat_comp
     prod_data = prod_X, prod_Y, fold_cat_prod
+    print("comp_X:", comp_X.shape, type(comp_X))
+    print("comp_Y:", comp_Y.shape, type(comp_Y))
+
+    print("prod_X:", prod_X.shape, type(prod_X))
+    print("prod_Y:", prod_Y.shape, type(prod_Y))
 
     return comp_data, prod_data
 

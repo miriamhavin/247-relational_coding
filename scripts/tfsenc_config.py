@@ -1,7 +1,8 @@
 import argparse
 import getpass
 import os
-
+import argparse, yaml, getpass
+from pathlib import Path
 import numpy as np
 import torch
 import yaml
@@ -57,44 +58,70 @@ def clean_lm_model_name(item):
     print("Invalid input. Please check.")
 
 
+
 def parse_arguments():
-    """Read arguments from yaml config file
-
-    Returns:
-        namespace: all arguments from yaml config file
-    """
-    # parse yaml config file
+    """Read arguments from yaml config file (+ optional CLI overrides)."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config-file", nargs="*", type=str, default="[config.yml]")
-    args = parser.parse_args()
+    parser.add_argument("--config-file", nargs="*", type=str,
+                        default=["configs/config.yml"])
+    # optional CLI overrides (None means "use YAML/default")
+    parser.add_argument("--min-occ", dest="min_occ", type=int, default=None)
+    parser.add_argument("--B-perm-cols", dest="B_perm_cols", type=int, default=None)
+    parser.add_argument("--B-mantel", dest="B_mantel", type=int, default=None)
+    parser.add_argument("--seed", type=int, default=None)
+    args_cli = parser.parse_args()
 
+    # ---- merge YAMLs (later files override earlier ones) ----
     all_yml_args = {}
-    for config_file in args.config_file:
-        with open(config_file, "r") as file:
-            yml_args = yaml.safe_load(file)
-            all_yml_args = all_yml_args | yml_args
+    for config_file in args_cli.config_file:
+        with open(config_file, "r") as f:
+            yml = yaml.safe_load(f) or {}
+            all_yml_args |= yml
 
-    # get username
-    user_id = getpass.getuser()
-    all_yml_args["user_id"] = user_id
+    # ---- hard defaults (used if not in YAML and no CLI override) ----
+    defaults = {
+        "min_occ": 50,          # match your earlier successful run
+        "B_perm_cols": 2000,    # per-electrode perms
+        "B_mantel": 5000,       # Mantel perms per electrode
+        "seed": 42,
+    }
+    for k, v in defaults.items():
+        all_yml_args.setdefault(k, v)
+
+    # ---- CLI overrides take precedence over YAML ----
+    for k in ["min_occ", "B_perm_cols", "B_mantel", "seed"]:
+        v = getattr(args_cli, k, None)
+        if v is not None:
+            all_yml_args[k] = v
+
+    # ---- add metadata ----
+    all_yml_args["user_id"] = getpass.getuser()
     all_yml_args["git_hash"] = get_git_hash()
 
-    # clean up args
-    args = argparse.Namespace(**all_yml_args)
-    try:  # eval lists
-        args.elecs = eval(args.elecs)
-        args.conv_ids = eval(args.conv_ids)
-        args.lags = eval(args.lags)
-    except:
-        print("List parameter failed to eval")
+    # ---- normalize / type-coerce a few fields ----
+    # tolerate list-like strings in YAML
+    for key in ("elecs", "conv_ids", "lags"):
+        if key in all_yml_args and isinstance(all_yml_args[key], str):
+            try:
+                all_yml_args[key] = eval(all_yml_args[key])
+            except Exception:
+                pass  # keep as-is if not a Python-literal string
 
-    if args.emb == "glove50":  # for glove, fix layer and context len
-        args.layer_idx = 1
-        args.context_length = 1
+    # model name cleanup
+    if all_yml_args.get("emb") == "glove50":
+        all_yml_args["layer_idx"] = 1
+        all_yml_args["context_length"] = 1
     else:
-        args.emb = clean_lm_model_name(args.emb)
+        if "emb" in all_yml_args:
+            all_yml_args["emb"] = clean_lm_model_name(all_yml_args["emb"])
 
-    return args, all_yml_args
+    # ensure output_dir exists if present
+    outdir = all_yml_args.get("output_dir")
+    if outdir:
+        Path(outdir).mkdir(parents=True, exist_ok=True)
+
+    # return as Namespace + the raw dict
+    return argparse.Namespace(**all_yml_args), all_yml_args
 
 
 def setup_environ(args):

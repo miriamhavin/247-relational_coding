@@ -21,7 +21,7 @@ CMD := sbatch submit1.sh
 run-encoding:
 	mkdir -p logs
 	$(CMD) scripts/tfsenc_main.py \
-		--config-file configs/config.yml configs/625-config.yml configs/glove-config.yml
+		--config-file configs/config.yml configs/625-config.yml configs/gpt2-config.yml
 
 
 SIDS:= 625 676 7170 798
