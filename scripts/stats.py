@@ -32,6 +32,55 @@ def same_diff(space, space_name='space'):
                           'auroc': float(auroc)}])
     return per, summ
 
+def perm_same_vs_diff_group(C, B=2000, seed=42, return_null=False):
+    """
+    Permutation test for Same≠Different using *group-size matched* randomization.
+    Null: the true diagonal is not special; any single column per row could be 'self'.
+
+    For each perm b:
+      - For each row i, randomly choose a column j as the pseudo-self.
+      - Compute delta_i = C[i, j] - mean(C[i, -j])
+      - Stat_b = mean_i delta_i
+    Compare observed mean delta (true diagonal) to this null.
+
+    Returns:
+      {'observed': float, 'p_perm': float, 'B': int, 'null': np.ndarray (optional)}
+    """
+    C = np.asarray(C, float)
+    n = C.shape[0]
+    if C.ndim != 2 or C.shape[0] != C.shape[1] or n == 0:
+        out = {'observed': np.nan, 'p_perm': np.nan, 'B': int(B)}
+        if return_null: out['null'] = np.array([])
+        return out
+
+    rng = np.random.default_rng(seed)
+
+    # Observed mean delta (true diagonal vs mean of others per row)
+    diag = np.diag(C)
+    row_sum = C.sum(axis=1)                 # shape (n,)
+    obs_others_mean = (row_sum - diag) / (n - 1)
+    obs_deltas = diag - obs_others_mean
+    observed = float(np.nanmean(obs_deltas))
+
+    # Permutation null: pick one pseudo-self per row
+    null_stats = np.empty(B, dtype=float)
+    for b in range(B):
+        j = rng.integers(0, n, size=n)                  # one column per row
+        chosen = C[np.arange(n), j]                     # shape (n,)
+        others_mean = (row_sum - chosen) / (n - 1)      # exclude chosen col
+        deltas = chosen - others_mean
+        null_stats[b] = float(np.nanmean(deltas))
+
+    # one-sided p: probability null >= observed
+    ge = np.count_nonzero(null_stats >= observed)
+    p = float((1 + ge) / (1 + B))
+
+    out = {'observed': observed, 'p_perm': p, 'B': int(B)}
+    if return_null:
+        out['null'] = null_stats
+    return out
+
+
 def perm_columns(C, B=2000, metric='mean_delta', seed=42):
     rng = np.random.default_rng(seed)
     C = np.asarray(C, float); n = C.shape[0]

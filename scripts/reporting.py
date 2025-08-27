@@ -51,42 +51,43 @@ def report_space(space, label, outdir, *, B_perm_cols=2000, B_mantel=5000, seed=
         Ehat, corr_pred = _predict_end_from_start(start_vecs, end_vecs)
         row['E_pred_vs_E_corr'] = corr_pred
 
-        end_pred_rsm = _rsm(Ehat)
-        row['r_start_vs_endPred_RSM'] = second_order_corr(start_rsm, end_pred_rsm)
-        # Mantel on (start_rsm vs end_pred_rsm): wrap into a lightweight Space
-        man_pred = mantel(
-            Space(words, start_vecs, Ehat, start_rsm, end_pred_rsm, cross, diag),
-            B=B_mantel, seed=seed
-        )
-        row['mantel_p_pred'] = man_pred['p_perm']
-
-        resid = end_vecs - Ehat
+        end_pred_rsm  = _rsm(Ehat)
+        resid         = end_vecs - Ehat
         end_resid_rsm = _rsm(resid)
-        setattr(space, "end_pred_rsm", end_pred_rsm)
+        setattr(space, "end_pred_rsm",  end_pred_rsm)
         setattr(space, "end_resid_rsm", end_resid_rsm)
+
+        row['r_start_vs_endPred_RSM'] = second_order_corr(start_rsm, end_pred_rsm)
         row['r_start_vs_endResid_RSM'] = second_order_corr(start_rsm, end_resid_rsm)
-        man_resid = mantel(
-            Space(words, start_vecs, resid, start_rsm, end_resid_rsm, cross, diag),
-            B=B_mantel, seed=seed
-        )
+
+        # Mantel on (start_rsm vs end_pred_rsm): wrap into a lightweight Space
+        man_pred  = mantel(Space(words, start_vecs, Ehat,  start_rsm, end_pred_rsm,  cross, diag),
+                           B=B_mantel, seed=seed)
+        man_resid = mantel(Space(words, start_vecs, resid, start_rsm, end_resid_rsm, cross, diag),
+                           B=B_mantel, seed=seed)
+        row['mantel_p_pred']  = man_pred['p_perm']
         row['mantel_p_resid'] = man_resid['p_perm']
     else:
-        row.update({'E_pred_vs_E_corr': np.nan, 'r_start_vs_endPred_RSM': np.nan,
-                    'mantel_p_pred': np.nan, 'r_start_vs_endResid_RSM': np.nan, 'mantel_p_resid': np.nan})
+        row.update({
+            'E_pred_vs_E_corr': np.nan,
+            'r_start_vs_endPred_RSM': np.nan,  'mantel_p_pred':  np.nan,
+            'r_start_vs_endResid_RSM': np.nan, 'mantel_p_resid': np.nan
+        })
 
     # --- same ≠ different
     same_per, same_sum = same_diff(space, label)
-
-    # permutation p-values over the cross-matrix
-    perm_meanDelta = perm_columns(cross, B=B_perm_cols, metric='mean_delta', seed=seed)['p_perm'] if n > 0 else np.nan
-    perm_top1      = perm_columns(cross, B=B_perm_cols, metric='top1',       seed=seed)['p_perm'] if n > 0 else np.nan
-
     row.update({
-        'delta_median':   same_sum['delta_median'].iloc[0],
-        'wilcoxon_p':     same_sum['wilcoxon_p'].iloc[0],
-        'auroc':          same_sum['auroc'].iloc[0],
-        'perm_meanDelta_p': perm_meanDelta,
+        'delta_median': float(same_sum['delta_median'].iloc[0]) if len(same_sum) else np.nan,
+        'wilcoxon_p':   float(same_sum['wilcoxon_p'].iloc[0])   if len(same_sum) else np.nan,
+        'auroc':        float(same_sum['auroc'].iloc[0])        if len(same_sum) else np.nan
     })
+
+
+    # column-permutation nulls 
+    row['perm_meanDelta_p'] = perm_columns(cross, B=B_perm_cols, metric='mean_delta', seed=seed)['p_perm']
+    # group-size matched nulls
+    group_perm = perm_same_vs_diff_group(cross, B=B_perm_cols, seed=seed, return_null=False)
+    row['perm_groupDelta_p'] = group_perm['p_perm']
 
     # --- save consolidated df
     df = pd.DataFrame([row])

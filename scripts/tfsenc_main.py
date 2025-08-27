@@ -133,7 +133,7 @@ def run_all_electrodes(args, electrode_info, datum, stitch_index):
         for mod, feat_col in [('embedding','embedding'), ('neural','neural')]:
             feat  = np.stack(elec_df[feat_col].values)
             space = compute_space(elec_df, feat, min_occ=args.min_occ, remove_global_mean=False)
-            df_row = report_space(space, f"{elec_name}_{mod}", outdir=None)
+            df_row = report_space(space, f"{elec_name}_{mod}", outdir=None, B_perm_cols=199, B_mantel=499)
             df_row = df_row.assign(scope='per_electrode',
                                    sid=sid,
                                    elec_id=elec_id,
