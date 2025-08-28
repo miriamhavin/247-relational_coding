@@ -148,44 +148,44 @@ def run_all_electrodes(args, electrode_info, datum, stitch_index):
         df_comp["neural"]    = list(Y[comp_mask, :])
 
         # helper to run and collect one subset
-        def do_space(df_sub, task_label):
+        def do_space(df_sub, task_label, skip=False):
             if df_sub.empty:
                 return
             for mod, feat_col in [('embedding','embedding'), ('neural','neural')]:
                 if len(df_sub[feat_col]) == 0:
                     continue
                 feat = np.stack(df_sub[feat_col].values)
-
-                space = compute_space(df_sub, feat, min_occ=args.min_occ, remove_global_mean=False)
+                norm_flag = 'unit' if mod == 'embedding' else None
+                space = compute_space(df_sub, feat, min_occ=args.min_occ, remove_global_mean=False, normalize=norm_flag)
                 # if too few words survived min_occ, skip
                 if getattr(space, "words", np.array([])).size == 0:
-                    return
+                    continue
+                if skip==False:
+                    label  = f"{elec_name}_{mod}_{task_label}"
+                    outdir = os.path.join(per_dir, f"{elec_name}", task_label, mod)
 
-                label  = f"{elec_name}_{mod}_{task_label}"
-                outdir = os.path.join(per_dir, f"{elec_name}", task_label, mod)
-
-                df_row = report_space(
-                    space, label, outdir=None,
-                    B_perm_cols=getattr(args, "B_perm_cols", 199),
-                    B_mantel=getattr(args, "B_mantel", 499),
-                    seed=getattr(args, "seed", 42),
-                )
-                df_row = df_row.assign(
-                    scope='per_electrode',
-                    sid=sid,
-                    elec_id=elec_id,
-                    electrode=str(elec_name),
-                    feature_modality=mod,     # embedding vs neural
-                    task_modality=task_label, # production vs comprehension
-                )
-                all_rows.append(df_row)
+                    df_row = report_space(
+                        space, label, outdir=None,
+                        B_perm_cols=getattr(args, "B_perm_cols", 49),
+                        B_mantel=getattr(args, "B_mantel", 0),
+                        seed=getattr(args, "seed", 42),
+                    )
+                    df_row = df_row.assign(
+                        scope='per_electrode',
+                        sid=sid,
+                        elec_id=elec_id,
+                        electrode=str(elec_name),
+                        feature_modality=mod,     # embedding vs neural
+                        task_modality=task_label, # production vs comprehension
+                    )
+                    all_rows.append(df_row)
 
                 # for pooling
                 pooled[mod][task_label].append((space.words, space.start_vecs, space.end_vecs))
 
         # run both tasks
-        do_space(df_prod, "production")
-        do_space(df_comp, "comprehension")
+        do_space(df_prod, "production", skip=True)
+        do_space(df_comp, "comprehension", skip=True)
 
     # --- pooled/global per (mod, task)
     for mod in ['embedding','neural']:

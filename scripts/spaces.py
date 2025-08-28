@@ -51,13 +51,15 @@ def _avg_halves(FEAT, words, onsets, min_occ):
     return np.asarray(keep), np.vstack(S), np.vstack(E)
 
 def compute_space(df, FEAT, *, word_col='word', onset_col='adjusted_onset',
-                  min_occ=10, remove_global_mean=False):
+                  min_occ=10, remove_global_mean=False, normalize=None):
     FEAT = _to_2d(FEAT)
     words = df[word_col].to_numpy()
     onsets = df[onset_col].to_numpy()
     X = FEAT - FEAT.mean(0, keepdims=True) if remove_global_mean else FEAT
 
     keep, S, E = _avg_halves(X, words, onsets, min_occ)
+    if normalize == 'unit':
+        S, E = unit_norm(S), unit_norm(E)
     if keep.size == 0:
         return Space(keep, S, E, np.empty((0,0)), np.empty((0,0)), np.empty((0,0)), np.array([]))
 
@@ -96,3 +98,8 @@ def second_order_corr(A, B):
     a = A[iu] - A[iu].mean(); b = B[iu] - B[iu].mean()
     den = (np.linalg.norm(a)*np.linalg.norm(b) + 1e-12)
     return float((a @ b) / den)
+
+def unit_norm(X):
+    """Normalize each row (token embedding) to unit length."""
+    norms = np.linalg.norm(X, axis=1, keepdims=True) + 1e-8
+    return X / norms
