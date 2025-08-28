@@ -2,9 +2,8 @@
 #SBATCH --time=1:10:00
 #SBATCH --mem=20GB
 #SBATCH --nodes=1
-#SBATCH --gres=gpu:1
 ##SBATCH --constraint=gpu80
-##SBATCH --cpus-per-task=4
+##SBATCH --cpus-per-task=16
 #SBATCH -o 'logs/%A.log'
 
 

@@ -80,7 +80,7 @@ def parse_arguments():
 
     # ---- hard defaults (used if not in YAML and no CLI override) ----
     defaults = {
-        "min_occ": 50,          # match your earlier successful run
+        "min_occ": 10,          # match your earlier successful run
         "B_perm_cols": 2000,    # per-electrode perms
         "B_mantel": 5000,       # Mantel perms per electrode
         "seed": 42,

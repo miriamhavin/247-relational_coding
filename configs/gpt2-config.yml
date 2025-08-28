@@ -2,7 +2,7 @@
 # Embeddings
 emb: gpt2-xl
 context_length: 1024
-layer_idx: 32
+layer_idx: 48
 
 # Embedding modifications: none, rand, emb, shift-emb, concat-emb
 emb_mod: shift-emb
@@ -11,5 +11,5 @@ pca_to: 100
 ridge: False
 
 # Lags
-lags: np.arange(-300.0, 500.0, 50)  # cover ~±500 ms at sample resolution
+lags: np.arange(-500.0, 500.0, 50)  # cover ~±500 ms at sample resolution
 output_dir_name: gpt2-247

@@ -5,7 +5,7 @@ from scipy.stats import wilcoxon
 from sklearn.linear_model import RidgeCV
 from spaces import _rsm, second_order_corr, Space
 from plots import plot_all
-from stats import same_diff, perm_columns, mantel, _mw_auc, _predict_end_from_start, _z
+from stats import same_diff, perm_columns, mantel, _mw_auc, _predict_end_from_start, _z, perm_same_vs_diff_group
 
 # -------------------- small helpers --------------------
 def _get(space, key, default=None):

@@ -101,8 +101,18 @@ def run_single(df, feat, outdir, label, min_occ=10, remove_global_mean=False):
     report_space(space, label, outdir)
 
 def run_all_electrodes(args, electrode_info, datum, stitch_index):
-    pooled = {'embedding': [], 'neural': []}
-    all_rows = []  # collect all one-row summaries here
+    # nested pools for (feature_modality x task)
+    pooled = {
+        'embedding': {'production': [], 'comprehension': []},
+        'neural':    {'production': [], 'comprehension': []},
+    }
+    all_rows = []
+
+    # define output roots
+    per_dir   = os.path.join(args.output_dir, "per_electrode")
+    pooled_dir = os.path.join(args.output_dir, "pooled")
+    os.makedirs(per_dir, exist_ok=True)
+    os.makedirs(pooled_dir, exist_ok=True)
 
     for (sid, elec_id), elec_name in electrode_info.items():
         if elec_name is None:
@@ -125,44 +135,85 @@ def run_all_electrodes(args, electrode_info, datum, stitch_index):
             args.window_size,
         ).astype("float32")
 
-        elec_df = elec_datum.copy()
-        elec_df["embedding"] = list(X)
-        elec_df["neural"]    = list(Y)
+        # --- masks: Speaker1 -> production
+        prod_mask = (elec_datum.speaker == "Speaker1").to_numpy()
+        comp_mask = ~prod_mask
 
-        # --- compute spaces (no per-electrode save)
-        for mod, feat_col in [('embedding','embedding'), ('neural','neural')]:
-            feat  = np.stack(elec_df[feat_col].values)
-            space = compute_space(elec_df, feat, min_occ=args.min_occ, remove_global_mean=False)
-            df_row = report_space(space, f"{elec_name}_{mod}", outdir=None, B_perm_cols=199, B_mantel=499)
-            df_row = df_row.assign(scope='per_electrode',
-                                   sid=sid,
-                                   elec_id=elec_id,
-                                   electrode=str(elec_name),
-                                   modality=mod)
-            all_rows.append(df_row)
+        # subsets
+        df_prod = elec_datum.loc[prod_mask].copy()
+        df_comp = elec_datum.loc[comp_mask].copy()
+        df_prod["embedding"] = list(X[prod_mask, :])
+        df_prod["neural"]    = list(Y[prod_mask, :])
+        df_comp["embedding"] = list(X[comp_mask, :])
+        df_comp["neural"]    = list(Y[comp_mask, :])
 
-            if space.words.size:
-                pooled[mod].append((space.words, space.start_vecs, space.end_vecs))
+        # helper to run and collect one subset
+        def do_space(df_sub, task_label):
+            if df_sub.empty:
+                return
+            for mod, feat_col in [('embedding','embedding'), ('neural','neural')]:
+                if len(df_sub[feat_col]) == 0:
+                    continue
+                feat = np.stack(df_sub[feat_col].values)
 
-    # --- pooled/global
+                space = compute_space(df_sub, feat, min_occ=args.min_occ, remove_global_mean=False)
+                # if too few words survived min_occ, skip
+                if getattr(space, "words", np.array([])).size == 0:
+                    return
+
+                label  = f"{elec_name}_{mod}_{task_label}"
+                outdir = os.path.join(per_dir, f"{elec_name}", task_label, mod)
+
+                df_row = report_space(
+                    space, label, outdir=None,
+                    B_perm_cols=getattr(args, "B_perm_cols", 199),
+                    B_mantel=getattr(args, "B_mantel", 499),
+                    seed=getattr(args, "seed", 42),
+                )
+                df_row = df_row.assign(
+                    scope='per_electrode',
+                    sid=sid,
+                    elec_id=elec_id,
+                    electrode=str(elec_name),
+                    feature_modality=mod,     # embedding vs neural
+                    task_modality=task_label, # production vs comprehension
+                )
+                all_rows.append(df_row)
+
+                # for pooling
+                pooled[mod][task_label].append((space.words, space.start_vecs, space.end_vecs))
+
+        # run both tasks
+        do_space(df_prod, "production")
+        do_space(df_comp, "comprehension")
+
+    # --- pooled/global per (mod, task)
     for mod in ['embedding','neural']:
-        if pooled[mod]:
-            gspace = pool_aligned(pooled[mod], how='intersection')
-            gdf = report_space(gspace, f"global_{mod}", outdir=None)
-            gdf = gdf.assign(scope='global',
-                             sid=np.nan,
-                             elec_id=np.nan,
-                             electrode='GLOBAL',
-                             modality=mod)
-            all_rows.append(gdf)
+        for task in ['production','comprehension']:
+            if pooled[mod][task]:
+                gspace = pool_aligned(pooled[mod][task], how='intersection')
+                glabel = f"global_{mod}_{task}"
+                gdf = report_space(
+                    gspace, glabel, outdir=pooled_dir,
+                    B_perm_cols=5000,   # larger for stable globals
+                    B_mantel=10000,
+                    seed=getattr(args, "seed", 42),
+                )
+                gdf = gdf.assign(
+                    scope='global',
+                    sid=np.nan, elec_id=np.nan, electrode='GLOBAL',
+                    feature_modality=mod, task_modality=task,
+                )
+                all_rows.append(gdf)
 
-    # --- save one big CSV
-    big = pd.concat(all_rows, ignore_index=True) if all_rows else pd.DataFrame()
-    outpath = os.path.join(args.output_dir, "all_spaces_summary.csv")
-    big.to_csv(outpath, index=False)
-    print(f"[ALL] consolidated summary saved → {outpath}")
-
-    return big
+    # --- write the master table
+    if all_rows:
+        all_df = pd.concat(all_rows, ignore_index=True)
+        all_csv = os.path.join(args.output_dir, "all_spaces_summary.csv")
+        all_df.to_csv(all_csv, index=False)
+        print(f"[MASTER] Wrote {len(all_df)} rows → {all_csv}")
+    else:
+        print("[MASTER] No rows to write (no spaces produced).")
 
 @main_timer
 def main():
