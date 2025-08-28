@@ -8,6 +8,7 @@ import torch
 import yaml
 from himalaya.backend import set_backend
 from utils import get_git_hash
+from ast import literal_eval
 
 ELEC_SIGNAL_PREPROCESS_MAP = {
     "podcast": dict.fromkeys(
@@ -69,6 +70,11 @@ def parse_arguments():
     parser.add_argument("--B-perm-cols", dest="B_perm_cols", type=int, default=None)
     parser.add_argument("--B-mantel", dest="B_mantel", type=int, default=None)
     parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--lags", type=str, default=None,
+                        help="Python-style list of lags, e.g. '[-500,0,500]'")
+    parser.add_argument("--output-dir-name", dest="output_dir_name", type=str, default=None,
+                        help="Folder name suffix for this run, used in results path")
+
     args_cli = parser.parse_args()
 
     # ---- merge YAMLs (later files override earlier ones) ----
@@ -84,12 +90,13 @@ def parse_arguments():
         "B_perm_cols": 2000,    # per-electrode perms
         "B_mantel": 5000,       # Mantel perms per electrode
         "seed": 42,
+        "output_dir_name": "default",
     }
     for k, v in defaults.items():
         all_yml_args.setdefault(k, v)
 
     # ---- CLI overrides take precedence over YAML ----
-    for k in ["min_occ", "B_perm_cols", "B_mantel", "seed"]:
+    for k in ["min_occ", "B_perm_cols", "B_mantel", "seed", "lags", "output_dir_name"]:
         v = getattr(args_cli, k, None)
         if v is not None:
             all_yml_args[k] = v
