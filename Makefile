@@ -53,31 +53,5 @@ run-grid:
 
 # -------- merge all per-run CSVs to one Parquet + Pickle --------
 merge-grid:
-	python - <<'PY'
-	import glob, os
-	import pandas as pd
+	python scripts/merge_grid.py
 
-	roots = glob.glob("results/tfs/*/*") + glob.glob("results/podcast/*/*")
-	csvs  = glob.glob("results/**/all_spaces_summary.csv", recursive=True)
-	if not csvs:
-		print("No all_spaces_summary.csv files found.")
-		raise SystemExit(0)
-
-	dfs = []
-	for path in csvs:
-		try:
-			df = pd.read_csv(path)
-			# add run tag from parent dir to keep provenance
-			tag = os.path.basename(os.path.dirname(path))
-			df["run_tag"] = tag
-			dfs.append(df)
-		except Exception as e:
-			print(f"Skip {path}: {e}")
-
-	big = pd.concat(dfs, ignore_index=True)
-	out_dir = "results/combined"
-	os.makedirs(out_dir, exist_ok=True)
-	big.to_parquet(f"{out_dir}/all_spaces_summary.parquet", index=False)
-	big.to_pickle(f"{out_dir}/all_spaces_summary.pkl")
-	print(f"Wrote {len(big)} rows to {out_dir}/all_spaces_summary.(parquet|pkl)")
-	PY

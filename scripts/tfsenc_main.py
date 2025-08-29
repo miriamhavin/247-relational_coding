@@ -11,8 +11,9 @@ from tfsenc_config import parse_arguments, setup_environ, write_config
 from tfsenc_encoding import (encoding_setup, run_encoding, write_encoding_results, build_Y)
 from tfsenc_load_signal import load_electrode_data
 from tfsenc_read_datum import read_datum
-from utils import load_pickle, main_timer
+from utils import load_pickle, main_timer, get_git_hash
 from reporting import report_space
+import json, hashlib
 
 
 def return_stitch_index(args):
@@ -69,6 +70,45 @@ def process_electrodes(args):
 
     return electrode_info
 
+def _serialize_for_row(v):
+    # make lists/arrays json strings so they fit in a CSV cell
+    import numpy as _np, json as _json
+    if isinstance(v, (list, tuple, _np.ndarray)):
+        return _json.dumps(list(v))
+    return v
+
+def _collect_meta(args):
+    meta = {
+        "sid": getattr(args, "sid", None),
+        "project_id": getattr(args, "project_id", None),
+        "output_dir": getattr(args, "output_dir", None),
+        "git_hash": get_git_hash() if callable(get_git_hash) else None,
+
+        # core hyperparams / data filters
+        "lags": getattr(args, "lags", None),
+        "window_size_ms": getattr(args, "window_size", None),
+        "min_occ": getattr(args, "min_occ", None),
+        "minimum_word_frequency": getattr(args, "minimum_word_frequency", None),
+        "trim_conv_edges": getattr(args, "trim_conv_edges", None),
+        "conv_ids": getattr(args, "conv_ids", None),
+
+        # embeddings + processing
+        "emb": getattr(args, "emb", None),
+        "emb_mod": getattr(args, "emb_mod", None),
+        "emb_norm": getattr(args, "emb_norm", None),
+
+        # neural signal processing
+        "detrend_signal": getattr(args, "detrend_signal", None),
+        "elec_signal_process_flag": getattr(args, "elec_signal_process_flag", None),
+
+        # stats settings
+        "B_perm_cols": getattr(args, "B_perm_cols", None),
+        "B_mantel": getattr(args, "B_mantel", None),
+        "seed": getattr(args, "seed", None),
+    }
+    # serialize list-like for CSV
+    return {k: _serialize_for_row(v) for k, v in meta.items()}
+
 
 def skip_elecs_done(summary_file, electrode_info):
     """Skip electrodes with encoding results already
@@ -101,6 +141,13 @@ def run_single(df, feat, outdir, label, min_occ=10, remove_global_mean=False):
     report_space(space, label, outdir)
 
 def run_all_electrodes(args, electrode_info, datum, stitch_index):
+    meta = _collect_meta(args)
+
+    # write run-level params file once
+    os.makedirs(args.output_dir, exist_ok=True)
+    with open(os.path.join(args.output_dir, "run_params.json"), "w") as f:
+        json.dump(meta, f, indent=2, ensure_ascii=False)
+
     # nested pools for (feature_modality x task)
     pooled = {
         'embedding': {'production': [], 'comprehension': []},
@@ -175,8 +222,9 @@ def run_all_electrodes(args, electrode_info, datum, stitch_index):
                         sid=sid,
                         elec_id=elec_id,
                         electrode=str(elec_name),
-                        feature_modality=mod,     # embedding vs neural
-                        task_modality=task_label, # production vs comprehension
+                        feature_modality=mod,
+                        task_modality=task_label,
+                        **meta
                     )
                     all_rows.append(df_row)
 
@@ -203,6 +251,7 @@ def run_all_electrodes(args, electrode_info, datum, stitch_index):
                     scope='global',
                     sid=np.nan, elec_id=np.nan, electrode='GLOBAL',
                     feature_modality=mod, task_modality=task,
+                    **meta
                 )
                 all_rows.append(gdf)
 
