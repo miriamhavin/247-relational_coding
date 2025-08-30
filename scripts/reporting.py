@@ -93,6 +93,23 @@ def report_space(space, label, outdir, *, B_perm_cols=2000, B_mantel=5000, seed=
     df = pd.DataFrame([row])
     if outdir:
         outpath = os.path.join(outdir, f"{label}_all_summary.csv")
+        art = {
+            "words": words,
+            "start_vecs": start_vecs,
+            "end_vecs": end_vecs,
+            "start_rsm": start_rsm,
+            "end_rsm": end_rsm,
+            "cross_rsm": cross,
+        }
+        # also prediction-based if available
+        if hasattr(space, "end_pred_rsm"):
+            art["end_pred_rsm"] = space.end_pred_rsm
+        if hasattr(space, "end_resid_rsm"):
+            art["end_resid_rsm"] = space.end_resid_rsm
+
+        np.savez_compressed(
+            os.path.join(outdir, f"{label}_artifacts.npz"), **art
+        )
         _save(df, outpath)
         plot_all(space, label, outdir)
 

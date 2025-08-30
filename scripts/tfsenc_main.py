@@ -77,12 +77,27 @@ def _serialize_for_row(v):
         return _json.dumps(list(v))
     return v
 
+def _to_jsonable(v):
+    # numpy scalar → Python scalar
+    if isinstance(v, np.generic):
+        return v.item()
+    # numpy array / list / tuple → plain list (recursively jsonable)
+    if isinstance(v, (np.ndarray, list, tuple)):
+        return [ _to_jsonable(x) for x in v ]
+    # sets → sorted list (stable)
+    if isinstance(v, set):
+        return sorted([ _to_jsonable(x) for x in v ])
+    # dict → recurse
+    if isinstance(v, dict):
+        return { str(k): _to_jsonable(val) for k, val in v.items() }
+    # leave str/int/float/bool/None as-is
+    return v
+
 def _collect_meta(args):
     meta = {
         "sid": getattr(args, "sid", None),
         "project_id": getattr(args, "project_id", None),
         "output_dir": getattr(args, "output_dir", None),
-        "git_hash": get_git_hash() if callable(get_git_hash) else None,
 
         # core hyperparams / data filters
         "lags": getattr(args, "lags", None),
@@ -106,8 +121,8 @@ def _collect_meta(args):
         "B_mantel": getattr(args, "B_mantel", None),
         "seed": getattr(args, "seed", None),
     }
-    # serialize list-like for CSV
-    return {k: _serialize_for_row(v) for k, v in meta.items()}
+    # Convert everything to jsonable Python types
+    return { k: _to_jsonable(v) for k, v in meta.items() }
 
 
 def skip_elecs_done(summary_file, electrode_info):
