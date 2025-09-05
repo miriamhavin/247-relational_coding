@@ -88,6 +88,8 @@ def report_space(space, label, outdir, *, B_perm_cols=2000, B_mantel=5000, seed=
 
     per_word_diag = diag.copy() if diag.size else np.array([])
     per_word_diag_mean = group_mean_by_word(words, per_word_diag) if per_word_diag.size else np.array([])
+    out_png = os.path.join(plots_dir, f"{label}_start_end_corr_matrix.png")
+    plot_start_end_corr_matrix_from_space(space, out_png, title=f"{label} – start-end correlation (ordered by diag)")
     hist(per_word_diag_mean,
             title=f"{label} – histogram of corr(start_i, end_i) per WORD",
             xlabel="per-word mean corr(start, end)",

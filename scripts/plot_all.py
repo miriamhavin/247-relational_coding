@@ -257,3 +257,56 @@ def plot_second_order_corr_hist(
         os.makedirs(outdir, exist_ok=True)
         plt.savefig(os.path.join(outdir, f"{label}_second_order_corr_hist.png"))
     plt.close()
+
+def plot_start_end_corr_matrix(space, outpath, title=None, clip=(-1, 1)):
+    """
+    Plot start×end Pearson correlation matrix for a Space, ordering both axes
+    by the diagonal (per-word start↔end correlation).
+    Saves to outpath and returns {'order', 'diag'}.
+    """
+    C = np.asarray(space.cross_rsm, float)
+    if C.ndim != 2 or C.shape[0] == 0 or C.shape[0] != C.shape[1]:
+        return None
+
+    diag = np.diag(C).copy()
+    order = np.argsort(-diag)  # descending by self-corr
+
+    M = C[order][:, order]
+    words = np.asarray(space.words) if getattr(space, "words", None) is not None else None
+    words = words[order] if words is not None and len(words) == len(order) else None
+    n = M.shape[0]
+
+    os.makedirs(os.path.dirname(outpath), exist_ok=True)
+    fig = plt.figure(figsize=(6.2, 5.6), dpi=150)
+    ax = plt.gca()
+    im = ax.imshow(M, vmin=clip[0], vmax=clip[1], cmap="coolwarm", interpolation="nearest")
+    cb = plt.colorbar(im, fraction=0.046, pad=0.04)
+    cb.set_label("corr(start_i, end_j)")
+
+    if title:
+        ax.set_title(title, fontsize=11, pad=8)
+
+    # light diagonal markers to orient
+    ax.plot(np.arange(n), np.arange(n), ls="none", marker=".", ms=2, c="k", alpha=0.6)
+
+    # label words only if small
+    if words is not None and n <= 30:
+        ax.set_xticks(range(n)); ax.set_yticks(range(n))
+        ax.set_xticklabels(words, rotation=90, fontsize=7)
+        ax.set_yticklabels(words, fontsize=7)
+    else:
+        ax.set_xticks([]); ax.set_yticks([])
+
+    # tiny inset to show ordered diagonal values (QA)
+    inset = fig.add_axes([0.83, 0.11, 0.12, 0.77])
+    inset.plot(np.diag(M), np.arange(n), lw=1)
+    inset.set_ylim(n-0.5, -0.5)
+    inset.set_xlabel("diag corr")
+    inset.set_yticks([])
+    inset.grid(alpha=0.3, linestyle=":", linewidth=0.6)
+
+    fig.tight_layout(rect=[0.0, 0.0, 0.8, 1.0])
+    fig.savefig(outpath, bbox_inches="tight")
+    plt.close(fig)
+
+    return {"order": order, "diag": diag}
