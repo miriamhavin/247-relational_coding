@@ -14,6 +14,12 @@ from tfsenc_read_datum import read_datum
 from utils import load_pickle, main_timer, get_git_hash
 from reporting import report_space
 import json, hashlib
+# ---- NEW: subject-level parallel runner ----
+from multiprocessing import Pool, cpu_count
+import argparse
+import yaml
+import copy
+from plot_all import occurrence_matrix_plot
 
 
 def return_stitch_index(args):
@@ -29,45 +35,33 @@ def return_stitch_index(args):
 
 
 def process_electrodes(args):
-    """Process electrodes for subjects (requires electrode list or sig elec file)
-
-    Args:
-        args (namespace): commandline arguments
-
-    Returns:
-        electrode_info (dict): each item in the format (sid, elec_id): elec_name
-    """
     ds = load_pickle(args.electrode_file_path)
     df = pd.DataFrame(ds)
-    if args.sig_elec_file is not None:  # sig elec files
-        sig_elec_list = pd.read_csv(args.sig_elec_file_path).rename(
-            columns={"electrode": "electrode_name"}
-        )
-        df["subject"] = df.subject.astype("int64")
-        sid_sig_elec_list = pd.merge(
-            df, sig_elec_list, how="inner", on=["subject", "electrode_name"]
-        )
-        assert len(sig_elec_list) == len(sid_sig_elec_list), "Sig Elecs Missing"
-        electrode_info = {
-            (values["subject"], values["electrode_id"]): values["electrode_name"]
-            for _, values in sid_sig_elec_list.iterrows()
-        }
+    df["subject"] = df["subject"].astype("int64")
+    print(f"[electrodes] total rows in file: {len(df)}; unique subjects={sorted(df['subject'].unique().tolist())}")
+    # --- load prod/comp sig files if provided ---
+    whitelist = set()
+    if getattr(args, "sig_elec_file_prod", None):
+        sig_prod = pd.read_csv(args.sig_elec_file_prod).rename(columns={"electrode": "electrode_name"})
+        whitelist |= set(sig_prod["electrode_name"].tolist())
+    if getattr(args, "sig_elec_file_comp", None):
+        sig_comp = pd.read_csv(args.sig_elec_file_comp).rename(columns={"electrode": "electrode_name"})
+        whitelist |= set(sig_comp["electrode_name"].tolist())
 
-    else:  # electrode list for 1 sid
-        assert len(args.elecs > 0), "Need electrode list since no sig_elec_list"
-        electrode_info = {
-            (args.sid, key): next(
-                iter(
-                    df.loc[
-                        (df.subject == str(args.sid)) & (df.electrode_id == key),
-                        "electrode_name",
-                    ]
-                ),
-                None,
-            )
-            for key in args.elecs
-        }
-
+    if whitelist:
+        before = len(df)
+        df = df[df["electrode_name"].isin(whitelist)]
+        print(f"[electrodes] whitelist active (n={len(whitelist)}). kept {len(df)}/{before}")
+    if getattr(args, "sid", None) is not None:
+        before_sid = len(df)
+        df = df[df["subject"] == int(args.sid)]
+        print(f"[electrodes] sid={args.sid} -> kept {len(df)}/{before_sid} rows")
+    electrode_info = {
+        (int(row["subject"]), int(row["electrode_id"])): row["electrode_name"]
+        for _, row in df.iterrows()
+    }
+    if not electrode_info:
+        print(f"[electrodes] sid={getattr(args,'sid',None)} -> NO ELECTRODES after filters")
     return electrode_info
 
 def _serialize_for_row(v):
@@ -77,25 +71,20 @@ def _serialize_for_row(v):
         return _json.dumps(list(v))
     return v
 
+
 def _to_jsonable(v):
+    import numpy as np, json
     # numpy scalar → Python scalar
     if isinstance(v, np.generic):
         return v.item()
-    # numpy array / list / tuple → plain list (recursively jsonable)
-    if isinstance(v, (np.ndarray, list, tuple)):
-        return [ _to_jsonable(x) for x in v ]
-    # sets → sorted list (stable)
-    if isinstance(v, set):
-        return sorted([ _to_jsonable(x) for x in v ])
-    # dict → recurse
-    if isinstance(v, dict):
-        return { str(k): _to_jsonable(val) for k, val in v.items() }
+    # list/tuple/array/set/dict → JSON string
+    if isinstance(v, (np.ndarray, list, tuple, set, dict)):
+        return json.dumps(v)
     # leave str/int/float/bool/None as-is
     return v
 
 def _collect_meta(args):
     meta = {
-        "sid": getattr(args, "sid", None),
         "project_id": getattr(args, "project_id", None),
         "output_dir": getattr(args, "output_dir", None),
 
@@ -151,44 +140,74 @@ def skip_elecs_done(summary_file, electrode_info):
     return electrode_info
 
 
-def run_single(df, feat, outdir, label, min_occ=10, remove_global_mean=False):
-    space = compute_space(df, feat, min_occ=min_occ, remove_global_mean=remove_global_mean)
-    report_space(space, label, outdir)
+
+def _assign_df(df, mapping):
+    import numpy as np, pandas as pd
+    merged = {}
+    for k, v in mapping.items():
+        if isinstance(v, str):
+            merged[k] = v
+            continue
+        # numpy/pandas scalar
+        if hasattr(v, "item") and np.ndim(v) == 0:
+            merged[k] = v.item()
+            continue
+        # list/array/Series -> squeeze; accept length-1; else stringify to avoid length mismatch
+        if isinstance(v, (list, tuple, np.ndarray, pd.Series)):
+            arr = np.asarray(v).squeeze()
+            if arr.ndim == 0:
+                merged[k] = arr.item()
+            elif arr.size == 1:
+                x = np.ravel(arr)[0]
+                merged[k] = x.item() if hasattr(x, "item") else x
+            else:
+                merged[k] = str(arr.tolist())
+        else:
+            merged[k] = v
+    return df.assign(**merged)
+
+
 
 def run_all_electrodes(args, electrode_info, datum, stitch_index):
     meta = _collect_meta(args)
 
-    # write run-level params file once
+    # run-level params
     os.makedirs(args.output_dir, exist_ok=True)
     with open(os.path.join(args.output_dir, "run_params.json"), "w") as f:
         json.dump(meta, f, indent=2, ensure_ascii=False)
 
-    # nested pools for (feature_modality x task)
+    # pooled collectors
     pooled = {
+        'embedding': {'production': [], 'comprehension': []},
+        'neural':    {'production': [], 'comprehension': []},
+    }
+    df_pooled = {
         'embedding': {'production': [], 'comprehension': []},
         'neural':    {'production': [], 'comprehension': []},
     }
     all_rows = []
 
-    # define output roots
-    per_dir   = os.path.join(args.output_dir, "per_electrode")
+    # dirs
+    per_dir    = os.path.join(args.output_dir, "per_electrode")
     pooled_dir = os.path.join(args.output_dir, "pooled")
+    plots_dir  = os.path.join(args.output_dir, "plots")
     os.makedirs(per_dir, exist_ok=True)
     os.makedirs(pooled_dir, exist_ok=True)
+    os.makedirs(plots_dir, exist_ok=True)
 
     for (sid, elec_id), elec_name in electrode_info.items():
         if elec_name is None:
             print(f"Electrode ID {elec_id} does not exist")
             continue
 
-        # --- load signals & filter datum
+        # load signals & filter datum
         elec_signal, missing_convos = load_electrode_data(args, elec_id, stitch_index)
         elec_datum = datum.loc[~datum["conversation_name"].isin(missing_convos)] if missing_convos else datum
         if len(elec_datum) == 0:
             print(f"{sid} {elec_name} No Signal")
             continue
 
-        # --- build features
+        # features
         X = np.stack(elec_datum.embeddings).astype("float32")
         Y = build_Y(
             elec_signal.reshape(-1, 1),
@@ -197,11 +216,11 @@ def run_all_electrodes(args, electrode_info, datum, stitch_index):
             args.window_size,
         ).astype("float32")
 
-        # --- masks: Speaker1 -> production
+        # masks: Speaker1 -> production
         prod_mask = (elec_datum.speaker == "Speaker1").to_numpy()
         comp_mask = ~prod_mask
 
-        # subsets
+        # subsets with per-occurrence features
         df_prod = elec_datum.loc[prod_mask].copy()
         df_comp = elec_datum.loc[comp_mask].copy()
         df_prod["embedding"] = list(X[prod_mask, :])
@@ -209,23 +228,30 @@ def run_all_electrodes(args, electrode_info, datum, stitch_index):
         df_comp["embedding"] = list(X[comp_mask, :])
         df_comp["neural"]    = list(Y[comp_mask, :])
 
-        # helper to run and collect one subset
         def do_space(df_sub, task_label, skip=False):
             if df_sub.empty:
                 return
-            for mod, feat_col in [('embedding','embedding'), ('neural','neural')]:
+            # currently only 'neural' modality (intentional)
+            for mod, feat_col in [('neural', 'neural')]:
                 if len(df_sub[feat_col]) == 0:
                     continue
                 feat = np.stack(df_sub[feat_col].values)
-                norm_flag = 'unit' if mod == 'embedding' else None
-                space = compute_space(df_sub, feat, min_occ=args.min_occ, remove_global_mean=False, normalize=norm_flag)
-                # if too few words survived min_occ, skip
-                if getattr(space, "words", np.array([])).size == 0:
-                    continue
-                if skip==False:
-                    label  = f"{elec_name}_{mod}_{task_label}"
-                    outdir = os.path.join(per_dir, f"{elec_name}", task_label, mod)
 
+                # accumulate per-occurrence rows for pooled plot
+                df_pooled[mod][task_label].append(df_sub[['word', feat_col]].copy())
+
+                # build space
+                space = compute_space(
+                    df_sub, feat,
+                    min_occ=args.min_occ, remove_global_mean=False,
+                    normalize=('unit' if mod == 'embedding' else None)
+                )
+                # skip if not enough words survived
+                if getattr(space, "words", np.array([])).size == 0:
+                    return
+
+                if not skip:
+                    label = f"{elec_name}_{mod}_{task_label}"
                     df_row = report_space(
                         space, label, outdir=None,
                         B_perm_cols=getattr(args, "B_perm_cols", 49),
@@ -243,41 +269,58 @@ def run_all_electrodes(args, electrode_info, datum, stitch_index):
                     )
                     all_rows.append(df_row)
 
-                # for pooling
+                # for pooling (word-aligned, averaged)
                 pooled[mod][task_label].append((space.words, space.start_vecs, space.end_vecs))
 
-        # run both tasks
-        do_space(df_prod, "production", skip=True)
+        # run both tasks (skip per-electrode reporting by default)
+        do_space(df_prod, "production",  skip=True)
         do_space(df_comp, "comprehension", skip=True)
 
-    # --- pooled/global per (mod, task)
-    for mod in ['embedding','neural']:
-        for task in ['production','comprehension']:
-            if pooled[mod][task]:
-                gspace = pool_aligned(pooled[mod][task], how='intersection')
-                glabel = f"global_{mod}_{task}"
-                gdf = report_space(
-                    gspace, glabel, outdir=pooled_dir,
-                    B_perm_cols=5000,   # larger for stable globals
-                    B_mantel=10000,
-                    seed=getattr(args, "seed", 42),
-                )
-                gdf = gdf.assign(
-                    scope='global',
-                    sid=np.nan, elec_id=np.nan, electrode='GLOBAL',
-                    feature_modality=mod, task_modality=task,
-                    **meta
-                )
-                all_rows.append(gdf)
+    # pooled/global per (mod, task)
+    for mod in ['neural']:
+        for task in ['production', 'comprehension']:
+            gspace = pool_aligned(pooled[mod][task], how='intersection')
+            glabel = f"global_{mod}_{task}"
+            df_all = pd.concat(df_pooled[mod][task], ignore_index=True)
+            FEAT = np.stack(df_all[mod].values)  # (N_occ, D)
+            """            occurrence_matrix_plot(
+                df=df_all,
+                FEAT=FEAT,
+                word_col='word',
+                min_occ=max(args.min_occ, 50),
+                max_instances=3000,
+                outpath=os.path.join(plots_dir, f"{glabel}_occurrence_matrix.png"),
+                title=f"{glabel} – occurrence neural corr"
+            )"""
+            gdf = report_space(
+                gspace, glabel, outdir=pooled_dir,   # set outdir=None if you truly don't want files
+                B_perm_cols=5000,
+                B_mantel=10000,
+                seed=getattr(args, "seed", 42),
+            )
+            gdf = gdf.assign(
+                scope='global',
+                sid=getattr(args, 'sid', None),
+                elec_id=np.nan, electrode='GLOBAL',
+                feature_modality=mod, task_modality=task,
+                **meta
+            )
+            all_rows.append(gdf)
 
-    # --- write the master table
+    # return the master table (and optionally write it)
     if all_rows:
         all_df = pd.concat(all_rows, ignore_index=True)
-        all_csv = os.path.join(args.output_dir, "all_spaces_summary.csv")
+        # write CSV if you want; or remove this to fully comply with the header comment
+        tag = f"sid{getattr(args,'sid','ALL')}"
+        all_csv = os.path.join(args.output_dir, f"all_spaces_summary_{tag}.csv")
         all_df.to_csv(all_csv, index=False)
         print(f"[MASTER] Wrote {len(all_df)} rows → {all_csv}")
+        return all_df
     else:
         print("[MASTER] No rows to write (no spaces produced).")
+        return pd.DataFrame()
+
+
 
 @main_timer
 def main():

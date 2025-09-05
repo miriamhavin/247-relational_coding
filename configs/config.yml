@@ -13,7 +13,8 @@ detrend_signal: True # detrend signal with polynomial
 fold_correlation: True # save correlation per fold
 comp: True # Run encoding for words in comprehension
 prod: True # Run encoding for words in production
-min_occ: 10 # minimum occurrences of word to be included in encoding
+min_occ: 50 # minimum occurrences of word to be included in encoding
 B_perm_cols: 2000
 B_mantel: 5000
 lags: np.arange(-500.0, 500.0, 50)
+sids: [625, 676, 7170, 798]

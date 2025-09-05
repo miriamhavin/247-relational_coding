@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
+from plot_all import occurrence_matrix_plot
 
 @dataclass
 class Space:
@@ -12,7 +13,10 @@ class Space:
     end_rsm: np.ndarray        # (n,n)
     cross_rsm: np.ndarray      # (n,n)
     diag: np.ndarray           # (n,)
-    
+    start_times: np.ndarray | None = None
+    end_times: np.ndarray | None = None
+    time_gaps: np.ndarray | None = None
+
 def _to_2d(x): x = np.asarray(x); return x if x.ndim==2 else x[:,None]
 
 def _zscore_rows(M, eps=1e-8):
@@ -35,29 +39,45 @@ def _split_first_last(rows, min_occ):
     return rows[:mid], rows[mid:]
 
 def _avg_halves(FEAT, words, onsets, min_occ):
-    FEAT = _to_2d(FEAT)
-    df = pd.DataFrame({'w': words, 't': onsets, 'i': np.arange(len(words))}).sort_values('t', kind='mergesort')
-    groups = df.groupby('w')['i'].apply(list)
+    # force numeric times; non-numeric → NaN
+    t = pd.to_numeric(pd.Series(onsets), errors='coerce').to_numpy()
+    df = pd.DataFrame({'w': words, 't': t, 'i': np.arange(len(words))}) \
+           .sort_values('t', kind='mergesort')
+    groups = df.groupby('w')[['i','t']].apply(lambda g: (g['i'].to_list(), g['t'].to_list()))
 
-    keep, S, E = [], [], []
-    for w, idxs in groups.items():
-        first, last = _split_first_last(idxs, min_occ)
-        if not first or not last: continue
+    keep, S, E, Ts, Te = [], [], [], [], []
+    for w, (idxs, ts) in groups.items():
+        if len(idxs) < min_occ: 
+            continue
+        mid = len(idxs)//2
+        first, last = idxs[:mid], idxs[mid:]
+        tf, tl = np.asarray(ts[:mid], float), np.asarray(ts[mid:], float)
+        print(f"\nWord={w}, n={len(idxs)}")
+        print(" first times:", tf[:10], "...")   # show first few
+        print(" last times:", tl[:10], "...")
+
+        # nan-safe means
+        tf_mean = np.nanmean(tf) if tf.size else np.nan
+        tl_mean = np.nanmean(tl) if tl.size else np.nan
+        if np.isnan(tf_mean) or np.isnan(tl_mean):
+            # skip words where either half has no valid time
+            continue
+
         S.append(FEAT[first].mean(0)); E.append(FEAT[last].mean(0)); keep.append(w)
+        Ts.append(tf_mean); Te.append(tl_mean)
 
     if not keep:
         d = FEAT.shape[1]
-        return np.array([]), np.empty((0,d)), np.empty((0,d))
-    return np.asarray(keep), np.vstack(S), np.vstack(E)
+        return np.array([]), np.empty((0,d)), np.empty((0,d)), np.array([]), np.array([])
+    return np.asarray(keep), np.vstack(S), np.vstack(E), np.asarray(Ts), np.asarray(Te)
 
 def compute_space(df, FEAT, *, word_col='word', onset_col='adjusted_onset',
-                  min_occ=10, remove_global_mean=False, normalize=None):
+                  min_occ=10, remove_global_mean=False, normalize=None, plot=True):
     FEAT = _to_2d(FEAT)
     words = df[word_col].to_numpy()
     onsets = df[onset_col].to_numpy()
     X = FEAT - FEAT.mean(0, keepdims=True) if remove_global_mean else FEAT
-
-    keep, S, E = _avg_halves(X, words, onsets, min_occ)
+    keep, S, E, Ts, Te = _avg_halves(X, words, onsets, min_occ)
     if normalize == 'unit':
         S, E = unit_norm(S), unit_norm(E)
     if keep.size == 0:
@@ -65,7 +85,9 @@ def compute_space(df, FEAT, *, word_col='word', onset_col='adjusted_onset',
 
     start_rsm = _rsm(S); end_rsm = _rsm(E)
     cross = _rowwise_corr(S, E); diag = np.diag(cross).copy()
-    return Space(keep, S, E, start_rsm, end_rsm, cross, diag)
+    gaps = Te - Ts if (Ts.size and Te.size) else np.array([])
+    return Space(keep, S, E, start_rsm, end_rsm, cross, diag, Ts, Te, gaps)
+
 
 def pool_aligned(elems, how='intersection'):
     """

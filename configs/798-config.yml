@@ -3,4 +3,5 @@
 sid: 798
 conv_ids: np.arange(1, 16)
 elecs: np.arange(1, 199)
-sig_elec_file:
+sig_elec_file_comp: 'sig-elecs/20230723-tfs-sig-file/tfs-sig-file-glove-798-comp.csv'
+sig_elec_file_prod: 'sig-elecs/20230723-tfs-sig-file/tfs-sig-file-glove-798-prod.csv'

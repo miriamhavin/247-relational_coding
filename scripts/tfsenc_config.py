@@ -86,7 +86,7 @@ def parse_arguments():
 
     # ---- hard defaults (used if not in YAML and no CLI override) ----
     defaults = {
-        "min_occ": 10,          # match your earlier successful run
+        "min_occ": 50,          # match your earlier successful run
         "B_perm_cols": 2000,    # per-electrode perms
         "B_mantel": 5000,       # Mantel perms per electrode
         "seed": 42,
@@ -106,13 +106,25 @@ def parse_arguments():
     all_yml_args["git_hash"] = get_git_hash()
 
     # ---- normalize / type-coerce a few fields ----
-    # tolerate list-like strings in YAML
-    for key in ("elecs", "conv_ids", "lags"):
+    if "conv_ids" in all_yml_args:
+        v = all_yml_args["conv_ids"]
+        if isinstance(v, str):
+            try:
+                v = eval(v, {"np": __import__("numpy")})   # safely allow np.arange
+            except Exception:
+                pass
+        if isinstance(v, np.ndarray):
+            v = v.tolist()
+        if isinstance(v, (int, np.integer)):
+            v = [int(v)]
+        all_yml_args["conv_ids"] = v
+        
+    for key in ("elecs", "lags"):
         if key in all_yml_args and isinstance(all_yml_args[key], str):
             try:
                 all_yml_args[key] = eval(all_yml_args[key])
             except Exception:
-                pass  # keep as-is if not a Python-literal string
+                pass
 
     # model name cleanup
     if all_yml_args.get("emb") == "glove50":
@@ -155,8 +167,10 @@ def setup_environ(args):
     args.electrode_file_path = os.path.join(
         PICKLE_DIR, ("_".join([str(args.sid), "electrode_names.pkl"]))
     )
-    if args.sig_elec_file is not None:
-        args.sig_elec_file_path = os.path.join(DATA_DIR, args.sig_elec_file)
+    if getattr(args, "sig_elec_file_prod", None):
+        args.sig_elec_file_prod = os.path.join(os.getcwd(), args.sig_elec_file_prod)
+    if getattr(args, "sig_elec_file_comp", None):
+        args.sig_elec_file_comp = os.path.join(os.getcwd(), args.sig_elec_file_comp)
     args.stitch_file_path = os.path.join(
         PICKLE_DIR, ("_".join([str(args.sid), "full_stitch_index.pkl"]))
     )

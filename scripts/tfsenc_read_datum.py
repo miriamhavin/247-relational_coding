@@ -370,27 +370,49 @@ def filter_datum(args, df):
 
 def process_datum(args, df, stitch):
     """Process datum, including
-
     Args:
         args (namespace): commandline arguments
         df: processed datum
         stitch: stitch index
-
     Returns:
         DataFrame: processed datum with correct conversations
     """
     # Conversation level
-    df = add_convo_onset_offset(df, stitch)  # add conversation onset/offset
-    df = df.loc[df.conversation_id.isin(args.conv_ids)]  # Select conversations
+    df = add_convo_onset_offset(df, stitch)
+
+    conv_ids = args.conv_ids
+    if isinstance(conv_ids, str):
+        s = conv_ids.strip()
+        if s.lower() in ("all", "*"):
+            conv_ids = []  # keep all
+        else:
+            try:
+                import numpy as np
+                conv_ids = eval(s, {"np": np})  # handles "np.arange(1, 55)"
+            except Exception:
+                txt = s.strip("[]")
+                conv_ids = [int(x) for x in txt.split(",") if x.strip()]
+
+    import numpy as np, pandas as pd
+    if isinstance(conv_ids, (np.ndarray, pd.Series, range)):
+        conv_ids = list(conv_ids)
+    elif isinstance(conv_ids, (int, np.integer)):
+        conv_ids = [int(conv_ids)]
+
+    # propagate the normalized value so load_electrode_data sees the same form
+    args.conv_ids = conv_ids
+
+    # filter only if not "keep all"
+    if conv_ids is not None and len(conv_ids) > 0:
+        df = df.loc[df.conversation_id.isin(conv_ids)]
 
     # Token/word level
-    df = process_embeddings(args, df)  # manipulate embeddings
-    df = filter_datum(args, df)  # filter datum
-    if args.trim_conv_edges:  # trim edges (lags outside of convo on/offset)
+    df = process_embeddings(args, df)
+    df = filter_datum(args, df)
+    if args.trim_conv_edges:
         df = trim_datum(args, df)
 
     assert len(df.index) > 0, "Empty Datum"
-
     return df
 
 

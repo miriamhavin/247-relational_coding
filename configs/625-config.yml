@@ -3,4 +3,5 @@
 sid: 625
 conv_ids: np.arange(1, 55)
 elecs: np.arange(1, 106)
-sig_elec_file:
+sig_elec_file_comp: 'sig-elecs/20230723-tfs-sig-file/tfs-sig-file-glove-625-comp.csv'
+sig_elec_file_prod: 'sig-elecs/20230723-tfs-sig-file/tfs-sig-file-glove-625-prod.csv'

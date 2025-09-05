@@ -1,9 +1,9 @@
 #!/bin/bash
 #SBATCH --time=6:00:00
-#SBATCH --mem=48GB
+#SBATCH --mem=256GB
 #SBATCH --nodes=1
 ##SBATCH --constraint=gpu80
-##SBATCH --cpus-per-task=16
+##SBATCH --cpus-per-task=32
 #SBATCH -o 'logs/%A.log'
 
 

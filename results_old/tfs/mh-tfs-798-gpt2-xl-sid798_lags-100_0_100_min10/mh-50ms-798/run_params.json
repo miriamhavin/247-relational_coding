@@ -1,0 +1,39 @@
+{
+  "sid": 798,
+  "project_id": "tfs",
+  "output_dir": "/scratch/gpfs/mh3510/247-encoding/results/tfs/mh-tfs-798-gpt2-xl-sid798_lags-100_0_100_min10/mh-50ms-798",
+  "lags": [
+    -100,
+    0,
+    100
+  ],
+  "window_size_ms": 50,
+  "min_occ": 10,
+  "minimum_word_frequency": 0,
+  "trim_conv_edges": true,
+  "conv_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+  ],
+  "emb": "gpt2-xl",
+  "emb_mod": "shift-emb",
+  "emb_norm": "l2",
+  "detrend_signal": true,
+  "elec_signal_process_flag": "preprocessed_allElec",
+  "B_perm_cols": 2000,
+  "B_mantel": 5000,
+  "seed": 42
+}

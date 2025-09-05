@@ -104,26 +104,71 @@ def perm_columns(C, B=2000, metric='mean_delta', seed=42):
         ge += (stat(Cp) >= obs)
     return {'metric':metric,'observed':float(obs),'p_perm':float((1+ge)/(1+B)),'B':int(B)}
 
-def mantel(space, B=5000, seed=42, ci_boot=0):
+def mantel(space, B=5000, seed=42, ci_boot=0, return_null=False):
+    """
+    Mantel-style permutation test on second-order correlation between start_rsm and end_rsm.
+
+    Returns:
+      {
+        'r': float,                 # observed second-order correlation
+        'p_perm': float,            # permutation p-value (>= observed, two-tailed-style on one side)
+        'boot_CI': (lo, hi) | None, # optional bootstrap CI on r (your original behavior)
+        'null_corrs': np.ndarray    # (valid,) permutation null correlations (present iff return_null=True)
+        'valid_perms': int,         # number of finite null draws actually used
+        'n': int                    # number of words (matrix size)
+      }
+    """
     rng = np.random.default_rng(seed)
-    A = np.asarray(space.start_rsm, float); Bm = np.asarray(space.end_rsm, float); n = A.shape[0]
-    if A.shape!=Bm.shape or n==0: return {'r':np.nan,'p_perm':np.nan,'boot_CI':None}
-    r_obs = second_order_corr(A,Bm)
-    ge=0; valid=0
-    for _ in range(B):
+    A = np.asarray(space.start_rsm, float)
+    Bm = np.asarray(space.end_rsm,   float)
+    n  = A.shape[0]
+    # shape checks
+    if A.shape != Bm.shape or n == 0:
+        out = {'r': np.nan, 'p_perm': np.nan, 'boot_CI': None, 'valid_perms': 0, 'n': int(n)}
+        if return_null:
+            out['null_corrs'] = np.array([], dtype=float)
+        return out
+    # observed
+    r_obs = second_order_corr(A, Bm)
+    ge = 0
+    valid = 0
+    nulls = [] if return_null else None
+    # permutations
+    for _ in range(int(B)):
         perm = rng.permutation(n)
-        r = second_order_corr(A, Bm[perm][:,perm])
-        if np.isfinite(r): valid+=1; ge += (r >= r_obs)
-    p = (1+ge)/(1+valid if valid else 1)
-    CI=None
-    if ci_boot>0:
-        rs=[]
-        for _ in range(ci_boot):
-            idx = rng.integers(0,n,size=n)
-            rs.append(second_order_corr(A[np.ix_(idx,idx)], Bm[np.ix_(idx,idx)]))
-        rs=[x for x in rs if np.isfinite(x)]
-        if rs: CI = (float(np.quantile(rs,0.025)), float(np.quantile(rs,0.975)))
-    return {'r':float(r_obs),'p_perm':float(p),'boot_CI':CI}
+        r = second_order_corr(A, Bm[perm][:, perm])
+        if np.isfinite(r):
+            valid += 1
+            ge += (r >= r_obs)
+            if return_null:
+                nulls.append(r)
+
+    # p-value with +1 smoothing (and guard for valid==0)
+    p = (1 + ge) / (1 + valid if valid else 1)
+
+    # optional bootstrap CI over r (as in your original)
+    CI = None
+    if ci_boot and n > 1:
+        rs = []
+        for _ in range(int(ci_boot)):
+            idx = rng.integers(0, n, size=n)
+            r_b = second_order_corr(A[np.ix_(idx, idx)], Bm[np.ix_(idx, idx)])
+            if np.isfinite(r_b):
+                rs.append(r_b)
+        if rs:
+            rs = np.asarray(rs, float)
+            CI = (float(np.quantile(rs, 0.025)), float(np.quantile(rs, 0.975)))
+
+    out = {
+        'r': float(r_obs),
+        'p_perm': float(p),
+        'boot_CI': CI,
+        'valid_perms': int(valid),
+        'n': int(n),
+    }
+    if return_null:
+        out['null_corrs'] = np.asarray(nulls, dtype=float)
+    return out
 
 def _mw_auc(x,y):
     x = np.asarray(x, float); y = np.asarray(y, float)

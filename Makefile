@@ -24,14 +24,16 @@ run-encoding:
 		--config-file configs/config.yml configs/625-config.yml configs/gpt2-config.yml
 
 
-SIDS:= 625 676 7170 798
+SIDS := 625 676 7170 798
+CMD  ?= sbatch submit1.sh
+
 run-encoding-sids:
 	mkdir -p logs
 	for sid in $(SIDS); do \
 		$(CMD) scripts/tfsenc_main.py \
-			--config-file configs/config.yml configs/$$sid-config.yml configs/glove-config-r.yml; \
-	done;
-
+			--config-file configs/config.yml configs/$${sid}-config.yml configs/gpt2-config.yml \
+			--min-occ 50 --lags '[-500,0,500]'; \
+	done
 
 run-erp:
 	mkdir -p logs
@@ -54,4 +56,14 @@ run-grid:
 # -------- merge all per-run CSVs to one Parquet + Pickle --------
 merge-grid:
 	python scripts/merge_grid.py
+
+plot:
+	python scripts/plot_results.py
+
+times:
+	python scripts/compute_half_times.py \
+		---glob "data/**/pickles/**/base_df.pkl" \
+		--min-occ 50 \
+		--lag base500 \
+		--out results/mean_time_gap_global_min50_lag500.csv
 

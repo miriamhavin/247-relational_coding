@@ -1,0 +1,26 @@
+project_id: tfs
+window_size: 0
+minimum_word_frequency: 0
+cv_fold_num: 10
+emb_norm: l2
+remove_punctuation: true
+exclude_nonwords: true
+trim_conv_edges: true
+detrend_signal: true
+fold_correlation: true
+comp: true
+prod: true
+sid: 625
+conv_ids: np.arange(1, 55)
+elecs: np.arange(1, 106)
+sig_elec_file: null
+emb: gpt2-xl
+context_length: 1024
+layer_idx: 48
+emb_mod: shift-emb
+pca_to: 100
+ridge: false
+lags: np.arange(-500.0, 500.0, 25)
+output_dir_name: gpt2-247
+user_id: mh3510
+git_hash: d3e32b46c14603dfd9c5c3bf52745b0fea68ae72
