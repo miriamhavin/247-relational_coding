@@ -295,32 +295,4 @@ def plot_first_vs_second_order(diag_mean, second_order_r, label, outpath, ylim=(
     plt.tight_layout()
     _maybe_save(outpath)
 
-def plot_time_span_hist(space, label, outpath=None, bins=40, units='hours'):
-    """Histogram of real-time span (latest - earliest onset) per word.
-
-    Uses Space.time_spans if present (in sample units @512Hz). Converts to desired units.
-    units: 'samples' | 'seconds' | 'minutes' | 'hours'.
-    """
-    spans = getattr(space, 'time_spans', None)
-    if spans is None or (isinstance(spans, np.ndarray) and spans.size == 0):
-        return
-    spans = np.asarray(spans, float)
-    spans = spans[np.isfinite(spans) & (spans >= 0)]
-    if spans.size == 0:
-        return
-    factor = 1.0; xlab = 'samples'
-    if units == 'seconds':
-        factor = 1/512.0; xlab='seconds'
-    elif units == 'minutes':
-        factor = 1/512.0/60.0; xlab='minutes'
-    elif units == 'hours':
-        factor = 1/512.0/3600.0; xlab='hours'
-    scaled = spans * factor
-    plt.figure(figsize=(6,4), dpi=180)
-    plt.hist(scaled, bins=bins, edgecolor='white')
-    plt.grid(True, alpha=0.25, linestyle='--', linewidth=0.6)
-    plt.title(f"{label} – word real-time span")
-    plt.xlabel(f"span ({xlab})")
-    plt.ylabel('count')
-    plt.tight_layout()
-    _maybe_save(outpath)
+    # span histogram removed (time spans no longer tracked)

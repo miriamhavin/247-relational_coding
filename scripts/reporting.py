@@ -100,9 +100,6 @@ def report_space(space, label, outdir, *, B_perm_cols=2000, B_mantel=5000, seed=
         try:
             plot_time_gap_hist(space, label, outpath=os.path.join(plots_dir, f"{label}_time_gap_hist_samples.png"), units='samples')
             plot_time_gap_hist(space, label, outpath=os.path.join(plots_dir, f"{label}_time_gap_hist_hours.png"), units='hours')
-            # real-time span (earliest to latest) per word
-            if hasattr(space, 'time_spans') and space.time_spans is not None and len(space.time_spans):
-                plot_time_span_hist(space, label, outpath=os.path.join(plots_dir, f"{label}_time_span_hist_hours.png"), units='hours')
         except Exception as e:
             print(f"[warn] time gap plot failed for {label}: {e}")
     
@@ -218,16 +215,9 @@ def report_space(space, label, outdir, *, B_perm_cols=2000, B_mantel=5000, seed=
         # save raw time gaps if present so downstream code can recompute stats
         if time_gaps is not None and time_gaps.size:
             art["time_gaps"] = time_gaps
-        # spans (earliest->latest) per word
-        if hasattr(space, 'time_spans') and space.time_spans is not None and len(space.time_spans):
-            spans = np.asarray(space.time_spans, float)
-            art['time_spans_samples'] = spans
-            art['time_spans_hours'] = spans / 512.0 / 3600.0
-            row['time_span_mean_hours'] = float(np.nanmean(art['time_spans_hours']))
-            row['time_span_median_hours'] = float(np.nanmedian(art['time_spans_hours']))
-        else:
-            row['time_span_mean_hours'] = np.nan
-            row['time_span_median_hours'] = np.nan
+    # span metrics removed
+    row['time_span_mean_hours'] = np.nan
+    row['time_span_median_hours'] = np.nan
         if hasattr(space, "start_times") and space.start_times is not None and len(space.start_times):
             gaps = space.end_times - space.start_times
             row["mean_time_gap"] = float(np.nanmean(gaps))

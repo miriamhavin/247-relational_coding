@@ -15,9 +15,6 @@ class Space:
     start_times: np.ndarray | None = None
     end_times: np.ndarray | None = None
     time_gaps: np.ndarray | None = None
-    first_times: np.ndarray | None = None   # earliest occurrence onset per word
-    last_times: np.ndarray | None = None    # latest occurrence onset per word
-    time_spans: np.ndarray | None = None    # last_times - first_times
 
 def _to_2d(x): x = np.asarray(x); return x if x.ndim==2 else x[:,None]
 
@@ -54,9 +51,6 @@ def _avg_halves(FEAT, words, onsets, min_occ):
         mid = len(idxs)//2
         first, last = idxs[:mid], idxs[mid:]
         tf, tl = np.asarray(ts[:mid], float), np.asarray(ts[mid:], float)
-        print(f"\nWord={w}, n={len(idxs)}")
-        print("tf-mean:", tf.mean(), "...")
-        print("tl-mean:", tl.mean(), "...")
 
         # nan-safe means
         tf_mean = np.nanmean(tf) 
@@ -88,20 +82,7 @@ def compute_space(df, FEAT, *, word_col='word', onset_col='adjusted_onset',
     start_rsm = _rsm(S); end_rsm = _rsm(E)
     cross = _rowwise_corr(S, E); diag = np.diag(cross).copy()
     gaps = Te - Ts
-    # first/last span (earliest to latest raw onsets per word) re-derived here
-    # Re-run lightweight grouping only for kept words to get first/last quickly
-    if keep.size:
-        mask_keep = np.isin(words, keep)
-        kept_words_all = words[mask_keep]
-        kept_onsets_all = pd.to_numeric(pd.Series(onsets[mask_keep]), errors='coerce').to_numpy()
-        dfk = pd.DataFrame({'w': kept_words_all, 't': kept_onsets_all}).dropna()
-        grp = dfk.groupby('w')['t']
-        first = grp.min().reindex(keep, fill_value=np.nan).to_numpy()
-        last  = grp.max().reindex(keep, fill_value=np.nan).to_numpy()
-        spans = last - first
-    else:
-        first = last = spans = np.array([])
-    space_obj = Space(keep, S, E, start_rsm, end_rsm, cross, diag, Ts, Te, gaps, first, last, spans)
+    space_obj = Space(keep, S, E, start_rsm, end_rsm, cross, diag, Ts, Te, gaps)
     return space_obj
 
 
