@@ -2,7 +2,6 @@
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
-from plot_all import occurrence_matrix_plot
 
 @dataclass
 class Space:
@@ -16,6 +15,9 @@ class Space:
     start_times: np.ndarray | None = None
     end_times: np.ndarray | None = None
     time_gaps: np.ndarray | None = None
+    first_times: np.ndarray | None = None   # earliest occurrence onset per word
+    last_times: np.ndarray | None = None    # latest occurrence onset per word
+    time_spans: np.ndarray | None = None    # last_times - first_times
 
 def _to_2d(x): x = np.asarray(x); return x if x.ndim==2 else x[:,None]
 
@@ -53,12 +55,12 @@ def _avg_halves(FEAT, words, onsets, min_occ):
         first, last = idxs[:mid], idxs[mid:]
         tf, tl = np.asarray(ts[:mid], float), np.asarray(ts[mid:], float)
         print(f"\nWord={w}, n={len(idxs)}")
-        print(" first times:", tf[:10], "...")   # show first few
-        print(" last times:", tl[:10], "...")
+        print("tf-mean:", tf.mean(), "...")
+        print("tl-mean:", tl.mean(), "...")
 
         # nan-safe means
-        tf_mean = np.nanmean(tf) if tf.size else np.nan
-        tl_mean = np.nanmean(tl) if tl.size else np.nan
+        tf_mean = np.nanmean(tf) 
+        tl_mean = np.nanmean(tl)
         if np.isnan(tf_mean) or np.isnan(tl_mean):
             # skip words where either half has no valid time
             continue
@@ -85,34 +87,95 @@ def compute_space(df, FEAT, *, word_col='word', onset_col='adjusted_onset',
 
     start_rsm = _rsm(S); end_rsm = _rsm(E)
     cross = _rowwise_corr(S, E); diag = np.diag(cross).copy()
-    gaps = Te - Ts if (Ts.size and Te.size) else np.array([])
-    return Space(keep, S, E, start_rsm, end_rsm, cross, diag, Ts, Te, gaps)
+    gaps = Te - Ts
+    # first/last span (earliest to latest raw onsets per word) re-derived here
+    # Re-run lightweight grouping only for kept words to get first/last quickly
+    if keep.size:
+        mask_keep = np.isin(words, keep)
+        kept_words_all = words[mask_keep]
+        kept_onsets_all = pd.to_numeric(pd.Series(onsets[mask_keep]), errors='coerce').to_numpy()
+        dfk = pd.DataFrame({'w': kept_words_all, 't': kept_onsets_all}).dropna()
+        grp = dfk.groupby('w')['t']
+        first = grp.min().reindex(keep, fill_value=np.nan).to_numpy()
+        last  = grp.max().reindex(keep, fill_value=np.nan).to_numpy()
+        spans = last - first
+    else:
+        first = last = spans = np.array([])
+    space_obj = Space(keep, S, E, start_rsm, end_rsm, cross, diag, Ts, Te, gaps, first, last, spans)
+    return space_obj
 
 
 def pool_aligned(elems, how='intersection'):
+    """Align and average multiple per-electrode spaces (word-aligned halves).
+
+    Parameters
+    ----------
+    elems : list
+        Each element is either (words, S, E) or (words, S, E, Ts, Te).
+        S/E: (n_i, d). Optional Ts/Te are per-word mean start/end times used to
+        propagate timing and compute pooled time gaps.
+    how : {'intersection','union'}
+        Strategy for vocabulary alignment.
+
+    Returns
+    -------
+    Space
+        Pooled space with averaged S/E and (if available) averaged start/end times.
     """
-    elems: list of (words, S, E) per electrode, where S/E are (n_i,d).
-    Align by word, nanmean across electrodes.
-    """
-    if not elems: return Space(np.array([]),*(np.empty((0,0)),)*5, np.array([]))
-    sets = [set(map(str, w)) for (w,_,_) in elems]
-    vocab = sorted(set.intersection(*sets) if how=='intersection' else set.union(*sets))
-    if not vocab: return Space(np.array([]),*(np.empty((0,0)),)*5, np.array([]))
+    if not elems:
+        return Space(np.array([]), *(np.empty((0,0)),)*5, np.array([]))
+
+    # Normalize tuple lengths to 5 (words, S, E, Ts, Te)
+    norm_elems = []
+    for tup in elems:
+        if len(tup) == 3:
+            w,S,E = tup; Ts=None; Te=None
+        elif len(tup) >= 5:
+            w,S,E,Ts,Te = tup[:5]
+        else:
+            # unexpected shape; skip
+            continue
+        norm_elems.append((w,S,E,Ts,Te))
+    if not norm_elems:
+        return Space(np.array([]), *(np.empty((0,0)),)*5, np.array([]))
+
+    sets = [set(map(str, w)) for (w,_,_,_,_) in norm_elems]
+    vocab = sorted(set.intersection(*sets) if how == 'intersection' else set.union(*sets))
+    if not vocab:
+        return Space(np.array([]), *(np.empty((0,0)),)*5, np.array([]))
+
     idx = {w:i for i,w in enumerate(vocab)}
-    d = elems[0][1].shape[1]; m = len(elems); n = len(vocab)
+    d = norm_elems[0][1].shape[1]; m = len(norm_elems); n = len(vocab)
     S_stack = np.full((m,n,d), np.nan); E_stack = np.full((m,n,d), np.nan)
-    for e, (w,S,E) in enumerate(elems):
+    Ts_stack = np.full((m,n), np.nan); Te_stack = np.full((m,n), np.nan)
+
+    for e,(w,S,E,Ts,Te) in enumerate(norm_elems):
         w = list(map(str, w)); pos = [idx.get(x) for x in w]
         keep = [p is not None for p in pos]
-        if any(keep):
-            posk = np.array([p for p in pos if p is not None])
-            S_stack[e,posk,:] = S[np.where(keep)[0],:]
-            E_stack[e,posk,:] = E[np.where(keep)[0],:]
+        if not any(keep):
+            continue
+        src_idx = np.where(keep)[0]
+        dest_idx = np.array([p for p in pos if p is not None])
+        S_stack[e,dest_idx,:] = S[src_idx,:]
+        E_stack[e,dest_idx,:] = E[src_idx,:]
+        if Ts is not None and Te is not None:
+            # assume Ts/Te aligned with w order
+            Ts_stack[e,dest_idx] = np.asarray(Ts)[src_idx] if len(Ts) == len(w) else np.nan
+            Te_stack[e,dest_idx] = np.asarray(Te)[src_idx] if len(Te) == len(w) else np.nan
+
     S = np.nanmean(S_stack,0); E = np.nanmean(E_stack,0)
     valid = ~(np.isnan(S).all(1) | np.isnan(E).all(1))
     words = np.asarray(vocab)[valid]; S=S[valid]; E=E[valid]
+
+    if np.isfinite(Ts_stack).any() and np.isfinite(Te_stack).any():
+        Ts_mean = np.nanmean(Ts_stack,0)[valid]
+        Te_mean = np.nanmean(Te_stack,0)[valid]
+        gaps = Te_mean - Ts_mean
+    else:
+        Ts_mean = None; Te_mean = None; gaps = np.array([])
+
     start_rsm = _rsm(S); end_rsm = _rsm(E); cross = _rowwise_corr(S,E); diag = np.diag(cross).copy()
-    return Space(words, S, E, start_rsm, end_rsm, cross, diag)
+    return Space(words, S, E, start_rsm, end_rsm, cross, diag, Ts_mean, Te_mean, gaps if gaps.size else None)
 
 def second_order_corr(A, B):
     if A.shape != B.shape or A.ndim!=2 or A.shape[0]!=A.shape[1]: return np.nan

@@ -19,8 +19,6 @@ from multiprocessing import Pool, cpu_count
 import argparse
 import yaml
 import copy
-from plot_all import occurrence_matrix_plot
-
 
 def return_stitch_index(args):
     """Return convo onset and offset boundaries
@@ -64,54 +62,6 @@ def process_electrodes(args):
         print(f"[electrodes] sid={getattr(args,'sid',None)} -> NO ELECTRODES after filters")
     return electrode_info
 
-def _serialize_for_row(v):
-    # make lists/arrays json strings so they fit in a CSV cell
-    import numpy as _np, json as _json
-    if isinstance(v, (list, tuple, _np.ndarray)):
-        return _json.dumps(list(v))
-    return v
-
-
-def _to_jsonable(v):
-    import numpy as np, json
-    # numpy scalar → Python scalar
-    if isinstance(v, np.generic):
-        return v.item()
-    # list/tuple/array/set/dict → JSON string
-    if isinstance(v, (np.ndarray, list, tuple, set, dict)):
-        return json.dumps(v)
-    # leave str/int/float/bool/None as-is
-    return v
-
-def _collect_meta(args):
-    meta = {
-        "project_id": getattr(args, "project_id", None),
-        "output_dir": getattr(args, "output_dir", None),
-
-        # core hyperparams / data filters
-        "lags": getattr(args, "lags", None),
-        "window_size_ms": getattr(args, "window_size", None),
-        "min_occ": getattr(args, "min_occ", None),
-        "minimum_word_frequency": getattr(args, "minimum_word_frequency", None),
-        "trim_conv_edges": getattr(args, "trim_conv_edges", None),
-        "conv_ids": getattr(args, "conv_ids", None),
-
-        # embeddings + processing
-        "emb": getattr(args, "emb", None),
-        "emb_mod": getattr(args, "emb_mod", None),
-        "emb_norm": getattr(args, "emb_norm", None),
-
-        # neural signal processing
-        "detrend_signal": getattr(args, "detrend_signal", None),
-        "elec_signal_process_flag": getattr(args, "elec_signal_process_flag", None),
-
-        # stats settings
-        "B_perm_cols": getattr(args, "B_perm_cols", None),
-        "B_mantel": getattr(args, "B_mantel", None),
-        "seed": getattr(args, "seed", None),
-    }
-    # Convert everything to jsonable Python types
-    return { k: _to_jsonable(v) for k, v in meta.items() }
 
 
 def skip_elecs_done(summary_file, electrode_info):
@@ -169,19 +119,8 @@ def _assign_df(df, mapping):
 
 
 def run_all_electrodes(args, electrode_info, datum, stitch_index):
-    meta = _collect_meta(args)
-
-    # run-level params
-    os.makedirs(args.output_dir, exist_ok=True)
-    with open(os.path.join(args.output_dir, "run_params.json"), "w") as f:
-        json.dump(meta, f, indent=2, ensure_ascii=False)
-
     # pooled collectors
     pooled = {
-        'embedding': {'production': [], 'comprehension': []},
-        'neural':    {'production': [], 'comprehension': []},
-    }
-    df_pooled = {
         'embedding': {'production': [], 'comprehension': []},
         'neural':    {'production': [], 'comprehension': []},
     }
@@ -237,9 +176,6 @@ def run_all_electrodes(args, electrode_info, datum, stitch_index):
                     continue
                 feat = np.stack(df_sub[feat_col].values)
 
-                # accumulate per-occurrence rows for pooled plot
-                df_pooled[mod][task_label].append(df_sub[['word', feat_col]].copy())
-
                 # build space
                 space = compute_space(
                     df_sub, feat,
@@ -265,12 +201,13 @@ def run_all_electrodes(args, electrode_info, datum, stitch_index):
                         electrode=str(elec_name),
                         feature_modality=mod,
                         task_modality=task_label,
-                        **meta
                     )
                     all_rows.append(df_row)
 
-                # for pooling (word-aligned, averaged)
-                pooled[mod][task_label].append((space.words, space.start_vecs, space.end_vecs))
+                # for pooling (word-aligned, averaged). include timing info if present
+                pooled_tuple = (space.words, space.start_vecs, space.end_vecs,
+                                 getattr(space, 'start_times', None), getattr(space, 'end_times', None))
+                pooled[mod][task_label].append(pooled_tuple)
 
         # run both tasks (skip per-electrode reporting by default)
         do_space(df_prod, "production",  skip=True)
@@ -281,17 +218,6 @@ def run_all_electrodes(args, electrode_info, datum, stitch_index):
         for task in ['production', 'comprehension']:
             gspace = pool_aligned(pooled[mod][task], how='intersection')
             glabel = f"global_{mod}_{task}"
-            df_all = pd.concat(df_pooled[mod][task], ignore_index=True)
-            FEAT = np.stack(df_all[mod].values)  # (N_occ, D)
-            """            occurrence_matrix_plot(
-                df=df_all,
-                FEAT=FEAT,
-                word_col='word',
-                min_occ=max(args.min_occ, 50),
-                max_instances=3000,
-                outpath=os.path.join(plots_dir, f"{glabel}_occurrence_matrix.png"),
-                title=f"{glabel} – occurrence neural corr"
-            )"""
             gdf = report_space(
                 gspace, glabel, outdir=pooled_dir,   # set outdir=None if you truly don't want files
                 B_perm_cols=5000,
@@ -303,7 +229,6 @@ def run_all_electrodes(args, electrode_info, datum, stitch_index):
                 sid=getattr(args, 'sid', None),
                 elec_id=np.nan, electrode='GLOBAL',
                 feature_modality=mod, task_modality=task,
-                **meta
             )
             all_rows.append(gdf)
 

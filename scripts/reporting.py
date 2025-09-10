@@ -83,13 +83,34 @@ def report_space(space, label, outdir, *, B_perm_cols=2000, B_mantel=5000, seed=
     # --- first order
     row['diag_mean'] = float(np.nanmean(diag)) if diag.size else np.nan
     
-    row['time_gap_mean'] = float(np.nanmean(time_gaps)) if time_gaps.size else np.nan
-    row['time_gap_median'] = float(np.nanmedian(time_gaps)) if time_gaps.size else np.nan
+    # safe time gap stats (avoid RuntimeWarning on empty or all-NaN)
+    if time_gaps.size and np.isfinite(time_gaps).any():
+        row['time_gap_mean'] = float(np.nanmean(time_gaps))
+        row['time_gap_median'] = float(np.nanmedian(time_gaps))
+        # also hours (samples @512Hz -> hours)
+        row['time_gap_mean_hours'] = row['time_gap_mean'] / 512.0 / 3600.0
+        row['time_gap_median_hours'] = row['time_gap_median'] / 512.0 / 3600.0
+    else:
+        row['time_gap_mean'] = np.nan
+        row['time_gap_median'] = np.nan
+        row['time_gap_mean_hours'] = np.nan
+        row['time_gap_median_hours'] = np.nan
+    # time gap histogram (prefers space.time_gaps, falls back to start/end times)
+    if outdir:
+        try:
+            plot_time_gap_hist(space, label, outpath=os.path.join(plots_dir, f"{label}_time_gap_hist_samples.png"), units='samples')
+            plot_time_gap_hist(space, label, outpath=os.path.join(plots_dir, f"{label}_time_gap_hist_hours.png"), units='hours')
+            # real-time span (earliest to latest) per word
+            if hasattr(space, 'time_spans') and space.time_spans is not None and len(space.time_spans):
+                plot_time_span_hist(space, label, outpath=os.path.join(plots_dir, f"{label}_time_span_hist_hours.png"), units='hours')
+        except Exception as e:
+            print(f"[warn] time gap plot failed for {label}: {e}")
+    
 
     per_word_diag = diag.copy() if diag.size else np.array([])
     per_word_diag_mean = group_mean_by_word(words, per_word_diag) if per_word_diag.size else np.array([])
     out_png = os.path.join(plots_dir, f"{label}_start_end_corr_matrix.png")
-    plot_start_end_corr_matrix_from_space(space, out_png, title=f"{label} – start-end correlation (ordered by diag)")
+    plot_start_end_heatmap(space, f"{label} – start-end correlation (ordered by diag)", outpath=out_png)
     hist(per_word_diag_mean,
             title=f"{label} – histogram of corr(start_i, end_i) per WORD",
             xlabel="per-word mean corr(start, end)",
@@ -108,6 +129,14 @@ def report_space(space, label, outdir, *, B_perm_cols=2000, B_mantel=5000, seed=
             null_corrs=mantel_out.get("null_corrs"), 
             fisher=False
         )
+        try:
+            plot_first_vs_second_order(
+                row['diag_mean'], row['r_start_vs_end_RSM'], label,
+                outpath=os.path.join(plots_dir, f"{label}_first_vs_second_order.png"),
+                ylim=(-1,1)
+            )
+        except Exception as e:
+            print(f"[warn] failed first-vs-second order plot for {label}: {e}")
     else:
         row.update({'r_start_vs_end_RSM': np.nan, 'z_fisher': np.nan, 'mantel_p': np.nan})
 
@@ -168,6 +197,13 @@ def report_space(space, label, outdir, *, B_perm_cols=2000, B_mantel=5000, seed=
     df = pd.DataFrame([row])
     if outdir:
         outpath = os.path.join(outdir, f"{label}_all_summary.csv")
+        # NOTE: previously the summary CSV was never written, so columns like
+        # 'time_gap_mean' / 'time_gap_median' would never show up for inspection.
+        # We now persist it explicitly.
+        try:
+            df.to_csv(outpath, index=False)
+        except Exception as e:
+            print(f"[warn] failed to write summary CSV {outpath}: {e}")
         art = {
             "words": words,
             "start_vecs": start_vecs,
@@ -179,6 +215,19 @@ def report_space(space, label, outdir, *, B_perm_cols=2000, B_mantel=5000, seed=
             "delta": per_word_delta,    
 
         }
+        # save raw time gaps if present so downstream code can recompute stats
+        if time_gaps is not None and time_gaps.size:
+            art["time_gaps"] = time_gaps
+        # spans (earliest->latest) per word
+        if hasattr(space, 'time_spans') and space.time_spans is not None and len(space.time_spans):
+            spans = np.asarray(space.time_spans, float)
+            art['time_spans_samples'] = spans
+            art['time_spans_hours'] = spans / 512.0 / 3600.0
+            row['time_span_mean_hours'] = float(np.nanmean(art['time_spans_hours']))
+            row['time_span_median_hours'] = float(np.nanmedian(art['time_spans_hours']))
+        else:
+            row['time_span_mean_hours'] = np.nan
+            row['time_span_median_hours'] = np.nan
         if hasattr(space, "start_times") and space.start_times is not None and len(space.start_times):
             gaps = space.end_times - space.start_times
             row["mean_time_gap"] = float(np.nanmean(gaps))
